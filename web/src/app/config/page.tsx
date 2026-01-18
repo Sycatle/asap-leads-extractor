@@ -1,45 +1,181 @@
 "use client";
 
-import { Plus, Rocket, X } from "lucide-react";
-import { useState } from "react";
+import { Plus, Rocket, X, Loader2, Check, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+
+interface Config {
+  input_csv: string;
+  target: number;
+  allowed_departments: string[];
+  exclude_keywords: string[];
+  scrape?: {
+    niches: string[];
+    cities: string[];
+  };
+}
+
+interface ScrapeResult {
+  success: boolean;
+  results?: {
+    total_raw: number;
+    after_dedup: number;
+    inserted_db: number;
+  };
+  error?: string;
+}
 
 export default function ConfigPage() {
-  const [niches, setNiches] = useState<string[]>(["coiffeur", "barbier"]);
-  const [cities, setCities] = useState<string[]>(["Le Mans", "Angers"]);
-  const [excludeKeywords, setExcludeKeywords] = useState<string[]>(["Carrefour", "McDonald's"]);
+  const [config, setConfig] = useState<Config | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
   
   const [newNiche, setNewNiche] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
 
+  // Load config on mount
+  useEffect(() => {
+    fetch("/api/config")
+      .then(res => res.json())
+      .then(data => {
+        setConfig(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  // Save config
+  const saveConfig = useCallback(async (newConfig: Config) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newConfig),
+      });
+      const data = await res.json();
+      setConfig(data);
+    } catch (error) {
+      console.error("Failed to save config:", error);
+    }
+    setSaving(false);
+  }, []);
+
+  // Update helpers
+  const updateNiches = (niches: string[]) => {
+    if (!config) return;
+    const newConfig = { ...config, scrape: { ...config.scrape, niches, cities: config.scrape?.cities || [] } };
+    setConfig(newConfig);
+    saveConfig(newConfig);
+  };
+
+  const updateCities = (cities: string[]) => {
+    if (!config) return;
+    const newConfig = { ...config, scrape: { ...config.scrape, niches: config.scrape?.niches || [], cities } };
+    setConfig(newConfig);
+    saveConfig(newConfig);
+  };
+
+  const updateExcludeKeywords = (exclude_keywords: string[]) => {
+    if (!config) return;
+    const newConfig = { ...config, exclude_keywords };
+    setConfig(newConfig);
+    saveConfig(newConfig);
+  };
+
+  // Add handlers
   const addNiche = () => {
-    if (newNiche.trim() && !niches.includes(newNiche.trim())) {
-      setNiches([...niches, newNiche.trim()]);
+    if (!config || !newNiche.trim()) return;
+    const niches = config.scrape?.niches || [];
+    if (!niches.includes(newNiche.trim())) {
+      updateNiches([...niches, newNiche.trim()]);
       setNewNiche("");
     }
   };
 
   const addCity = () => {
-    if (newCity.trim() && !cities.includes(newCity.trim())) {
-      setCities([...cities, newCity.trim()]);
+    if (!config || !newCity.trim()) return;
+    const cities = config.scrape?.cities || [];
+    if (!cities.includes(newCity.trim())) {
+      updateCities([...cities, newCity.trim()]);
       setNewCity("");
     }
   };
 
   const addKeyword = () => {
-    if (newKeyword.trim() && !excludeKeywords.includes(newKeyword.trim())) {
-      setExcludeKeywords([...excludeKeywords, newKeyword.trim()]);
+    if (!config || !newKeyword.trim()) return;
+    if (!config.exclude_keywords.includes(newKeyword.trim())) {
+      updateExcludeKeywords([...config.exclude_keywords, newKeyword.trim()]);
       setNewKeyword("");
     }
   };
 
+  // Launch scrape
+  const launchScrape = async () => {
+    if (!config) return;
+    
+    setScraping(true);
+    setScrapeResult(null);
+    
+    try {
+      const res = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          niches: config.scrape?.niches || ["coiffeur"],
+          cities: config.scrape?.cities || ["Le Mans"],
+        }),
+      });
+      
+      const data = await res.json();
+      setScrapeResult(data);
+    } catch (error) {
+      setScrapeResult({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erreur inconnue" 
+      });
+    }
+    
+    setScraping(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+      </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-zinc-500">Erreur de chargement de la configuration</p>
+      </div>
+    );
+  }
+
+  const niches = config.scrape?.niches || [];
+  const cities = config.scrape?.cities || [];
+  const totalQueries = niches.length * cities.length;
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
+      {/* Status indicator */}
+      {saving && (
+        <div className="fixed top-20 right-4 bg-zinc-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm shadow-lg">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Sauvegarde...
+        </div>
+      )}
+
       {/* Niches */}
       <ConfigSection title="📍 Niches" description="Types d'établissements à rechercher">
         <TagList 
           tags={niches} 
-          onRemove={(tag) => setNiches(niches.filter(n => n !== tag))} 
+          onRemove={(tag) => updateNiches(niches.filter(n => n !== tag))} 
         />
         <div className="flex gap-2 mt-3">
           <input
@@ -64,7 +200,7 @@ export default function ConfigPage() {
       <ConfigSection title="🏙️ Villes" description="Zones géographiques à couvrir">
         <TagList 
           tags={cities} 
-          onRemove={(tag) => setCities(cities.filter(c => c !== tag))} 
+          onRemove={(tag) => updateCities(cities.filter(c => c !== tag))} 
         />
         <div className="flex gap-2 mt-3">
           <input
@@ -88,8 +224,8 @@ export default function ConfigPage() {
       {/* Mots-clés exclus */}
       <ConfigSection title="🚫 Exclusions" description="Chaînes et franchises à ignorer">
         <TagList 
-          tags={excludeKeywords} 
-          onRemove={(tag) => setExcludeKeywords(excludeKeywords.filter(k => k !== tag))}
+          tags={config.exclude_keywords} 
+          onRemove={(tag) => updateExcludeKeywords(config.exclude_keywords.filter(k => k !== tag))}
           variant="red"
         />
         <div className="flex gap-2 mt-3">
@@ -117,16 +253,57 @@ export default function ConfigPage() {
           <div>
             <h3 className="text-lg font-bold">Prêt à scraper ?</h3>
             <p className="text-sm text-blue-100">
-              {niches.length} niche(s) × {cities.length} ville(s) = {niches.length * cities.length} requêtes
+              {niches.length} niche(s) × {cities.length} ville(s) = {totalQueries} requêtes
             </p>
+            {totalQueries > 0 && (
+              <p className="text-xs text-blue-200 mt-1">
+                Estimation: ~{Math.ceil(totalQueries * 30 / 60)} min
+              </p>
+            )}
           </div>
           <button 
-            className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 flex items-center gap-2 transition-colors"
+            onClick={launchScrape}
+            disabled={scraping || totalQueries === 0}
+            className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Rocket className="w-5 h-5" />
-            Lancer le Scrape
+            {scraping ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Scraping...
+              </>
+            ) : (
+              <>
+                <Rocket className="w-5 h-5" />
+                Lancer le Scrape
+              </>
+            )}
           </button>
         </div>
+
+        {/* Scrape result */}
+        {scrapeResult && (
+          <div className={`mt-4 p-4 rounded-lg ${scrapeResult.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+            {scrapeResult.success ? (
+              <div className="flex items-start gap-3">
+                <Check className="w-5 h-5 text-green-300 mt-0.5" />
+                <div>
+                  <p className="font-medium">Scrape terminé !</p>
+                  <p className="text-sm text-blue-100 mt-1">
+                    {scrapeResult.results?.total_raw} trouvés → {scrapeResult.results?.after_dedup} uniques → {scrapeResult.results?.inserted_db} en base
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-300 mt-0.5" />
+                <div>
+                  <p className="font-medium">Erreur</p>
+                  <p className="text-sm text-red-200 mt-1">{scrapeResult.error}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

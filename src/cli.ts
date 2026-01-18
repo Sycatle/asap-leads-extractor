@@ -104,7 +104,7 @@ program
     const stats = getStats();
     console.log(`\n📊 En base: ${stats.total} leads total`);
     
-    console.log(`\n⏱️  Terminé en ${duration}s`;
+    console.log(`\n⏱️  Terminé en ${duration}s`);
     closeDb();
   });
 
