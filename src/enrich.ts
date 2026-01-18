@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync } from 'fs';
 import { request } from 'undici';
 import pLimit from 'p-limit';
-import { RawLead, EnrichedLead, PappersResult } from './types.js';
+import { PappersResult } from './types.js';
+import { getDb, enrichLead } from './db.js';
+import type { DbLead } from './types.js';
 import 'dotenv/config';
 
 const PAPPERS_API_KEY = process.env.PAPPERS_API_KEY;
@@ -60,75 +61,87 @@ function extractDirigeant(result: PappersResult): string | undefined {
   return undefined;
 }
 
-// Calcul priorité
-function computePriority(lead: RawLead): 'high' | 'medium' | 'low' {
-  // High: pas de site web = opportunité
-  if (!lead.website) return 'high';
-  // Low: site existe et bonnes reviews
-  if (lead.rating && lead.rating >= 4.5 && lead.reviews_count && lead.reviews_count > 50) {
-    return 'low';
-  }
-  return 'medium';
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Récupérer les leads à enrichir (pas encore de SIREN)
+ */
+function getLeadsToEnrich(maxLeads: number = 100): DbLead[] {
+  const database = getDb();
+  const stmt = database.prepare(`
+    SELECT * FROM leads 
+    WHERE siren IS NULL 
+    AND opt_out = 0
+    ORDER BY score DESC, created_at ASC
+    LIMIT ?
+  `);
+  return stmt.all(maxLeads) as DbLead[];
+}
+
 // Main
-export async function enrich(): Promise<EnrichedLead[]> {
-  const raw: RawLead[] = JSON.parse(readFileSync('data/leads_raw.json', 'utf-8'));
-  const enriched: EnrichedLead[] = [];
+export async function enrich(): Promise<DbLead[]> {
+  const leadsToEnrich = getLeadsToEnrich(100);
+  
+  if (leadsToEnrich.length === 0) {
+    console.log('✓ Aucun lead à enrichir');
+    return [];
+  }
 
   let enrichedCount = 0;
   let current = 0;
 
   if (!PAPPERS_API_KEY) {
     console.log('⚠ PAPPERS_API_KEY non définie - enrichissement désactivé');
-    console.log('  Les leads seront exportés sans SIREN/dirigeant\n');
+    console.log('  Définissez PAPPERS_API_KEY dans .env pour activer l\'enrichissement\n');
+    return leadsToEnrich;
   }
 
-  const tasks = raw.map(lead => limit(async () => {
+  console.log(`🔍 Enrichissement de ${leadsToEnrich.length} leads...`);
+
+  const tasks = leadsToEnrich.map(lead => limit(async () => {
     current++;
-    process.stdout.write(`\r🔍 Enrichissement: ${current}/${raw.length}`);
+    process.stdout.write(`\r🔍 Enrichissement: ${current}/${leadsToEnrich.length}`);
 
-    let result: PappersResult | null = null;
+    const result = await searchPappers(lead.name, lead.city);
     
-    if (PAPPERS_API_KEY) {
-      result = await searchPappers(lead.name, lead.city);
-      // Pause entre requêtes
-      await sleep(500);
-    }
-
-    const enrichedLead: EnrichedLead = {
-      ...lead,
-      priority: computePriority(lead),
-    };
+    // Pause entre requêtes
+    await sleep(500);
 
     if (result) {
-      enrichedLead.siren = result.siren;
-      enrichedLead.siret = result.siret;
-      enrichedLead.legal_name = result.nom_entreprise;
-      enrichedLead.dirigeant = extractDirigeant(result);
-      enrichedCount++;
+      const dirigeant = extractDirigeant(result);
+      
+      const updated = enrichLead(lead.id, {
+        siren: result.siren,
+        siret: result.siret,
+        legal_name: result.nom_entreprise,
+        dirigeant,
+      });
+      
+      if (updated) {
+        enrichedCount++;
+      }
     }
-
-    enriched.push(enrichedLead);
   }));
 
   await Promise.all(tasks);
 
-  console.log(`\n✓ Enrichis SIREN: ${enrichedCount}/${raw.length}`);
-
-  // Sauvegarde
-  writeFileSync('data/leads_enriched.json', JSON.stringify(enriched, null, 2));
-  console.log('✓ Sauvegardé: data/leads_enriched.json');
+  console.log(`\n✓ Enrichis SIREN: ${enrichedCount}/${leadsToEnrich.length}`);
   
-  return enriched;
+  return leadsToEnrich;
 }
 
 // Run standalone
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
-  enrich().catch(console.error);
+  enrich()
+    .then(() => {
+      console.log('✓ Enrichissement terminé');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('❌ Erreur:', err);
+      process.exit(1);
+    });
 }

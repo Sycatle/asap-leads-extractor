@@ -33,16 +33,18 @@ function initSchema(): void {
     CREATE TABLE IF NOT EXISTS leads (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone TEXT UNIQUE NOT NULL,
+      phone_type TEXT CHECK(phone_type IN ('pro', 'perso', 'unknown')) DEFAULT 'unknown',
       name TEXT NOT NULL,
       address TEXT NOT NULL,
       city TEXT NOT NULL,
       postal_code TEXT NOT NULL,
       website TEXT,
+      website_status TEXT CHECK(website_status IN ('none', 'old', 'platform', 'modern')),
       maps_url TEXT NOT NULL,
       rating REAL,
       reviews_count INTEGER,
       niche TEXT,
-      source TEXT DEFAULT 'google_maps',
+      source TEXT CHECK(source IN ('gmb', 'annuaire', 'scraping', 'import', 'manual')) DEFAULT 'gmb',
       
       -- Enrichissement Pappers
       siren TEXT,
@@ -50,14 +52,24 @@ function initSchema(): void {
       legal_name TEXT,
       dirigeant TEXT,
       
-      -- Scoring
+      -- Scoring & Enrichissement
       priority TEXT CHECK(priority IN ('high', 'medium', 'low')) DEFAULT 'medium',
+      score INTEGER DEFAULT 50,
+      
+      -- Données GMB enrichies
+      opening_hours TEXT,
+      best_call_time TEXT,
+      has_booking INTEGER DEFAULT 0,
+      has_seo INTEGER DEFAULT 0,
+      last_gmb_update TEXT,
       
       -- Suivi commercial
       status TEXT CHECK(status IN ('nouveau', 'contacte', 'qualifie', 'proposition', 'converti', 'perdu')) DEFAULT 'nouveau',
       call_status TEXT CHECK(call_status IN ('non_appele', 'appele', 'messagerie', 'rappeler', 'injoignable')) DEFAULT 'non_appele',
       email_status TEXT CHECK(email_status IN ('non_envoye', 'envoye', 'ouvert', 'repondu', 'bounce')) DEFAULT 'non_envoye',
       notes TEXT,
+      attempts_count INTEGER DEFAULT 0,
+      opt_out INTEGER DEFAULT 0,
       
       -- Dates
       last_contact_at TEXT,
@@ -72,24 +84,115 @@ function initSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority);
     CREATE INDEX IF NOT EXISTS idx_leads_next_followup ON leads(next_followup_at);
     CREATE INDEX IF NOT EXISTS idx_leads_call_status ON leads(call_status);
+    CREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score);
+    CREATE INDEX IF NOT EXISTS idx_leads_opt_out ON leads(opt_out);
   `);
+  
+  // Migration: ajouter les nouvelles colonnes si elles n'existent pas
+  migrateSchema(database);
+}
+
+function migrateSchema(database: Database.Database): void {
+  const columns = database.prepare("PRAGMA table_info(leads)").all() as { name: string }[];
+  const columnNames = new Set(columns.map(c => c.name));
+  
+  const migrations: [string, string][] = [
+    ['phone_type', "ALTER TABLE leads ADD COLUMN phone_type TEXT CHECK(phone_type IN ('pro', 'perso', 'unknown')) DEFAULT 'unknown'"],
+    ['website_status', "ALTER TABLE leads ADD COLUMN website_status TEXT CHECK(website_status IN ('none', 'old', 'platform', 'modern'))"],
+    ['score', "ALTER TABLE leads ADD COLUMN score INTEGER DEFAULT 50"],
+    ['opening_hours', "ALTER TABLE leads ADD COLUMN opening_hours TEXT"],
+    ['best_call_time', "ALTER TABLE leads ADD COLUMN best_call_time TEXT"],
+    ['has_booking', "ALTER TABLE leads ADD COLUMN has_booking INTEGER DEFAULT 0"],
+    ['has_seo', "ALTER TABLE leads ADD COLUMN has_seo INTEGER DEFAULT 0"],
+    ['last_gmb_update', "ALTER TABLE leads ADD COLUMN last_gmb_update TEXT"],
+    ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
+    ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
+  ];
+  
+  for (const [column, sql] of migrations) {
+    if (!columnNames.has(column)) {
+      try {
+        database.exec(sql);
+        console.log(`  ✓ Migration: ajout colonne ${column}`);
+      } catch (err) {
+        // Ignore si déjà existe
+      }
+    }
+  }
 }
 
 // ===== OPÉRATIONS CRUD =====
 
+import type { PhoneType, LeadSource, WebsiteStatus } from './types.js';
+
 export interface InsertLead {
   phone: string;
+  phone_type?: PhoneType;
   name: string;
   address: string;
   city: string;
   postal_code: string;
   website?: string | null;
+  website_status?: WebsiteStatus | null;
   maps_url: string;
   rating?: number | null;
   reviews_count?: number | null;
   niche?: string | null;
-  source?: string;
+  source?: LeadSource;
   priority?: 'high' | 'medium' | 'low';
+  score?: number;
+  opening_hours?: string | null;
+  best_call_time?: string | null;
+  has_booking?: boolean;
+  has_seo?: boolean;
+  last_gmb_update?: string | null;
+}
+
+/**
+ * Détecter le type de téléphone (mobile = perso, fixe = pro)
+ */
+function detectPhoneType(phone: string): PhoneType {
+  if (phone.startsWith('06') || phone.startsWith('07')) {
+    return 'perso'; // Mobile = risque B2C
+  }
+  if (phone.startsWith('01') || phone.startsWith('02') || phone.startsWith('03') || 
+      phone.startsWith('04') || phone.startsWith('05') || phone.startsWith('09')) {
+    return 'pro'; // Fixe = probablement pro
+  }
+  return 'unknown';
+}
+
+/**
+ * Calculer le score du lead (0-100)
+ */
+function computeScore(lead: InsertLead): number {
+  let score = 50;
+  
+  // Pas de site web = +20
+  if (!lead.website) score += 20;
+  
+  // Site vieux ou plateforme = +10
+  if (lead.website_status === 'old' || lead.website_status === 'platform') score += 10;
+  
+  // Pas de réservation en ligne = +10
+  if (lead.has_booking === false) score += 10;
+  
+  // Peu d'avis = +5
+  if (lead.reviews_count != null && lead.reviews_count < 10) score += 5;
+  
+  // Mauvaise note = +5
+  if (lead.rating != null && lead.rating < 4) score += 5;
+  
+  // Téléphone perso = -10 (risque B2C)
+  const phoneType = lead.phone_type || detectPhoneType(lead.phone);
+  if (phoneType === 'perso') score -= 10;
+  
+  // Bonne note = -10
+  if (lead.rating != null && lead.rating >= 4.5 && lead.reviews_count != null && lead.reviews_count > 50) {
+    score -= 10;
+  }
+  
+  return Math.max(0, Math.min(100, score));
 }
 
 /**
@@ -98,37 +201,65 @@ export interface InsertLead {
 export function upsertLead(lead: InsertLead): DbLead | null {
   const database = getDb();
   
+  const phoneType = lead.phone_type || detectPhoneType(lead.phone);
+  const websiteStatus = lead.website_status || (lead.website ? null : 'none');
+  const score = lead.score ?? computeScore(lead);
+  const source = lead.source ?? 'gmb';
+  
   const stmt = database.prepare(`
-    INSERT INTO leads (phone, name, address, city, postal_code, website, maps_url, rating, reviews_count, niche, source, priority)
-    VALUES (@phone, @name, @address, @city, @postal_code, @website, @maps_url, @rating, @reviews_count, @niche, @source, @priority)
+    INSERT INTO leads (
+      phone, phone_type, name, address, city, postal_code, website, website_status,
+      maps_url, rating, reviews_count, niche, source, priority, score,
+      opening_hours, best_call_time, has_booking, has_seo, last_gmb_update
+    )
+    VALUES (
+      @phone, @phone_type, @name, @address, @city, @postal_code, @website, @website_status,
+      @maps_url, @rating, @reviews_count, @niche, @source, @priority, @score,
+      @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update
+    )
     ON CONFLICT(phone) DO UPDATE SET
       name = excluded.name,
       address = excluded.address,
       city = excluded.city,
       postal_code = excluded.postal_code,
       website = COALESCE(excluded.website, leads.website),
+      website_status = COALESCE(excluded.website_status, leads.website_status),
       maps_url = excluded.maps_url,
       rating = COALESCE(excluded.rating, leads.rating),
       reviews_count = COALESCE(excluded.reviews_count, leads.reviews_count),
       niche = COALESCE(excluded.niche, leads.niche),
       priority = excluded.priority,
+      score = excluded.score,
+      opening_hours = COALESCE(excluded.opening_hours, leads.opening_hours),
+      best_call_time = COALESCE(excluded.best_call_time, leads.best_call_time),
+      has_booking = COALESCE(excluded.has_booking, leads.has_booking),
+      has_seo = COALESCE(excluded.has_seo, leads.has_seo),
+      last_gmb_update = COALESCE(excluded.last_gmb_update, leads.last_gmb_update),
       updated_at = datetime('now')
     RETURNING *
   `);
   
   const result = stmt.get({
     phone: lead.phone,
+    phone_type: phoneType,
     name: lead.name,
     address: lead.address,
     city: lead.city,
     postal_code: lead.postal_code,
     website: lead.website ?? null,
+    website_status: websiteStatus,
     maps_url: lead.maps_url,
     rating: lead.rating ?? null,
     reviews_count: lead.reviews_count ?? null,
     niche: lead.niche ?? null,
-    source: lead.source ?? 'google_maps',
+    source: source,
     priority: lead.priority ?? 'medium',
+    score: score,
+    opening_hours: lead.opening_hours ?? null,
+    best_call_time: lead.best_call_time ?? null,
+    has_booking: lead.has_booking ? 1 : 0,
+    has_seo: lead.has_seo ? 1 : 0,
+    last_gmb_update: lead.last_gmb_update ?? null,
   }) as DbLead | undefined;
   
   return result ?? null;

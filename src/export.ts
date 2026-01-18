@@ -1,43 +1,63 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { stringify } from 'csv-stringify/sync';
-import { EnrichedLead } from './types.js';
+import { getDb } from './db.js';
 import { loadConfig } from './config.js';
+import type { DbLead } from './types.js';
 
-// Tri par priorité
-function sortByPriority(leads: EnrichedLead[]): EnrichedLead[] {
-  const order = { high: 0, medium: 1, low: 2 };
-  return [...leads].sort((a, b) => order[a.priority] - order[b.priority]);
+/**
+ * Récupérer les leads à exporter, triés par score puis priorité
+ */
+function getLeadsToExport(limit: number = 1000): DbLead[] {
+  const database = getDb();
+  const stmt = database.prepare(`
+    SELECT * FROM leads 
+    WHERE opt_out = 0
+    ORDER BY 
+      CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+      score DESC,
+      created_at DESC
+    LIMIT ?
+  `);
+  return stmt.all(limit) as DbLead[];
 }
 
 // Main
 export function exportCSV(): void {
   const config = loadConfig();
-  const leads: EnrichedLead[] = JSON.parse(
-    readFileSync('data/leads_enriched.json', 'utf-8')
-  );
+  const leads = getLeadsToExport(config.target || 1000);
 
-  // Trier et limiter
-  const sorted = sortByPriority(leads);
-  const final = sorted.slice(0, config.target);
+  if (leads.length === 0) {
+    console.log('✓ Aucun lead à exporter');
+    return;
+  }
 
-  // Colonnes CSV
+  // Colonnes CSV enrichies
   const columns = [
     'name',
     'phone',
+    'phone_type',
     'city',
     'postal_code',
     'address',
     'website',
+    'website_status',
     'maps_url',
     'rating',
     'reviews_count',
+    'niche',
     'siren',
     'legal_name',
     'dirigeant',
     'priority',
+    'score',
+    'best_call_time',
+    'has_booking',
+    'status',
+    'call_status',
+    'attempts_count',
   ];
 
-  const csv = stringify(final, {
+  const csv = stringify(leads, {
     header: true,
     columns,
   });
@@ -46,22 +66,26 @@ export function exportCSV(): void {
 
   // Stats finales
   const stats = {
-    total_imported: leads.length,
+    total: leads.length,
     with_siren: leads.filter(l => l.siren).length,
     with_dirigeant: leads.filter(l => l.dirigeant).length,
-    exported: final.length,
     by_priority: {
-      high: final.filter(l => l.priority === 'high').length,
-      medium: final.filter(l => l.priority === 'medium').length,
-      low: final.filter(l => l.priority === 'low').length,
+      high: leads.filter(l => l.priority === 'high').length,
+      medium: leads.filter(l => l.priority === 'medium').length,
+      low: leads.filter(l => l.priority === 'low').length,
     },
+    by_status: {
+      nouveau: leads.filter(l => l.status === 'nouveau').length,
+      contacte: leads.filter(l => l.status === 'contacte').length,
+    },
+    avg_score: Math.round(leads.reduce((sum, l) => sum + (l.score || 50), 0) / leads.length),
   };
 
-  console.log('\n========== RAPPORT ==========');
-  console.log(`✓ Total importés: ${stats.total_imported}`);
+  console.log('\n========== RAPPORT EXPORT ==========');
+  console.log(`✓ Total exportés: ${stats.total}`);
+  console.log(`✓ Score moyen: ${stats.avg_score}/100`);
   console.log(`✓ Avec SIREN: ${stats.with_siren}`);
   console.log(`✓ Avec dirigeant: ${stats.with_dirigeant}`);
-  console.log(`✓ Exportés: ${stats.exported}`);
   console.log(`  → High priority: ${stats.by_priority.high}`);
   console.log(`  → Medium priority: ${stats.by_priority.medium}`);
   console.log(`  → Low priority: ${stats.by_priority.low}`);

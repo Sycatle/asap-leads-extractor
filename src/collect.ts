@@ -1,7 +1,8 @@
-import { createReadStream, writeFileSync } from 'fs';
+import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { loadConfig } from './config.js';
 import { RawLead, Config } from './types.js';
+import { upsertLead, type InsertLead } from './db.js';
 
 // Mapping colonnes CSV scraper → RawLead
 function mapRow(row: Record<string, string>): RawLead | null {
@@ -18,6 +19,7 @@ function mapRow(row: Record<string, string>): RawLead | null {
     maps_url: row.url || row.maps_url || row.link || row.Url || row.Link || '',
     rating: parseFloat(row.rating || row.note || row.Rating || '0') || undefined,
     reviews_count: parseInt(row.reviews || row.reviews_count || row.reviewsCount || row.Reviews || '0') || undefined,
+    niche: row.niche || row.category || row.Niche || undefined,
   };
 }
 
@@ -87,9 +89,28 @@ export async function collect(): Promise<RawLead[]> {
         console.log(`✓ Importés: ${leads.length}`);
         console.log(`✓ Après dédup: ${deduped.length}`);
 
-        // Sauvegarde intermédiaire
-        writeFileSync('data/leads_raw.json', JSON.stringify(deduped, null, 2));
-        console.log(`✓ Sauvegardé: data/leads_raw.json`);
+        // Sauvegarder directement en SQLite
+        let inserted = 0;
+        for (const lead of deduped) {
+          const dbLead: InsertLead = {
+            phone: lead.phone,
+            name: lead.name,
+            address: lead.address,
+            city: lead.city,
+            postal_code: lead.postal_code,
+            website: lead.website,
+            website_status: lead.website ? undefined : 'none',
+            maps_url: lead.maps_url,
+            rating: lead.rating,
+            reviews_count: lead.reviews_count,
+            niche: lead.niche || null,
+            source: 'import',
+          };
+          const result = upsertLead(dbLead);
+          if (result) inserted++;
+        }
+        
+        console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
         resolve(deduped);
       })
       .on('error', reject);

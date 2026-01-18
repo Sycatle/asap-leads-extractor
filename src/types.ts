@@ -1,3 +1,11 @@
+// ===== TYPES DE BASE =====
+
+export type PhoneType = 'pro' | 'perso' | 'unknown';
+export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
+export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
+
+// ===== LEAD BRUT (SCRAPING) =====
+
 export interface RawLead {
   name: string;
   phone: string;
@@ -8,7 +16,14 @@ export interface RawLead {
   maps_url: string;
   rating?: number;
   reviews_count?: number;
+  niche?: string;
+  // Données enrichies GMB
+  opening_hours?: string;
+  has_booking?: boolean;
+  last_gmb_update?: string;
 }
+
+// ===== LEAD ENRICHI =====
 
 export interface EnrichedLead extends RawLead {
   siren?: string;
@@ -16,7 +31,14 @@ export interface EnrichedLead extends RawLead {
   legal_name?: string;
   dirigeant?: string;
   priority: 'high' | 'medium' | 'low';
+  score: number;
+  phone_type: PhoneType;
+  website_status?: WebsiteStatus;
+  best_call_time?: string;
+  has_seo?: boolean;
 }
+
+// ===== CONFIG =====
 
 export interface Config {
   input_csv: string;
@@ -26,6 +48,12 @@ export interface Config {
   scrape?: {
     niches: string[];
     cities: string[];
+  };
+  // Worker config
+  worker?: {
+    enabled: boolean;
+    interval_minutes: number;
+    max_leads_per_run: number;
   };
 }
 
@@ -69,16 +97,18 @@ export type EmailStatus =
 export interface DbLead {
   id: number;
   phone: string;
+  phone_type: PhoneType;
   name: string;
   address: string;
   city: string;
   postal_code: string;
   website: string | null;
+  website_status: WebsiteStatus | null;
   maps_url: string;
   rating: number | null;
   reviews_count: number | null;
   niche: string | null;
-  source: string;
+  source: LeadSource;
   
   // Enrichissement Pappers
   siren: string | null;
@@ -86,14 +116,24 @@ export interface DbLead {
   legal_name: string | null;
   dirigeant: string | null;
   
-  // Scoring
+  // Scoring & Enrichissement
   priority: 'high' | 'medium' | 'low';
+  score: number;
+  
+  // Données GMB enrichies
+  opening_hours: string | null;
+  best_call_time: string | null;
+  has_booking: boolean;
+  has_seo: boolean;
+  last_gmb_update: string | null;
   
   // Suivi commercial
   status: LeadStatus;
   call_status: CallStatus;
   email_status: EmailStatus;
   notes: string | null;
+  attempts_count: number;
+  opt_out: boolean;
   
   // Dates
   last_contact_at: string | null;

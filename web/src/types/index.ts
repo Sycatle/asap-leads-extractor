@@ -4,11 +4,14 @@ export type LeadStatus = 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | '
 export type CallStatus = 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable';
 export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'bounce';
 export type Priority = 'high' | 'medium' | 'low';
+export type PhoneType = 'pro' | 'perso' | 'unknown';
+export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 
 export interface Lead {
   id: number;
   name: string;
   phone: string;
+  phone_type?: PhoneType;
   address: string;
   city: string;
   postal_code: string;
@@ -30,6 +33,17 @@ export interface Lead {
   next_followup_at: string | null;
   created_at: string;
   updated_at: string;
+  // Enriched fields for call session
+  source?: LeadSource;
+  attempts_count?: number;
+  attempts_30d?: number;
+  score?: number;
+  opening_hours?: string | null;
+  best_call_time?: string | null;
+  website_status?: 'none' | 'old' | 'platform' | 'modern' | null;
+  has_booking?: boolean;
+  has_seo?: boolean;
+  last_gmb_update?: string | null;
 }
 
 export interface LeadSummary {

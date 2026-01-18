@@ -24,6 +24,35 @@ function extractCity(address: string): string {
   return '';
 }
 
+// Calculer le meilleur moment d'appel basé sur les horaires
+function computeBestCallTime(openingHours: string | undefined): string | undefined {
+  if (!openingHours) return undefined;
+  
+  // Chercher les horaires d'ouverture typiques
+  // Format attendu: "Lundi 9:00-12:00, 14:00-18:00"
+  const timePattern = /(\d{1,2}):(\d{2})/g;
+  const times: number[] = [];
+  
+  let match;
+  while ((match = timePattern.exec(openingHours)) !== null) {
+    times.push(parseInt(match[1], 10));
+  }
+  
+  if (times.length === 0) return undefined;
+  
+  // Trouver l'heure d'ouverture la plus fréquente
+  const openHour = Math.min(...times.filter(h => h >= 7 && h <= 12));
+  
+  if (openHour && openHour < 12) {
+    // Suggérer 30 min après l'ouverture (le temps qu'ils s'installent)
+    const suggestedHour = openHour + 1;
+    return `${suggestedHour}h-${suggestedHour + 1}h`;
+  }
+  
+  // Par défaut: milieu de matinée
+  return '10h-11h';
+}
+
 // Extraire le nom depuis l'URL Google Maps
 function extractNameFromUrl(url: string): string {
   const match = url.match(/\/maps\/place\/([^/@]+)/);
@@ -208,6 +237,23 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       const reviewMatch = reviewsText.match(/\(?([\d\s]+)\)?/);
       if (reviewMatch) reviews_count = parseInt(reviewMatch[1].replace(/\s/g, ''));
       
+      // Horaires d'ouverture
+      let opening_hours: string | undefined;
+      try {
+        const hoursBtn = page.locator('button[data-item-id="oh"]').first();
+        if (await hoursBtn.count() > 0) {
+          const hoursText = await hoursBtn.textContent({ timeout: 1000 });
+          if (hoursText) opening_hours = hoursText.trim();
+        }
+      } catch { /* ignore */ }
+      
+      // Réservation en ligne
+      let has_booking = false;
+      try {
+        const bookingLinks = await page.locator('a[href*="book"], a[href*="reservation"], a[href*="rdv"], button:has-text("Réserver")').count();
+        has_booking = bookingLinks > 0;
+      } catch { /* ignore */ }
+      
       const lead: RawLead & { niche: string } = {
         name: cleanName(name),
         phone,
@@ -219,6 +265,8 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         rating,
         reviews_count,
         niche: query.split(' ')[0], // Premier mot = niche
+        opening_hours,
+        has_booking,
       };
       
       leads.push(lead);
@@ -294,6 +342,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
     let inserted = 0;
     for (const lead of uniqueLeads) {
       const priority = lead.website ? 'medium' : 'high';
+      const extendedLead = lead as RawLead & { niche?: string };
       const dbLead: InsertLead = {
         phone: lead.phone,
         name: lead.name,
@@ -301,12 +350,16 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
         city: lead.city,
         postal_code: lead.postal_code,
         website: lead.website,
+        website_status: lead.website ? undefined : 'none',
         maps_url: lead.maps_url,
         rating: lead.rating,
         reviews_count: lead.reviews_count,
-        niche: (lead as RawLead & { niche?: string }).niche || null,
-        source: 'google_maps',
+        niche: extendedLead.niche || null,
+        source: 'gmb',
         priority,
+        opening_hours: lead.opening_hours,
+        has_booking: lead.has_booking,
+        best_call_time: computeBestCallTime(lead.opening_hours),
       };
       const result = upsertLead(dbLead);
       if (result) inserted++;
