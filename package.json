@@ -5,10 +5,15 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "collect": "tsx src/collect.ts",
-    "enrich": "tsx src/enrich.ts",
-    "export": "tsx src/export.ts"
+    "start": "tsx src/cli.ts run",
+    "cli": "tsx src/cli.ts",
+    "collect": "tsx src/cli.ts collect",
+    "enrich": "tsx src/cli.ts enrich",
+    "export": "tsx src/cli.ts export",
+    "stats": "tsx src/cli.ts stats"
+  },
+  "bin": {
+    "leads-finder": "./dist/cli.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +25,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "commander": "^14.0.2",
     "csv-parse": "^6.1.0",
     "csv-stringify": "^6.6.0",
     "dotenv": "^17.2.3",
