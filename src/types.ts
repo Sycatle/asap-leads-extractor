@@ -23,6 +23,10 @@ export interface Config {
   target: number;
   allowed_departments: string[];
   exclude_keywords: string[];
+  scrape?: {
+    niches: string[];
+    cities: string[];
+  };
 }
 
 export interface PappersResult {

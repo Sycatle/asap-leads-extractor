@@ -3,6 +3,9 @@ import { Command } from 'commander';
 import { collect } from './collect.js';
 import { enrich } from './enrich.js';
 import { exportCSV } from './export.js';
+import { scrapeGoogleMaps } from './googleMapsScraper.js';
+import { loadConfig } from './config.js';
+import { writeFileSync } from 'fs';
 
 const program = new Command();
 
@@ -38,6 +41,55 @@ program
       writeFileSync('data/leads_enriched.json', JSON.stringify(enriched, null, 2));
     }
 
+    console.log('📤 ÉTAPE 3: EXPORT...');
+    exportCSV();
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`\n⏱️  Terminé en ${duration}s`);
+  });
+
+// Commande: scrape (Google Maps)
+program
+  .command('scrape')
+  .description('Scraper Google Maps pour collecter des leads (gratuit)')
+  .option('--niches <niches>', 'Niches à scraper (séparées par virgule)', 'coiffeur')
+  .option('--cities <cities>', 'Villes à scraper (séparées par virgule)', 'Le Mans')
+  .option('--skip-enrich', 'Sauter l\'enrichissement Pappers')
+  .action(async (options) => {
+    console.log('🚀 Leads Finder - Mode Scraping\n');
+    const startTime = Date.now();
+    const config = loadConfig();
+
+    // Utiliser les options CLI ou la config
+    const niches = options.niches ? options.niches.split(',').map((s: string) => s.trim()) : config.scrape?.niches || ['coiffeur'];
+    const cities = options.cities ? options.cities.split(',').map((s: string) => s.trim()) : config.scrape?.cities || ['Le Mans'];
+
+    // Étape 1: Scraping
+    console.log('🌐 ÉTAPE 1: SCRAPING GOOGLE MAPS...\n');
+    const leads = await scrapeGoogleMaps({ niches, cities });
+    
+    // Filtrer les chaînes exclues
+    const filtered = leads.filter(lead => {
+      const lower = lead.name.toLowerCase();
+      return !config.exclude_keywords.some(kw => lower.includes(kw.toLowerCase()));
+    });
+    
+    console.log(`✓ Après filtrage chaînes: ${filtered.length}`);
+    writeFileSync('data/leads_raw.json', JSON.stringify(filtered, null, 2));
+    console.log('✓ Sauvegardé: data/leads_raw.json\n');
+
+    // Étape 2: Enrichissement
+    if (!options.skipEnrich) {
+      console.log('🔍 ÉTAPE 2: ENRICHISSEMENT...');
+      await enrich();
+      console.log('');
+    } else {
+      console.log('⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
+      const enriched = filtered.map(l => ({ ...l, priority: l.website ? 'medium' : 'high' }));
+      writeFileSync('data/leads_enriched.json', JSON.stringify(enriched, null, 2));
+    }
+
+    // Étape 3: Export
     console.log('📤 ÉTAPE 3: EXPORT...');
     exportCSV();
 

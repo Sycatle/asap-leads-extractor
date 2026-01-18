@@ -7,6 +7,7 @@
   "scripts": {
     "start": "tsx src/cli.ts run",
     "cli": "tsx src/cli.ts",
+    "scrape": "tsx src/cli.ts scrape",
     "collect": "tsx src/cli.ts collect",
     "enrich": "tsx src/cli.ts enrich",
     "export": "tsx src/cli.ts export",
@@ -30,6 +31,7 @@
     "csv-stringify": "^6.6.0",
     "dotenv": "^17.2.3",
     "p-limit": "^7.2.0",
+    "playwright": "^1.57.0",
     "undici": "^7.18.2"
   }
 }
