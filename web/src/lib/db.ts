@@ -1,56 +1,50 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 
-// Types
-export type LeadStatus = 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | 'converti' | 'perdu';
-export type CallStatus = 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable';
-export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'bounce';
-export type PhoneType = 'pro' | 'perso' | 'unknown';
-export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
-export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
+// Re-export les types depuis shared
+export type { 
+  LeadStatus, 
+  CallStatus, 
+  EmailStatus, 
+  PhoneType, 
+  WebsiteStatus, 
+  LeadSource, 
+  DbLead 
+} from '../../../shared/types.js';
 
-export interface DbLead {
-  id: number;
-  phone: string;
-  phone_type: PhoneType;
-  name: string;
-  address: string;
-  city: string;
-  postal_code: string;
-  website: string | null;
-  website_status: WebsiteStatus | null;
-  maps_url: string;
-  rating: number | null;
-  reviews_count: number | null;
-  niche: string | null;
-  source: LeadSource;
-  siren: string | null;
-  siret: string | null;
-  legal_name: string | null;
-  dirigeant: string | null;
-  priority: 'high' | 'medium' | 'low';
-  score: number;
-  opening_hours: string | null;
-  best_call_time: string | null;
-  has_booking: number;
-  has_seo: number;
-  last_gmb_update: string | null;
-  status: LeadStatus;
-  call_status: CallStatus;
-  email_status: EmailStatus;
-  notes: string | null;
-  attempts_count: number;
-  opt_out: number;
-  last_contact_at: string | null;
-  next_followup_at: string | null;
-  created_at: string;
-  updated_at: string;
+import type { DbLead, LeadStatus, CallStatus, EmailStatus } from '../../../shared/types.js';
+
+// DB Path - Trouver le chemin vers data/leads.db
+// 1. Priorité: variable d'environnement DATABASE_PATH
+// 2. Fallback: chercher le dossier data/ relativement au cwd
+function findDbPath(): string {
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+  
+  const fs = require('fs');
+  const cwd = process.cwd();
+  
+  // Cas 1: cwd = .../leads-finder/web → ../data/leads.db
+  const fromWeb = path.join(cwd, '..', 'data', 'leads.db');
+  if (fs.existsSync(path.dirname(fromWeb))) {
+    return fromWeb;
+  }
+  
+  // Cas 2: cwd = .../leads-finder (turbopack workspace) → data/leads.db  
+  const fromRoot = path.join(cwd, 'data', 'leads.db');
+  if (fs.existsSync(path.dirname(fromRoot))) {
+    return fromRoot;
+  }
+  
+  // Fallback: créer dans data/
+  const dbDir = path.join(cwd, 'data');
+  fs.mkdirSync(dbDir, { recursive: true });
+  return path.join(dbDir, 'leads.db');
 }
 
-// DB Path - Chemin absolu vers la racine du projet parent
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.DATABASE_PATH || path.resolve(__dirname, '..', '..', '..', '..', 'data', 'leads.db');
+const DB_PATH = findDbPath();
 
 let db: Database.Database | null = null;
 

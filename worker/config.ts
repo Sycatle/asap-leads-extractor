@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs';
-import { Config } from './types.js';
+import { Config } from '../shared/types.js';
 
 export function loadConfig(path = 'config.json'): Config {
   const raw = readFileSync(path, 'utf-8');

@@ -1,8 +1,8 @@
 import { request } from 'undici';
 import pLimit from 'p-limit';
-import { PappersResult } from './types.js';
+import { PappersResult } from '../shared/types.js';
 import { getDb, enrichLead } from './db.js';
-import type { DbLead } from './types.js';
+import type { DbLead } from '../shared/types.js';
 import 'dotenv/config';
 
 const PAPPERS_API_KEY = process.env.PAPPERS_API_KEY;

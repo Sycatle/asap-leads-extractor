@@ -2,7 +2,7 @@ import { writeFileSync } from 'fs';
 import { stringify } from 'csv-stringify/sync';
 import { getDb } from './db.js';
 import { loadConfig } from './config.js';
-import type { DbLead } from './types.js';
+import type { DbLead } from '../shared/types.js';
 
 /**
  * Récupérer les leads à exporter, triés par score puis priorité

@@ -1,5 +1,5 @@
 import { chromium, Browser, Page } from 'playwright';
-import { RawLead } from './types.js';
+import { RawLead } from '../shared/types.js';
 import { upsertLead, closeDb, type InsertLead } from './db.js';
 
 const DELAY_BETWEEN_ACTIONS = 1000;

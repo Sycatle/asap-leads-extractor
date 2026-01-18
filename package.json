@@ -5,14 +5,16 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsx src/index.ts once",
-    "worker": "tsx src/index.ts worker",
-    "cli": "tsx src/cli.ts",
-    "scrape": "tsx src/index.ts scrape",
-    "collect": "tsx src/cli.ts collect",
-    "enrich": "tsx src/index.ts enrich",
-    "export": "tsx src/index.ts export",
-    "stats": "tsx src/cli.ts stats"
+    "start": "tsx worker/index.ts once",
+    "worker": "tsx worker/index.ts worker",
+    "cli": "tsx worker/cli.ts",
+    "scrape": "tsx worker/index.ts scrape",
+    "collect": "tsx worker/cli.ts collect",
+    "enrich": "tsx worker/index.ts enrich",
+    "export": "tsx worker/index.ts export",
+    "stats": "tsx worker/cli.ts stats",
+    "web": "cd web && pnpm dev",
+    "web:build": "cd web && pnpm build"
   },
   "bin": {
     "leads-finder": "./dist/cli.js"

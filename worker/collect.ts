@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { loadConfig } from './config.js';
-import { RawLead, Config } from './types.js';
+import { RawLead, Config } from '../shared/types.js';
 import { upsertLead, type InsertLead } from './db.js';
 
 // Mapping colonnes CSV scraper → RawLead

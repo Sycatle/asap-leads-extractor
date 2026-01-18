@@ -4,6 +4,30 @@ export type PhoneType = 'pro' | 'perso' | 'unknown';
 export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
 
+// ===== STATUTS DE SUIVI =====
+
+export type LeadStatus = 
+  | 'nouveau'      // Jamais contacté
+  | 'contacte'     // Premier contact effectué
+  | 'qualifie'     // Intéressé, besoin identifié
+  | 'proposition'  // Devis/offre envoyée
+  | 'converti'     // Client gagné
+  | 'perdu';       // Refus ou injoignable
+
+export type CallStatus = 
+  | 'non_appele'   // Jamais appelé
+  | 'appele'       // Appelé, conversation OK
+  | 'messagerie'   // Tombé sur messagerie
+  | 'rappeler'     // Demande de rappel
+  | 'injoignable'; // Numéro invalide/plus attribué
+
+export type EmailStatus = 
+  | 'non_envoye'   // Pas d'email envoyé
+  | 'envoye'       // Email envoyé
+  | 'ouvert'       // Email ouvert (si tracking)
+  | 'repondu'      // Réponse reçue
+  | 'bounce';      // Email invalide
+
 // ===== LEAD BRUT (SCRAPING) =====
 
 export interface RawLead {
@@ -38,60 +62,6 @@ export interface EnrichedLead extends RawLead {
   has_seo?: boolean;
 }
 
-// ===== CONFIG =====
-
-export interface Config {
-  input_csv: string;
-  target: number;
-  allowed_departments: string[];
-  exclude_keywords: string[];
-  scrape?: {
-    niches: string[];
-    cities: string[];
-  };
-  // Worker config
-  worker?: {
-    enabled: boolean;
-    interval_minutes: number;
-    max_leads_per_run: number;
-  };
-}
-
-export interface PappersResult {
-  siren: string;
-  siret: string;
-  nom_entreprise: string;
-  representants?: Array<{
-    nom: string;
-    prenom: string;
-    qualite: string;
-  }>;
-}
-
-// ===== STATUTS DE SUIVI =====
-
-export type LeadStatus = 
-  | 'nouveau'      // Jamais contacté
-  | 'contacte'     // Premier contact effectué
-  | 'qualifie'     // Intéressé, besoin identifié
-  | 'proposition'  // Devis/offre envoyée
-  | 'converti'     // Client gagné
-  | 'perdu';       // Refus ou injoignable
-
-export type CallStatus = 
-  | 'non_appele'   // Jamais appelé
-  | 'appele'       // Appelé, conversation OK
-  | 'messagerie'   // Tombé sur messagerie
-  | 'rappeler'     // Demande de rappel
-  | 'injoignable'; // Numéro invalide/plus attribué
-
-export type EmailStatus = 
-  | 'non_envoye'   // Pas d'email envoyé
-  | 'envoye'       // Email envoyé
-  | 'ouvert'       // Email ouvert (si tracking)
-  | 'repondu'      // Réponse reçue
-  | 'bounce';      // Email invalide
-
 // ===== LEAD EN BASE =====
 
 export interface DbLead {
@@ -123,8 +93,8 @@ export interface DbLead {
   // Données GMB enrichies
   opening_hours: string | null;
   best_call_time: string | null;
-  has_booking: boolean;
-  has_seo: boolean;
+  has_booking: number; // SQLite: 0 ou 1
+  has_seo: number;     // SQLite: 0 ou 1
   last_gmb_update: string | null;
   
   // Suivi commercial
@@ -133,11 +103,40 @@ export interface DbLead {
   email_status: EmailStatus;
   notes: string | null;
   attempts_count: number;
-  opt_out: boolean;
+  opt_out: number;     // SQLite: 0 ou 1
   
   // Dates
   last_contact_at: string | null;
   next_followup_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ===== CONFIG =====
+
+export interface Config {
+  input_csv: string;
+  target: number;
+  allowed_departments: string[];
+  exclude_keywords: string[];
+  scrape?: {
+    niches: string[];
+    cities: string[];
+  };
+  worker?: {
+    enabled: boolean;
+    interval_minutes: number;
+    max_leads_per_run: number;
+  };
+}
+
+export interface PappersResult {
+  siren: string;
+  siret: string;
+  nom_entreprise: string;
+  representants?: Array<{
+    nom: string;
+    prenom: string;
+    qualite: string;
+  }>;
 }
