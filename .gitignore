@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+data/leads_raw.json
+data/leads_enriched.json
+data/leads.csv
+data/raw/*.csv
+!data/raw/.gitkeep

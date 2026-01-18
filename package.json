@@ -1,0 +1,29 @@
+{
+  "name": "leads-finder",
+  "version": "1.0.0",
+  "description": "Lead generation tool - 100 call-ready leads",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "collect": "tsx src/collect.ts",
+    "enrich": "tsx src/enrich.ts",
+    "export": "tsx src/export.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.15.0",
+  "devDependencies": {
+    "@types/node": "^25.0.9",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "csv-stringify": "^6.6.0",
+    "dotenv": "^17.2.3",
+    "p-limit": "^7.2.0",
+    "undici": "^7.18.2"
+  }
+}
