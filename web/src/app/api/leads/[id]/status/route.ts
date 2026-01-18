@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateStatus, findById, type LeadStatus } from '@/lib/db';
+import { updateStatusWithHistory, findById, type LeadStatus } from '@/lib/db';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,6 +10,7 @@ export async function PATCH(
     const body = await request.json();
     
     const status = body.status as LeadStatus;
+    const note = body.note as string | undefined;
     
     if (!status) {
       return NextResponse.json(
@@ -18,7 +19,7 @@ export async function PATCH(
       );
     }
     
-    const success = updateStatus(parseInt(id), status);
+    const success = updateStatusWithHistory(parseInt(id), status, note);
     
     if (!success) {
       return NextResponse.json(

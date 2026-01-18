@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scheduleFollowup, findById } from '@/lib/db';
+import { scheduleFollowupWithHistory, findById } from '@/lib/db';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,6 +10,7 @@ export async function PATCH(
     const body = await request.json();
     
     const date = body.date as string;
+    const note = body.note as string | undefined;
     
     if (!date) {
       return NextResponse.json(
@@ -18,7 +19,7 @@ export async function PATCH(
       );
     }
     
-    const success = scheduleFollowup(parseInt(id), date);
+    const success = scheduleFollowupWithHistory(parseInt(id), date, note);
     
     if (!success) {
       return NextResponse.json(

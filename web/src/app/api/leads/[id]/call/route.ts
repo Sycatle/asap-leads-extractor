@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logCall, findById, type CallStatus } from '@/lib/db';
+import { logCallWithHistory, findById, type CallStatus } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
@@ -11,6 +11,7 @@ export async function POST(
     
     const callStatus = body.call_status as CallStatus;
     const note = body.note as string | undefined;
+    const autoSchedule = body.auto_schedule !== false; // default true
     
     if (!callStatus) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function POST(
       );
     }
     
-    const success = logCall(parseInt(id), callStatus, note);
+    const success = logCallWithHistory(parseInt(id), callStatus, note, autoSchedule);
     
     if (!success) {
       return NextResponse.json(
