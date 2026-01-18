@@ -9,6 +9,9 @@ import type {
   Config,
   LeadStatus,
   CallStatus,
+  CallOutcome,
+  NextStep,
+  LostReason,
 } from '@/types';
 
 // ===== BASE FETCH =====
@@ -108,6 +111,30 @@ export async function scheduleLeadFollowup(
   await fetchApi(`/api/leads/${id}/followup`, {
     method: 'PATCH',
     body: JSON.stringify({ date }),
+  });
+}
+
+export async function processLeadOutcome(
+  id: number | string,
+  outcome: CallOutcome,
+  nextStep?: NextStep,
+  lostReason?: LostReason,
+  lostNote?: string
+): Promise<void> {
+  await fetchApi(`/api/leads/${id}/outcome`, {
+    method: 'POST',
+    body: JSON.stringify({
+      outcome,
+      nextStep,
+      lostReason,
+      lostNote,
+    }),
+  });
+}
+
+export async function markLeadOptOut(id: number | string): Promise<void> {
+  await fetchApi(`/api/leads/${id}/optout`, {
+    method: 'POST',
   });
 }
 

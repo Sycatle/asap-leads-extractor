@@ -1,7 +1,7 @@
 'use client';
 
 import { STATUS_LABELS } from '@/lib/constants';
-import { Select, Input } from '@/components/ui';
+import { NativeSelect, Input } from '@/components/ui';
 
 interface LeadsFiltersProps {
   status: string;
@@ -34,7 +34,7 @@ export function LeadsFilters({
         <span className="text-sm text-zinc-500">Filtres:</span>
 
         {/* Status filter */}
-        <Select
+        <NativeSelect
           value={status}
           onChange={(e) => onStatusChange(e.target.value)}
           className="w-auto"
@@ -45,10 +45,10 @@ export function LeadsFilters({
               {label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
 
         {/* City filter */}
-        <Select
+        <NativeSelect
           value={city}
           onChange={(e) => onCityChange(e.target.value)}
           className="w-auto"
@@ -59,10 +59,10 @@ export function LeadsFilters({
               {c}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
 
         {/* Niche filter */}
-        <Select
+        <NativeSelect
           value={niche}
           onChange={(e) => onNicheChange(e.target.value)}
           className="w-auto"
@@ -73,7 +73,7 @@ export function LeadsFilters({
               {n}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
 
         {/* Search */}
         <Input

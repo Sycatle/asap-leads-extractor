@@ -1,6 +1,5 @@
 import { PhoneCall, PhoneMissed, PhoneOff, Calendar, CheckCircle2, XCircle, MapPin, Phone } from 'lucide-react';
-import { Card, CardHeader } from '@/components/ui/Card';
-import { ActionButton, Button } from '@/components/ui/Button';
+import { Card, CardHeader, Button, ActionButton } from '@/components/ui';
 import type { Lead, CallStatus, LeadStatus } from '@/types';
 
 interface LeadActionsCardProps {
@@ -108,9 +107,9 @@ export function LeadActionsCard({
           Appeler
         </a>
         <Button
-          icon={<Calendar className="w-4 h-4" />}
           onClick={onScheduleFollowup}
         >
+          <Calendar className="w-4 h-4" />
           Planifier relance
         </Button>
         {lead.maps_url && (

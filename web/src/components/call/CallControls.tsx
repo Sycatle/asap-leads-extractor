@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { MessageSquare, SkipForward } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui';
 
 // ===== QUICK NOTE INPUT =====
 
@@ -28,7 +28,7 @@ export function QuickNoteInput({ value, onChange }: QuickNoteInputProps) {
   }, []);
 
   return (
-    <Card padding="sm">
+    <Card className="p-3">
       <div className="flex items-center gap-3">
         <MessageSquare className="w-5 h-5 text-zinc-400" />
         <input

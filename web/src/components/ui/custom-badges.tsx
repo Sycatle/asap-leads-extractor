@@ -1,3 +1,5 @@
+'use client';
+
 import { cn } from '@/lib/utils';
 import type { LeadStatus, Priority, FollowupUrgency } from '@/types';
 import { STATUS_LABELS } from '@/lib/constants';
@@ -167,40 +169,6 @@ export function RatingBadge({ rating, reviewsCount, size = 'md' }: RatingBadgePr
           ({reviewsCount})
         </span>
       )}
-    </span>
-  );
-}
-
-// ===== GENERIC BADGE =====
-
-interface BadgeProps {
-  children: React.ReactNode;
-  color?: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'zinc';
-  size?: 'sm' | 'md';
-}
-
-const badgeColors = {
-  blue: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300',
-  green: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300',
-  red: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300',
-  orange: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300',
-  purple: 'bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300',
-  zinc: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300',
-};
-
-export function Badge({ children, color = 'zinc', size = 'md' }: BadgeProps) {
-  const sizeClasses = {
-    sm: 'px-2 py-0.5 text-xs',
-    md: 'px-2.5 py-1 text-sm',
-  };
-  
-  return (
-    <span className={cn(
-      'inline-flex items-center rounded-full font-medium',
-      badgeColors[color],
-      sizeClasses[size]
-    )}>
-      {children}
     </span>
   );
 }

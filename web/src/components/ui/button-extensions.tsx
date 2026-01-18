@@ -1,59 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-
-// ===== BUTTON =====
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
-  size?: 'sm' | 'md' | 'lg';
-  loading?: boolean;
-  icon?: React.ReactNode;
-  fullWidth?: boolean;
-}
-
-const buttonVariants = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md active:scale-[0.98]',
-  secondary: 'border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600',
-  ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
-  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow-md active:scale-[0.98]',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md active:scale-[0.98]',
-};
-
-const buttonSizes = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
-};
-
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  loading,
-  icon,
-  fullWidth,
-  children,
-  className,
-  disabled,
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none',
-        buttonVariants[variant],
-        buttonSizes[size],
-        fullWidth && 'w-full',
-        className
-      )}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
-      {children}
-    </button>
-  );
-}
 
 // ===== LINK BUTTON =====
 
@@ -66,6 +15,18 @@ interface LinkButtonProps {
   className?: string;
   onClick?: () => void;
 }
+
+const buttonVariants = {
+  primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md',
+  secondary: 'border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600',
+  ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
+};
+
+const buttonSizes = {
+  sm: 'px-3 py-1.5 text-xs',
+  md: 'px-4 py-2 text-sm',
+  lg: 'px-6 py-3 text-base',
+};
 
 export function LinkButton({
   href,
@@ -81,7 +42,7 @@ export function LinkButton({
       href={href}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200',
         buttonVariants[variant],
         buttonSizes[size],
         className

@@ -1,4 +1,4 @@
-import { Card, CardHeader } from '@/components/ui/Card';
+import { Card, CardHeader } from '@/components/ui';
 import { STATUS_LABELS } from '@/lib/constants';
 import type { LeadStatus, Stats } from '@/types';
 import { TrendingUp, BarChart3 } from 'lucide-react';

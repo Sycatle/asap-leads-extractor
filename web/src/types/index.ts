@@ -141,11 +141,56 @@ export interface Config {
 
 // ===== CALL OUTCOME =====
 
-export type CallOutcome = 'injoignable' | 'messagerie' | 'rappeler' | 'appele' | 'pas_interesse';
+export type CallOutcome = 
+  | 'injoignable'
+  | 'messagerie'
+  | 'mauvais_numero'
+  | 'accueil'
+  | 'rappeler'
+  | 'interesse'
+  | 'rdv_pris'
+  | 'devis_envoye'
+  | 'perdu'
+  | 'opt_out';
+
+export type OutcomeColor = 'red' | 'yellow' | 'blue' | 'green' | 'zinc' | 'purple' | 'orange';
 
 export interface CallOutcomeOption {
   id: CallOutcome;
   label: string;
-  color: 'red' | 'yellow' | 'blue' | 'green' | 'zinc';
+  color: OutcomeColor;
   key: string;
+  icon?: string;
+  requiresNextStep: boolean;
+}
+
+// ===== NEXT STEP TYPES =====
+
+export type NextStepType = 
+  | 'rappel'
+  | 'email'
+  | 'sms'
+  | 'rdv'
+  | 'tache'
+  | 'aucun';
+
+export interface NextStep {
+  type: NextStepType;
+  datetime?: string;
+  note?: string;
+  templateId?: string;
+}
+
+export type LostReason = 
+  | 'pas_interesse'
+  | 'budget'
+  | 'timing'
+  | 'concurrent'
+  | 'autre';
+
+export interface OutcomeWorkflow {
+  outcome: CallOutcome;
+  nextStep?: NextStep;
+  lostReason?: LostReason;
+  lostNote?: string;
 }

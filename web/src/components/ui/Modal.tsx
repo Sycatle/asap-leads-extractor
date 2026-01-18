@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from './Button';
-import { Input, Label } from './Form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from './dialog';
+import { Button } from './button';
+import { Input } from './input';
+import { Label } from './form-extensions';
 
 interface FollowupModalProps {
   isOpen: boolean;
@@ -22,8 +31,6 @@ export function FollowupModal({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
 
-  if (!isOpen) return null;
-
   const handleConfirm = () => {
     if (!date) return;
     const datetime = `${date} ${time}:00`;
@@ -37,16 +44,20 @@ export function FollowupModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">
-          {title}
-        </h3>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Sélectionnez une date et une heure pour la relance
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Date</Label>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="date">Date</Label>
             <Input
+              id="date"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
@@ -54,9 +65,10 @@ export function FollowupModal({
             />
           </div>
 
-          <div>
-            <Label>Heure</Label>
+          <div className="space-y-2">
+            <Label htmlFor="time">Heure</Label>
             <Input
+              id="time"
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
@@ -64,20 +76,19 @@ export function FollowupModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="secondary" onClick={handleClose}>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
             Annuler
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!date}
-            loading={loading}
+            disabled={!date || loading}
           >
-            Planifier
+            {loading ? 'Planification...' : 'Planifier'}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -104,31 +115,29 @@ export function ConfirmModal({
   loading,
   variant = 'default',
 }: ConfirmModalProps) {
-  if (!isOpen) return null;
-
-  const buttonVariant = variant === 'danger' ? 'danger' : 'primary';
+  const buttonVariant = variant === 'danger' ? 'destructive' : 'default';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-          {title}
-        </h3>
-        <p className="text-zinc-500 mb-6">{message}</p>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{message}</DialogDescription>
+        </DialogHeader>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             Annuler
           </Button>
           <Button
             variant={buttonVariant}
             onClick={onConfirm}
-            loading={loading}
+            disabled={loading}
           >
-            {confirmLabel}
+            {loading ? 'Chargement...' : confirmLabel}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,10 @@
+'use client';
+
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Loader2 } from 'lucide-react';
+
+// ===== STAT CARD =====
 
 type StatColor = 'blue' | 'green' | 'orange' | 'purple' | 'red';
 
@@ -52,13 +56,10 @@ export function StatCard({
   
   const content = (
     <div className={cn(
-      'card group relative overflow-hidden transition-all duration-300',
-      href && 'cursor-pointer hover:scale-[1.02]',
+      'bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 group relative overflow-hidden transition-all duration-300',
+      href && 'cursor-pointer hover:scale-[1.02] hover:shadow-lg',
       styles.glow
     )}>
-      {/* Subtle gradient background on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-linear-to-br from-transparent via-transparent to-current pointer-events-none" style={{ color: 'rgba(var(--primary-rgb), 0.03)' }} />
-      
       <div className="flex items-start justify-between relative">
         <div className="flex items-center gap-4">
           <div className={cn(
@@ -110,6 +111,8 @@ export function StatCard({
   return content;
 }
 
+// ===== MINI STAT =====
+
 interface MiniStatProps {
   label: string;
   value: number;
@@ -132,5 +135,84 @@ export function MiniStat({ label, value, total, color = 'blue' }: MiniStatProps)
       <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
+  );
+}
+
+// ===== LOADING SPINNER =====
+
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+const sizes = {
+  sm: 'w-4 h-4 border-2',
+  md: 'w-8 h-8 border-[3px]',
+  lg: 'w-12 h-12 border-4',
+};
+
+export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
+  return (
+    <div
+      className={cn(
+        'rounded-full border-blue-500 border-t-transparent animate-spin',
+        sizes[size],
+        className
+      )}
+    />
+  );
+}
+
+// ===== LOADING STATE =====
+
+interface LoadingStateProps {
+  message?: string;
+  className?: string;
+}
+
+export function LoadingState({ message = 'Chargement...', className }: LoadingStateProps) {
+  return (
+    <div className={cn(
+      'flex flex-col items-center justify-center min-h-[400px] gap-4',
+      className
+    )}>
+      <div className="relative">
+        <div className="w-16 h-16 rounded-full border-4 border-zinc-200 dark:border-zinc-800" />
+        <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+      </div>
+      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{message}</p>
+    </div>
+  );
+}
+
+// ===== SKELETON CARD =====
+
+export function SkeletonCard() {
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
+        <div className="flex-1 space-y-2">
+          <div className="h-5 w-1/3 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-4 w-1/2 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+        </div>
+      </div>
+      <div className="h-4 w-full bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+      <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+    </div>
+  );
+}
+
+// ===== SKELETON TABLE ROW =====
+
+export function SkeletonTableRow() {
+  return (
+    <tr className="animate-pulse">
+      <td className="p-4"><div className="h-5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
+      <td className="p-4"><div className="h-5 w-24 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
+      <td className="p-4"><div className="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full" /></td>
+      <td className="p-4"><div className="h-5 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
+      <td className="p-4"><div className="h-8 w-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg" /></td>
+    </tr>
   );
 }

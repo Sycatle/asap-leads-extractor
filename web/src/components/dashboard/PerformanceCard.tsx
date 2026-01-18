@@ -1,5 +1,4 @@
-import { Card, CardHeader } from '@/components/ui/Card';
-import { MiniStat } from '@/components/ui/StatCard';
+import { Card, CardHeader, MiniStat } from '@/components/ui';
 import type { Stats } from '@/types';
 
 interface PerformanceCardProps {

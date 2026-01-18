@@ -1,6 +1,6 @@
 import { Phone, Globe, MapPin, Star, Building2, User, Clock, Calendar, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui';
 import { CALL_STATUS_LABELS, PRIORITY_COLORS } from '@/lib/constants';
 import type { Lead } from '@/types';
 

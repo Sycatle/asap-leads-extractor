@@ -1,6 +1,6 @@
 import { PhoneCall, Send, MessageSquare, CheckCircle2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card, CardHeader } from '@/components/ui/Card';
+import { Card, CardHeader } from '@/components/ui';
 import { HISTORY_TYPE_LABELS, HISTORY_TYPE_COLORS } from '@/lib/constants';
 import type { HistoryEntry, HistoryType } from '@/types';
 

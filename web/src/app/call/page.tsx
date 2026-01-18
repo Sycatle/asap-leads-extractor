@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCallSession } from '@/hooks';
 import { CALL_OUTCOMES } from '@/lib/constants';
-import { FollowupModal, LoadingState } from '@/components/ui';
+import { LoadingState } from '@/components/ui';
 import {
   SessionHeader,
   CurrentLeadCard,
@@ -12,14 +12,13 @@ import {
   SessionCompleteCard,
   QuickNoteInput,
   CallActions,
+  NextStepDrawer,
 } from '@/components/call';
-import type { CallOutcome } from '@/types';
+import type { CallOutcome, NextStep, LostReason } from '@/types';
 
 export default function CallSessionPage() {
   const router = useRouter();
   const [note, setNote] = useState('');
-  const [showFollowupModal, setShowFollowupModal] = useState(false);
-  const [pendingOutcome, setPendingOutcome] = useState<CallOutcome | null>(null);
 
   const {
     session,
@@ -28,34 +27,30 @@ export default function CallSessionPage() {
     actionLoading,
     isPaused,
     elapsedTime,
-    processOutcome,
+    pendingOutcome,
+    selectOutcome,
+    confirmOutcome,
+    cancelOutcome,
     skipLead,
     endSession,
     togglePause,
   } = useCallSession();
 
-  // Handle outcome
-  const handleOutcome = useCallback(async (outcome: CallOutcome) => {
+  // Handle outcome selection
+  const handleOutcome = useCallback((outcome: CallOutcome) => {
     if (!currentLead || actionLoading) return;
+    selectOutcome(outcome);
+  }, [currentLead, actionLoading, selectOutcome]);
 
-    // For "rappeler", show the modal first
-    if (outcome === 'rappeler') {
-      setPendingOutcome(outcome);
-      setShowFollowupModal(true);
-      return;
-    }
-
-    await processOutcome(outcome);
+  // Handle next step confirmation from drawer
+  const handleNextStepConfirm = useCallback(async (
+    nextStep: NextStep,
+    lostReason?: LostReason,
+    lostNote?: string
+  ) => {
+    await confirmOutcome(nextStep, lostReason, lostNote);
     setNote('');
-  }, [currentLead, actionLoading, processOutcome]);
-
-  // Handle followup confirmation
-  const handleFollowupConfirm = useCallback(async (datetime: string) => {
-    setShowFollowupModal(false);
-    await processOutcome(pendingOutcome || 'rappeler', datetime);
-    setPendingOutcome(null);
-    setNote('');
-  }, [pendingOutcome, processOutcome]);
+  }, [confirmOutcome]);
 
   // Handle skip
   const handleSkip = useCallback(() => {
@@ -72,7 +67,14 @@ export default function CallSessionPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Don't handle shortcuts when typing in inputs or when drawer is open
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        pendingOutcome
+      ) {
+        return;
+      }
 
       const outcome = CALL_OUTCOMES.find((o) => o.key === e.key);
       if (outcome && currentLead) {
@@ -81,18 +83,27 @@ export default function CallSessionPage() {
         e.preventDefault();
         handleSkip();
       } else if (e.key === 'Escape') {
-        togglePause();
+        if (pendingOutcome) {
+          cancelOutcome();
+        } else {
+          togglePause();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentLead, actionLoading, handleOutcome, handleSkip, togglePause]);
+  }, [currentLead, actionLoading, pendingOutcome, handleOutcome, handleSkip, togglePause, cancelOutcome]);
 
   // Loading session
   if (!session) {
     return <LoadingState message="Démarrage de la session..." />;
   }
+
+  // Check if NextStepDrawer should be shown
+  const showNextStepDrawer = pendingOutcome !== null && 
+    pendingOutcome !== 'opt_out' && 
+    pendingOutcome !== 'mauvais_numero';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -133,14 +144,13 @@ export default function CallSessionPage() {
         </>
       )}
 
-      {/* Followup Modal */}
-      <FollowupModal
-        isOpen={showFollowupModal}
-        onClose={() => {
-          setShowFollowupModal(false);
-          setPendingOutcome(null);
-        }}
-        onConfirm={handleFollowupConfirm}
+      {/* Next Step Drawer */}
+      <NextStepDrawer
+        isOpen={showNextStepDrawer}
+        outcome={pendingOutcome}
+        leadName={currentLead?.name || ''}
+        onConfirm={handleNextStepConfirm}
+        onClose={cancelOutcome}
         loading={actionLoading}
       />
     </div>

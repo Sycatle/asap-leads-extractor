@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui';
 import type { Session } from '@/types';
 
 interface SessionCompleteCardProps {
@@ -10,7 +10,7 @@ interface SessionCompleteCardProps {
 
 export function SessionCompleteCard({ session, onEnd }: SessionCompleteCardProps) {
   return (
-    <Card className="text-center" padding="lg">
+    <Card className="text-center p-8">
       <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
       <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
         Tous les leads ont été traités !

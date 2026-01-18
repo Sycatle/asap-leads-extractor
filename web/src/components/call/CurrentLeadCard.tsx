@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Phone, Globe, Eye, MapPin, Star } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui';
 import { PRIORITY_BADGE_COLORS } from '@/lib/constants';
 import type { Lead } from '@/types';
 
@@ -10,7 +10,7 @@ interface CurrentLeadCardProps {
 
 export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
   return (
-    <Card padding="lg">
+    <Card className="p-8">
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">

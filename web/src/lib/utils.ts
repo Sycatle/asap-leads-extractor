@@ -1,36 +1,38 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return twMerge(clsx(inputs))
 }
 
 export function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
-export function formatRelativeTime(date: Date, isOverdue = false): string {
-  if (isOverdue) {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "aujourd'hui";
-    if (days === 1) return 'hier';
-    return `il y a ${days}j`;
+  
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
-  return date.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('fr-FR');
-}
-
-export function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString('fr-FR');
+export function formatRelativeTime(dateInput: string | Date, _isOverdue?: boolean): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < -1) {
+    return `il y a ${Math.abs(diffDays)} jours`;
+  } else if (diffDays === -1) {
+    return 'hier';
+  } else if (diffDays === 0) {
+    return "aujourd'hui";
+  } else if (diffDays === 1) {
+    return 'demain';
+  } else if (diffDays <= 7) {
+    return `dans ${diffDays} jours`;
+  } else {
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  }
 }

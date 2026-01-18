@@ -1,4 +1,4 @@
-import type { LeadStatus, CallStatus, Priority, FollowupUrgency, CallOutcomeOption } from '@/types';
+import type { LeadStatus, CallStatus, Priority, FollowupUrgency, CallOutcomeOption, CallOutcome } from '@/types';
 
 // ===== STATUS LABELS =====
 
@@ -88,12 +88,44 @@ export const URGENCY_CONFIG: Record<FollowupUrgency, {
 // ===== CALL OUTCOMES =====
 
 export const CALL_OUTCOMES: CallOutcomeOption[] = [
-  { id: 'injoignable', label: 'Injoignable', color: 'red', key: '1' },
-  { id: 'messagerie', label: 'Messagerie', color: 'yellow', key: '2' },
-  { id: 'rappeler', label: 'Rappeler', color: 'blue', key: '3' },
-  { id: 'appele', label: 'Intéressé', color: 'green', key: '4' },
-  { id: 'pas_interesse', label: 'Pas intéressé', color: 'zinc', key: '5' },
+  // Pas de contact
+  { id: 'injoignable', label: 'Injoignable', color: 'red', key: '1', requiresNextStep: true },
+  { id: 'messagerie', label: 'Messagerie', color: 'yellow', key: '2', requiresNextStep: true },
+  { id: 'mauvais_numero', label: 'Mauvais n°', color: 'zinc', key: '3', requiresNextStep: false },
+  // Contact partiel
+  { id: 'accueil', label: 'Accueil/Standard', color: 'orange', key: '4', requiresNextStep: true },
+  { id: 'rappeler', label: 'À rappeler', color: 'blue', key: '5', requiresNextStep: true },
+  // Contact positif
+  { id: 'interesse', label: 'Intéressé', color: 'green', key: '6', requiresNextStep: true },
+  { id: 'rdv_pris', label: 'RDV pris', color: 'green', key: '7', requiresNextStep: true },
+  { id: 'devis_envoye', label: 'Devis envoyé', color: 'purple', key: '8', requiresNextStep: true },
+  // Clôture
+  { id: 'perdu', label: 'Perdu', color: 'zinc', key: '9', requiresNextStep: false },
+  { id: 'opt_out', label: 'Opt-out', color: 'red', key: '0', requiresNextStep: false },
 ];
+
+// Workflows par statut (next steps suggérés)
+export const OUTCOME_WORKFLOWS: Record<CallOutcome, { suggestedNextSteps: string[]; defaultDelay?: string }> = {
+  injoignable: { suggestedNextSteps: ['rappel'], defaultDelay: '+2d' },
+  messagerie: { suggestedNextSteps: ['rappel', 'sms'], defaultDelay: '+1d' },
+  mauvais_numero: { suggestedNextSteps: [] },
+  accueil: { suggestedNextSteps: ['rappel', 'email'], defaultDelay: '+1d' },
+  rappeler: { suggestedNextSteps: ['rappel'], defaultDelay: '+2d' },
+  interesse: { suggestedNextSteps: ['rdv', 'email'], defaultDelay: '+2d' },
+  rdv_pris: { suggestedNextSteps: ['email'], defaultDelay: undefined },
+  devis_envoye: { suggestedNextSteps: ['rappel', 'email'], defaultDelay: '+2d' },
+  perdu: { suggestedNextSteps: ['rappel'], defaultDelay: '+90d' },
+  opt_out: { suggestedNextSteps: [] },
+};
+
+// Raisons de perte
+export const LOST_REASONS = [
+  { id: 'pas_interesse', label: 'Pas intéressé' },
+  { id: 'budget', label: 'Budget insuffisant' },
+  { id: 'timing', label: 'Mauvais timing' },
+  { id: 'concurrent', label: 'Déjà un prestataire' },
+  { id: 'autre', label: 'Autre raison' },
+] as const;
 
 // ===== HISTORY =====
 

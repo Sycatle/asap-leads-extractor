@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-
-import { Card, CardHeader } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Form';
+import { Loader2 } from 'lucide-react';
+import { Card, CardHeader, Button, Input } from '@/components/ui';
 
 interface LeadNotesCardProps {
   notes: string | null;
@@ -36,8 +34,8 @@ export function LeadNotesCard({ notes, onAddNote, loading }: LeadNotesCardProps)
         <Button
           onClick={handleAdd}
           disabled={!newNote.trim() || loading}
-          loading={loading}
         >
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
           Ajouter
         </Button>
       </div>
