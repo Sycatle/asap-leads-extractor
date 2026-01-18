@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Settings } from "lucide-react";
+import { Users, Settings, Phone, Calendar, LayoutDashboard } from "lucide-react";
 
 const tabs = [
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, exact: true },
   { name: "Leads", href: "/leads", icon: Users },
+  { name: "Session", href: "/call", icon: Phone },
+  { name: "Relances", href: "/followups", icon: Calendar },
   { name: "Config", href: "/config", icon: Settings },
 ];
 
@@ -15,7 +18,9 @@ export function Tabs() {
   return (
     <nav className="flex gap-1">
       {tabs.map((tab) => {
-        const isActive = pathname.startsWith(tab.href) || (pathname === "/" && tab.href === "/leads");
+        const isActive = tab.exact 
+          ? pathname === tab.href 
+          : pathname.startsWith(tab.href);
         const Icon = tab.icon;
         
         return (
@@ -31,7 +36,7 @@ export function Tabs() {
             `}
           >
             <Icon className="w-4 h-4" />
-            {tab.name}
+            <span className="hidden sm:inline">{tab.name}</span>
           </Link>
         );
       })}
