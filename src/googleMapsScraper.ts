@@ -203,7 +203,7 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       
       // Reviews
       let reviews_count: number | undefined;
-      const reviewsText = await page.locator('button[jsaction*="review"]').first().textContent({ timeout: 1000 }).catch(() => '');
+      const reviewsText = await page.locator('button[jsaction*="review"]').first().textContent({ timeout: 1000 }).catch(() => '') || '';
       const reviewMatch = reviewsText.match(/\(?([\d\s]+)\)?/);
       if (reviewMatch) reviews_count = parseInt(reviewMatch[1].replace(/\s/g, ''));
       
