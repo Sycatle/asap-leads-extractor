@@ -56,7 +56,6 @@ program
   .option('--niches <niches>', 'Niches à scraper (séparées par virgule)', 'coiffeur')
   .option('--cities <cities>', 'Villes à scraper (séparées par virgule)', 'Le Mans')
   .option('--skip-enrich', 'Sauter l\'enrichissement Pappers')
-  .option('--no-db', 'Ne pas sauvegarder en base SQLite')
   .action(async (options) => {
     console.log('🚀 Leads Finder - Mode Scraping\n');
     const startTime = Date.now();
@@ -66,12 +65,12 @@ program
     const niches = options.niches ? options.niches.split(',').map((s: string) => s.trim()) : config.scrape?.niches || ['coiffeur'];
     const cities = options.cities ? options.cities.split(',').map((s: string) => s.trim()) : config.scrape?.cities || ['Le Mans'];
 
-    // Étape 1: Scraping (avec sauvegarde DB par défaut)
+    // Étape 1: Scraping + sauvegarde DB
     console.log('🌐 ÉTAPE 1: SCRAPING GOOGLE MAPS...\n');
     const leads = await scrapeGoogleMaps({ 
       niches, 
       cities,
-      saveToDb: options.db !== false // true par défaut
+      saveToDb: true
     });
     
     // Filtrer les chaînes exclues
@@ -102,12 +101,10 @@ program
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     
     // Stats DB
-    if (options.db !== false) {
-      const stats = getStats();
-      console.log(`\n📊 En base: ${stats.total} leads total`);
-    }
+    const stats = getStats();
+    console.log(`\n📊 En base: ${stats.total} leads total`);
     
-    console.log(`\n⏱️  Terminé en ${duration}s`);
+    console.log(`\n⏱️  Terminé en ${duration}s`;
     closeDb();
   });
 
