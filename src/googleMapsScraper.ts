@@ -1,5 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import { RawLead } from './types.js';
+import { upsertLead, closeDb, type InsertLead } from './db.js';
 
 const DELAY_BETWEEN_ACTIONS = 1000;
 const SCROLL_PAUSE = 800;
@@ -207,7 +208,7 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       const reviewMatch = reviewsText.match(/\(?([\d\s]+)\)?/);
       if (reviewMatch) reviews_count = parseInt(reviewMatch[1].replace(/\s/g, ''));
       
-      leads.push({
+      const lead: RawLead & { niche: string } = {
         name: cleanName(name),
         phone,
         address: address.replace(/^[^a-zA-Z0-9]+/, '').trim(),
@@ -217,7 +218,10 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         maps_url: page.url(),
         rating,
         reviews_count,
-      });
+        niche: query.split(' ')[0], // Premier mot = niche
+      };
+      
+      leads.push(lead);
       
       const hasWebsite = website ? '🌐' : '📞';
       process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name).substring(0, 30).padEnd(30)} ${hasWebsite}   `);
@@ -236,6 +240,7 @@ export interface ScrapeConfig {
   niches: string[];
   cities: string[];
   maxPerQuery?: number;
+  saveToDb?: boolean;
 }
 
 export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]> {
@@ -283,6 +288,31 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   
   console.log(`\n✓ Total brut: ${allLeads.length}`);
   console.log(`✓ Après dédup: ${uniqueLeads.length}`);
+  
+  // Sauvegarder en DB si demandé
+  if (config.saveToDb) {
+    let inserted = 0;
+    for (const lead of uniqueLeads) {
+      const priority = lead.website ? 'medium' : 'high';
+      const dbLead: InsertLead = {
+        phone: lead.phone,
+        name: lead.name,
+        address: lead.address,
+        city: lead.city,
+        postal_code: lead.postal_code,
+        website: lead.website,
+        maps_url: lead.maps_url,
+        rating: lead.rating,
+        reviews_count: lead.reviews_count,
+        niche: (lead as RawLead & { niche?: string }).niche || null,
+        source: 'google_maps',
+        priority,
+      };
+      const result = upsertLead(dbLead);
+      if (result) inserted++;
+    }
+    console.log(`✓ Insérés en DB: ${inserted}`);
+  }
   
   return uniqueLeads;
 }

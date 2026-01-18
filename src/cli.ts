@@ -6,6 +6,7 @@ import { exportCSV } from './export.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
 import { writeFileSync } from 'fs';
+import { getStats, findLeads, closeDb, countLeads } from './db.js';
 
 const program = new Command();
 
@@ -55,6 +56,7 @@ program
   .option('--niches <niches>', 'Niches à scraper (séparées par virgule)', 'coiffeur')
   .option('--cities <cities>', 'Villes à scraper (séparées par virgule)', 'Le Mans')
   .option('--skip-enrich', 'Sauter l\'enrichissement Pappers')
+  .option('--no-db', 'Ne pas sauvegarder en base SQLite')
   .action(async (options) => {
     console.log('🚀 Leads Finder - Mode Scraping\n');
     const startTime = Date.now();
@@ -64,9 +66,13 @@ program
     const niches = options.niches ? options.niches.split(',').map((s: string) => s.trim()) : config.scrape?.niches || ['coiffeur'];
     const cities = options.cities ? options.cities.split(',').map((s: string) => s.trim()) : config.scrape?.cities || ['Le Mans'];
 
-    // Étape 1: Scraping
+    // Étape 1: Scraping (avec sauvegarde DB par défaut)
     console.log('🌐 ÉTAPE 1: SCRAPING GOOGLE MAPS...\n');
-    const leads = await scrapeGoogleMaps({ niches, cities });
+    const leads = await scrapeGoogleMaps({ 
+      niches, 
+      cities,
+      saveToDb: options.db !== false // true par défaut
+    });
     
     // Filtrer les chaînes exclues
     const filtered = leads.filter(lead => {
@@ -94,7 +100,15 @@ program
     exportCSV();
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    
+    // Stats DB
+    if (options.db !== false) {
+      const stats = getStats();
+      console.log(`\n📊 En base: ${stats.total} leads total`);
+    }
+    
     console.log(`\n⏱️  Terminé en ${duration}s`);
+    closeDb();
   });
 
 // Commande: collect
@@ -129,26 +143,52 @@ program
 // Commande: stats
 program
   .command('stats')
-  .description('Afficher les statistiques des leads enrichis')
-  .action(async () => {
-    const { readFileSync, existsSync } = await import('fs');
+  .description('Afficher les statistiques des leads en base')
+  .option('--by-city', 'Afficher par ville')
+  .option('--by-status', 'Afficher par statut')
+  .action(async (options) => {
+    const stats = getStats();
     
-    if (!existsSync('data/leads_enriched.json')) {
-      console.log('❌ Aucun lead enrichi trouvé. Lance d\'abord: leads-finder run');
-      return;
+    console.log('📊 STATISTIQUES LEADS\n');
+    console.log(`Total en base: ${stats.total}`);
+    
+    console.log('\n📋 Par statut:');
+    console.log(`  🆕 Nouveau:     ${stats.by_status.nouveau}`);
+    console.log(`  📞 Contacté:    ${stats.by_status.contacte}`);
+    console.log(`  ✅ Qualifié:    ${stats.by_status.qualifie}`);
+    console.log(`  📝 Proposition: ${stats.by_status.proposition}`);
+    console.log(`  🎉 Converti:    ${stats.by_status.converti}`);
+    console.log(`  ❌ Perdu:       ${stats.by_status.perdu}`);
+    
+    console.log('\n📞 Par appel:');
+    console.log(`  Non appelé:   ${stats.by_call_status.non_appele}`);
+    console.log(`  Appelé:       ${stats.by_call_status.appele}`);
+    console.log(`  Messagerie:   ${stats.by_call_status.messagerie}`);
+    console.log(`  À rappeler:   ${stats.by_call_status.rappeler}`);
+    console.log(`  Injoignable:  ${stats.by_call_status.injoignable}`);
+    
+    console.log('\n⭐ Par priorité:');
+    console.log(`  High:   ${stats.by_priority.high || 0}`);
+    console.log(`  Medium: ${stats.by_priority.medium || 0}`);
+    console.log(`  Low:    ${stats.by_priority.low || 0}`);
+    
+    if (options.byCity || Object.keys(stats.by_city).length <= 10) {
+      console.log('\n🏙️  Par ville:');
+      for (const [city, count] of Object.entries(stats.by_city)) {
+        console.log(`  ${city}: ${count}`);
+      }
     }
-
-    const leads = JSON.parse(readFileSync('data/leads_enriched.json', 'utf-8'));
     
-    console.log('📊 STATISTIQUES\n');
-    console.log(`Total leads: ${leads.length}`);
-    console.log(`Avec SIREN: ${leads.filter((l: Record<string, unknown>) => l.siren).length}`);
-    console.log(`Avec dirigeant: ${leads.filter((l: Record<string, unknown>) => l.dirigeant).length}`);
-    console.log(`Avec site web: ${leads.filter((l: Record<string, unknown>) => l.website).length}`);
-    console.log(`\nPar priorité:`);
-    console.log(`  High: ${leads.filter((l: Record<string, unknown>) => l.priority === 'high').length}`);
-    console.log(`  Medium: ${leads.filter((l: Record<string, unknown>) => l.priority === 'medium').length}`);
-    console.log(`  Low: ${leads.filter((l: Record<string, unknown>) => l.priority === 'low').length}`);
+    console.log('\n📅 Aujourd\'hui:');
+    console.log(`  Relances prévues: ${stats.followups_today}`);
+    console.log(`  Contactés:        ${stats.contacted_today}`);
+    
+    if (stats.total > 0) {
+      const conversionRate = ((stats.by_status.converti / stats.total) * 100).toFixed(1);
+      console.log(`\n🏆 Taux conversion: ${conversionRate}%`);
+    }
+    
+    closeDb();
   });
 
 program.parse();
