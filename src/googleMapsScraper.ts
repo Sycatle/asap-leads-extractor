@@ -1,27 +1,60 @@
 import { chromium, Browser, Page } from 'playwright';
 import { RawLead } from './types.js';
 
-const DELAY_BETWEEN_ACTIONS = 1500; // 1.5s entre chaque action
-const SCROLL_PAUSE = 1000;
-const MAX_RESULTS_PER_QUERY = 20; // Limiter pour aller plus vite
+const DELAY_BETWEEN_ACTIONS = 1000;
+const SCROLL_PAUSE = 800;
+const MAX_RESULTS_PER_QUERY = 20;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Extraire le code postal depuis l'adresse
 function extractPostalCode(address: string): string {
   const match = address.match(/\b(\d{5})\b/);
   return match ? match[1] : '';
 }
 
-// Extraire la ville depuis l'adresse
 function extractCity(address: string): string {
-  const match = address.match(/\d{5}\s+([A-Za-zÀ-ÿ\s-]+)/);
-  return match ? match[1].trim() : '';
+  // Gérer les apostrophes et caractères spéciaux
+  const match = address.match(/\d{5}\s+([A-Za-zÀ-ÿ\s\-'']+)/);
+  if (match) {
+    return match[1].trim().replace(/\s+/g, ' ');
+  }
+  return '';
 }
 
-// Normaliser le téléphone FR
+// Extraire le nom depuis l'URL Google Maps
+function extractNameFromUrl(url: string): string {
+  const match = url.match(/\/maps\/place\/([^/@]+)/);
+  if (match) {
+    return decodeURIComponent(match[1].replace(/\+/g, ' '));
+  }
+  return '';
+}
+
+// Nettoyer le nom (retirer les descriptions marketing)
+function cleanName(name: string): string {
+  // Couper au premier séparateur type | ou -
+  let cleaned = name.split(/\s*[|]\s*/)[0];
+  
+  // Si le nom est encore trop long, couper au premier tiret avec espaces
+  if (cleaned.length > 50) {
+    cleaned = cleaned.split(/\s+-\s+/)[0];
+  }
+  
+  // Retirer les parenthèses et leur contenu
+  cleaned = cleaned.replace(/\s*\([^)]*\)\s*/g, ' ');
+  
+  return cleaned.trim().replace(/\s+/g, ' ');
+}
+
+// Vérifier si le nom est valide
+function isValidName(name: string): boolean {
+  const invalid = ['résultat', 'sponsorisé', 'sponsored', 'annonce', 'publicité'];
+  const lower = name.toLowerCase();
+  return name.length > 2 && !invalid.some(i => lower.includes(i));
+}
+
 function normalizePhone(raw: string): string {
   const cleaned = raw.replace(/[\s.\-()]/g, '');
   if (cleaned.startsWith('+33')) {
@@ -33,146 +66,152 @@ function normalizePhone(raw: string): string {
   return '';
 }
 
-// Scraper une seule recherche Google Maps
+// Scraper avec extraction depuis le panneau latéral (plus rapide)
 async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
   const leads: RawLead[] = [];
   
   console.log(`  🔍 Recherche: "${query}"`);
   
-  // Naviguer vers Google Maps
   const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
-  await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
-  await sleep(3000);
+  await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await sleep(2000);
   
-  // Accepter les cookies si popup
+  // Accepter cookies
   try {
-    const acceptButton = page.locator('button').filter({ hasText: /Tout accepter|Accept all/i }).first();
-    if (await acceptButton.isVisible({ timeout: 3000 })) {
-      await acceptButton.click();
-      await sleep(2000);
+    const acceptBtn = page.locator('button').filter({ hasText: /Tout accepter|Accept all/i }).first();
+    if (await acceptBtn.isVisible({ timeout: 2000 })) {
+      await acceptBtn.click();
+      await sleep(1000);
     }
+  } catch { /* ignore */ }
+  
+  // Attendre les résultats
+  try {
+    await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
   } catch {
-    // Pas de popup cookies
-  }
-  
-  // Attendre la liste des résultats (plusieurs sélecteurs possibles)
-  const feedSelectors = [
-    'div[role="feed"]',
-    'div[aria-label*="Résultats"]',
-    'div.m6QErb[aria-label]',
-  ];
-  
-  let feedFound = false;
-  for (const selector of feedSelectors) {
-    try {
-      await page.waitForSelector(selector, { timeout: 5000 });
-      feedFound = true;
-      break;
-    } catch {
-      continue;
-    }
-  }
-  
-  if (!feedFound) {
-    console.log(`  ⚠ Aucun résultat pour "${query}"`);
+    console.log(`  ⚠ Pas de résultats`);
     return leads;
   }
   
-  // Trouver tous les liens d'établissements
-  await sleep(2000);
-  
-  // Scroll pour charger les résultats
-  const scrollContainer = page.locator('div[role="feed"], div.m6QErb').first();
-  for (let i = 0; i < 5; i++) {
-    await scrollContainer.evaluate(el => el.scrollBy(0, 1000));
+  // Scroll pour charger plus
+  const feed = page.locator('div[role="feed"]').first();
+  for (let i = 0; i < 3; i++) {
+    await feed.evaluate(el => el.scrollBy(0, 800));
     await sleep(SCROLL_PAUSE);
   }
   
-  // Collecter tous les liens vers les établissements
-  const placeLinks = await page.locator('a[href*="/maps/place/"]').all();
-  console.log(`  📍 ${placeLinks.length} établissements trouvés`);
+  // Récupérer tous les éléments de la liste
+  const items = page.locator('div[role="feed"] > div > div > a[href*="/maps/place/"]');
+  const count = await items.count();
+  console.log(`  📍 ${count} établissements trouvés`);
   
-  const visitedUrls = new Set<string>();
-  
-  for (let i = 0; i < Math.min(placeLinks.length, MAX_RESULTS_PER_QUERY); i++) {
+  for (let i = 0; i < Math.min(count, MAX_RESULTS_PER_QUERY); i++) {
     try {
-      const href = await placeLinks[i].getAttribute('href');
-      if (!href || visitedUrls.has(href)) continue;
-      visitedUrls.add(href);
+      const item = items.nth(i);
       
-      // Naviguer vers la page de l'établissement
-      await page.goto(href, { waitUntil: 'domcontentloaded' });
+      // Cliquer pour ouvrir le panneau latéral
+      await item.click();
       await sleep(DELAY_BETWEEN_ACTIONS);
       
-      // Extraire le nom
-      const nameEl = page.locator('h1').first();
-      const name = await nameEl.textContent({ timeout: 3000 }).catch(() => null);
-      if (!name) continue;
+      // Attendre que le panneau se charge
+      await page.waitForSelector('h1', { timeout: 5000 });
+      await sleep(500);
       
-      // Extraire le téléphone
-      let phone = '';
-      const phoneButton = page.locator('button[data-item-id*="phone"]').first();
-      if (await phoneButton.count() > 0) {
-        const ariaLabel = await phoneButton.getAttribute('aria-label') || '';
-        const phoneMatch = ariaLabel.match(/(\+?[\d\s.()-]+)/);
-        if (phoneMatch) {
-          phone = normalizePhone(phoneMatch[1]);
+      // Nom - plusieurs stratégies
+      let name = '';
+      
+      // 1. Essayer depuis le H1 du panneau de détails (pas celui de la recherche)
+      const h1Elements = await page.locator('h1').all();
+      for (const h1 of h1Elements) {
+        const text = await h1.textContent({ timeout: 1000 }).catch(() => '');
+        // Ignorer "Résultats" ou textes trop courts
+        if (text && text.length > 2 && !text.toLowerCase().includes('résultat')) {
+          name = text.trim();
+          break;
         }
       }
       
-      // Alternative: chercher dans le texte
+      // 2. Fallback: extraire depuis l'URL
+      if (!name || name.toLowerCase().includes('résultat')) {
+        name = extractNameFromUrl(page.url());
+      }
+      
+      // 3. Fallback: aria-label du lien cliqué
+      if (!name) {
+        const ariaLabel = await item.getAttribute('aria-label').catch(() => '');
+        if (ariaLabel) name = ariaLabel;
+      }
+      
+      // Valider le nom
+      if (!name || !isValidName(name)) {
+        process.stdout.write(`\r  ⏭ Skip (nom invalide): ${i+1}/${count}   `);
+        continue;
+      }
+      
+      // Téléphone - chercher le bouton avec l'icône téléphone
+      let phone = '';
+      const allButtons = await page.locator('button[data-tooltip*="téléphone"], button[aria-label*="téléphone"], button[data-item-id*="phone"]').all();
+      for (const btn of allButtons) {
+        const label = await btn.getAttribute('aria-label') || await btn.getAttribute('data-item-id') || '';
+        const match = label.match(/(\+?33[\s.-]?\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})/);
+        if (match) {
+          phone = normalizePhone(match[1]);
+          break;
+        }
+      }
+      
+      // Alternative: chercher dans le texte de la page
       if (!phone) {
-        const pageText = await page.locator('body').textContent() || '';
-        const phoneMatch = pageText.match(/(?:0|\+33)[1-9](?:[\s.-]*\d{2}){4}/);
-        if (phoneMatch) {
-          phone = normalizePhone(phoneMatch[0]);
+        const allText = await page.locator('div[role="region"], div[class*="fontBodyMedium"]').allTextContents();
+        for (const text of allText) {
+          const match = text.match(/(0[1-9][\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})/);
+          if (match) {
+            phone = normalizePhone(match[1]);
+            break;
+          }
         }
       }
       
       // Skip si pas de téléphone
       if (!phone) {
+        process.stdout.write(`\r  ⏭ Skip (pas de tel): ${i+1}/${count}`);
         continue;
       }
       
-      // Extraire l'adresse
+      // Adresse
       let address = '';
-      const addressButton = page.locator('button[data-item-id="address"]').first();
-      if (await addressButton.count() > 0) {
-        address = await addressButton.textContent() || '';
+      const addressBtn = page.locator('button[data-item-id="address"]').first();
+      if (await addressBtn.count() > 0) {
+        address = await addressBtn.textContent({ timeout: 1000 }) || '';
       }
       
-      // Extraire le website
+      // Website
       let website: string | undefined;
       const websiteLink = page.locator('a[data-item-id="authority"]').first();
       if (await websiteLink.count() > 0) {
         website = await websiteLink.getAttribute('href') || undefined;
       }
       
-      // Extraire le rating
+      // Rating
       let rating: number | undefined;
-      const ratingText = await page.locator('div[role="img"][aria-label*="étoile"]').first().getAttribute('aria-label').catch(() => null);
-      if (ratingText) {
-        const match = ratingText.match(/([\d,]+)/);
-        if (match) {
-          rating = parseFloat(match[1].replace(',', '.'));
-        }
+      const ratingSpan = page.locator('span[role="img"]').first();
+      if (await ratingSpan.count() > 0) {
+        const ariaLabel = await ratingSpan.getAttribute('aria-label') || '';
+        const match = ariaLabel.match(/([\d,\.]+)/);
+        if (match) rating = parseFloat(match[1].replace(',', '.'));
       }
       
-      // Extraire le nombre d'avis
+      // Reviews
       let reviews_count: number | undefined;
-      const reviewsText = await page.locator('button[jsaction*="review"]').first().textContent().catch(() => null);
-      if (reviewsText) {
-        const match = reviewsText.match(/([\d\s]+)/);
-        if (match) {
-          reviews_count = parseInt(match[1].replace(/\s/g, ''));
-        }
-      }
+      const reviewsText = await page.locator('button[jsaction*="review"]').first().textContent({ timeout: 1000 }).catch(() => '');
+      const reviewMatch = reviewsText.match(/\(?([\d\s]+)\)?/);
+      if (reviewMatch) reviews_count = parseInt(reviewMatch[1].replace(/\s/g, ''));
       
       leads.push({
-        name: name.trim(),
+        name: cleanName(name),
         phone,
-        address: address.trim(),
-        city: extractCity(address),
+        address: address.replace(/^[^a-zA-Z0-9]+/, '').trim(),
+        city: extractCity(address) || query.split(' ').pop() || '',
         postal_code: extractPostalCode(address),
         website,
         maps_url: page.url(),
@@ -180,16 +219,16 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         reviews_count,
       });
       
-      process.stdout.write(`\r  ✓ Extrait: ${leads.length}`);
+      const hasWebsite = website ? '🌐' : '📞';
+      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name).substring(0, 30).padEnd(30)} ${hasWebsite}   `);
       
-    } catch (error) {
+    } catch (err) {
+      // Continuer sur erreur
       continue;
     }
   }
   
   console.log('');
-  
-  // Retourner à la page de recherche pour la prochaine query
   return leads;
 }
 
