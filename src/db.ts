@@ -1,10 +1,13 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { DbLead, LeadStatus, CallStatus, EmailStatus } from './types.js';
 
 // ===== CONNEXION =====
 
-const DB_PATH = path.join(process.cwd(), 'data', 'leads.db');
+// Chemin absolu vers la DB partagée
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = process.env.DATABASE_PATH || path.resolve(__dirname, '..', 'data', 'leads.db');
 
 let db: Database.Database | null = null;
 
@@ -86,6 +89,44 @@ function initSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_leads_call_status ON leads(call_status);
     CREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score);
     CREATE INDEX IF NOT EXISTS idx_leads_opt_out ON leads(opt_out);
+    
+    -- Table historique des interactions (utilisée par le web)
+    CREATE TABLE IF NOT EXISTS lead_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lead_id INTEGER NOT NULL,
+      type TEXT CHECK(type IN ('call', 'email', 'note', 'status_change', 'followup_set')) NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      note TEXT,
+      duration_seconds INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_history_lead ON lead_history(lead_id);
+    CREATE INDEX IF NOT EXISTS idx_history_date ON lead_history(created_at);
+    
+    -- Table sessions de prospection (utilisée par le web)
+    CREATE TABLE IF NOT EXISTS call_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      ended_at TEXT,
+      total_calls INTEGER DEFAULT 0,
+      total_reached INTEGER DEFAULT 0,
+      total_voicemail INTEGER DEFAULT 0,
+      total_scheduled INTEGER DEFAULT 0,
+      notes TEXT
+    );
+    
+    -- Table scripts d'appel (utilisée par le web)
+    CREATE TABLE IF NOT EXISTS call_scripts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      niche TEXT,
+      type TEXT CHECK(type IN ('intro', 'objection', 'closing')) NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1
+    );
   `);
   
   // Migration: ajouter les nouvelles colonnes si elles n'existent pas

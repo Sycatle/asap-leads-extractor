@@ -1,41 +1,56 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Types
 export type LeadStatus = 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | 'converti' | 'perdu';
 export type CallStatus = 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable';
 export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'bounce';
+export type PhoneType = 'pro' | 'perso' | 'unknown';
+export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
+export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 
 export interface DbLead {
   id: number;
   phone: string;
+  phone_type: PhoneType;
   name: string;
   address: string;
   city: string;
   postal_code: string;
   website: string | null;
+  website_status: WebsiteStatus | null;
   maps_url: string;
   rating: number | null;
   reviews_count: number | null;
   niche: string | null;
-  source: string;
+  source: LeadSource;
   siren: string | null;
   siret: string | null;
   legal_name: string | null;
   dirigeant: string | null;
   priority: 'high' | 'medium' | 'low';
+  score: number;
+  opening_hours: string | null;
+  best_call_time: string | null;
+  has_booking: number;
+  has_seo: number;
+  last_gmb_update: string | null;
   status: LeadStatus;
   call_status: CallStatus;
   email_status: EmailStatus;
   notes: string | null;
+  attempts_count: number;
+  opt_out: number;
   last_contact_at: string | null;
   next_followup_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// DB Path - points to parent project's data folder
-const DB_PATH = path.join(process.cwd(), '..', 'data', 'leads.db');
+// DB Path - Chemin absolu vers la racine du projet parent
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = process.env.DATABASE_PATH || path.resolve(__dirname, '..', '..', '..', '..', 'data', 'leads.db');
 
 let db: Database.Database | null = null;
 
@@ -43,49 +58,47 @@ export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    initSchema();
+    migrateSchema(db);
   }
   return db;
 }
 
-function initSchema(): void {
-  const database = getDb();
+/**
+ * Migration du schéma - ajoute les tables et colonnes manquantes
+ * Le worker crée le schéma initial, le web le complète si nécessaire
+ */
+function migrateSchema(database: Database.Database): void {
+  // Vérifier les colonnes existantes
+  const columns = database.prepare("PRAGMA table_info(leads)").all() as { name: string }[];
+  const columnNames = new Set(columns.map(c => c.name));
   
+  // Migrations des colonnes (le worker les crée, mais on s'assure qu'elles existent)
+  const migrations: [string, string][] = [
+    ['phone_type', "ALTER TABLE leads ADD COLUMN phone_type TEXT CHECK(phone_type IN ('pro', 'perso', 'unknown')) DEFAULT 'unknown'"],
+    ['website_status', "ALTER TABLE leads ADD COLUMN website_status TEXT CHECK(website_status IN ('none', 'old', 'platform', 'modern'))"],
+    ['score', "ALTER TABLE leads ADD COLUMN score INTEGER DEFAULT 50"],
+    ['opening_hours', "ALTER TABLE leads ADD COLUMN opening_hours TEXT"],
+    ['best_call_time', "ALTER TABLE leads ADD COLUMN best_call_time TEXT"],
+    ['has_booking', "ALTER TABLE leads ADD COLUMN has_booking INTEGER DEFAULT 0"],
+    ['has_seo', "ALTER TABLE leads ADD COLUMN has_seo INTEGER DEFAULT 0"],
+    ['last_gmb_update', "ALTER TABLE leads ADD COLUMN last_gmb_update TEXT"],
+    ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
+    ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
+  ];
+  
+  for (const [column, sql] of migrations) {
+    if (!columnNames.has(column)) {
+      try {
+        database.exec(sql);
+        console.log(`[DB] Migration: ajout colonne ${column}`);
+      } catch {
+        // Ignore si déjà existe
+      }
+    }
+  }
+  
+  // Tables additionnelles pour le web
   database.exec(`
-    CREATE TABLE IF NOT EXISTS leads (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      phone TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      address TEXT NOT NULL,
-      city TEXT NOT NULL,
-      postal_code TEXT NOT NULL,
-      website TEXT,
-      maps_url TEXT NOT NULL,
-      rating REAL,
-      reviews_count INTEGER,
-      niche TEXT,
-      source TEXT DEFAULT 'google_maps',
-      siren TEXT,
-      siret TEXT,
-      legal_name TEXT,
-      dirigeant TEXT,
-      priority TEXT CHECK(priority IN ('high', 'medium', 'low')) DEFAULT 'medium',
-      status TEXT CHECK(status IN ('nouveau', 'contacte', 'qualifie', 'proposition', 'converti', 'perdu')) DEFAULT 'nouveau',
-      call_status TEXT CHECK(call_status IN ('non_appele', 'appele', 'messagerie', 'rappeler', 'injoignable')) DEFAULT 'non_appele',
-      email_status TEXT CHECK(email_status IN ('non_envoye', 'envoye', 'ouvert', 'repondu', 'bounce')) DEFAULT 'non_envoye',
-      notes TEXT,
-      last_contact_at TEXT,
-      next_followup_at TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
-    CREATE INDEX IF NOT EXISTS idx_leads_city ON leads(city);
-    CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority);
-    CREATE INDEX IF NOT EXISTS idx_leads_next_followup ON leads(next_followup_at);
-    CREATE INDEX IF NOT EXISTS idx_leads_call_status ON leads(call_status);
-    
     -- Table historique des interactions
     CREATE TABLE IF NOT EXISTS lead_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
