@@ -1,11 +1,29 @@
 {
   "input_csv": "data/raw/export.csv",
   "target": 100,
-  "allowed_departments": ["72", "49", "53", "44", "85"],
-  "exclude_keywords": ["Carrefour", "McDonald's", "Leclerc", "Auchan", "Intermarché"],
+  "allowed_departments": [
+    "72",
+    "49",
+    "53",
+    "44",
+    "85"
+  ],
+  "exclude_keywords": [
+    "Carrefour",
+    "McDonald's",
+    "Leclerc",
+    "Auchan",
+    "Intermarché"
+  ],
   "scrape": {
-    "niches": ["coiffeur", "barbier", "salon de coiffure"],
-    "cities": ["Le Mans", "Angers", "Nantes", "Laval"]
+    "niches": [
+      "coiffeur",
+      "barbier"
+    ],
+    "cities": [
+      "Le Mans",
+      "Angers"
+    ]
   },
   "worker": {
     "interval_minutes": 30,
