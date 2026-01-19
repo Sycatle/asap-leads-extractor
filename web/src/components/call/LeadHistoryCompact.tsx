@@ -53,7 +53,7 @@ function HistoryItem({ entry, compact = false }: { entry: HistoryEntry; compact?
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <span className="text-sm font-medium text-foreground">
             {HISTORY_TYPE_LABELS[entry.type] || entry.type}
           </span>
           <span className="text-xs text-zinc-500 shrink-0">
@@ -66,7 +66,7 @@ function HistoryItem({ entry, compact = false }: { entry: HistoryEntry; compact?
           </p>
         )}
         {entry.note && (
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
             {entry.note}
           </p>
         )}
@@ -91,7 +91,7 @@ export function LeadHistoryCompact({ history, maxItems = 3 }: LeadHistoryCompact
 
   return (
     <>
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+      <div className="divide-y divide-border">
         {displayHistory.map((entry) => (
           <HistoryItem key={entry.id} entry={entry} compact />
         ))}
@@ -100,7 +100,7 @@ export function LeadHistoryCompact({ history, maxItems = 3 }: LeadHistoryCompact
       {hasMore && (
         <button
           onClick={() => setShowFullHistory(true)}
-          className="w-full flex items-center justify-center gap-1 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+          className="w-full flex items-center justify-center gap-1 py-2 text-sm text-primary hover:text-primary/80 transition-colors"
         >
           Voir tout ({history.length})
           <ChevronRight className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function LeadHistoryCompact({ history, maxItems = 3 }: LeadHistoryCompact
           <DialogHeader>
             <DialogTitle>Historique complet</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
             {history.map((entry) => (
               <HistoryItem key={entry.id} entry={entry} />
             ))}

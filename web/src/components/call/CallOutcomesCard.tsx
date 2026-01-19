@@ -33,7 +33,7 @@ const OUTCOME_COLORS = {
   yellow: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900 dark:hover:bg-yellow-800 dark:text-yellow-300',
   blue: 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900 dark:hover:bg-blue-800 dark:text-blue-300',
   green: 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900 dark:hover:bg-green-800 dark:text-green-300',
-  zinc: 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300',
+  zinc: 'bg-muted hover:bg-accent text-muted-foreground',
   purple: 'bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900 dark:hover:bg-purple-800 dark:text-purple-300',
   orange: 'bg-orange-100 hover:bg-orange-200 text-orange-700 dark:bg-orange-900 dark:hover:bg-orange-800 dark:text-orange-300',
 };
@@ -84,7 +84,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
 
   return (
     <Card className="p-4">
-      <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
         Résultat de l&apos;appel
       </p>
       

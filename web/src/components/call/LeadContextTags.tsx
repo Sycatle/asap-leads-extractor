@@ -29,7 +29,7 @@ const TAG_COLORS = {
   yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
   green: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
   blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-  zinc: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+  zinc: 'bg-muted text-muted-foreground',
 };
 
 function generateTags(lead: Lead): ContextTag[] {
@@ -180,7 +180,7 @@ export function LeadContextTags({ lead, compact = false }: LeadContextTagsProps)
         );
       })}
       {compact && tags.length > 3 && (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-zinc-800">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
           +{tags.length - 3}
         </span>
       )}

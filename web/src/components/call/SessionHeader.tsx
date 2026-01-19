@@ -26,13 +26,13 @@ export function SessionHeader({
           <Link
             href="/leads"
             onClick={onEnd}
-            className="p-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2.5 rounded-xl hover:bg-accent transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-zinc-500" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+              <h1 className="text-xl font-bold text-foreground">
                 Session d&apos;appel
               </h1>
               {isPaused && (
@@ -43,11 +43,11 @@ export function SessionHeader({
             </div>
             <p className="text-sm text-zinc-400 mt-0.5">
               <span className="hidden md:inline">Raccourcis: </span>
-              <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">1-5</kbd> résultat
+              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">1-5</kbd> résultat
               <span className="mx-1">•</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">Espace</kbd> passer
+              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">Espace</kbd> passer
               <span className="mx-1">•</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">Échap</kbd> pause
+              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">Échap</kbd> pause
             </p>
           </div>
         </div>
@@ -67,8 +67,8 @@ export function SessionHeader({
           
           {/* Stats pills */}
           <div className="hidden lg:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-sm">
-              <Phone className="w-4 h-4 text-zinc-500" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-sm">
+              <Phone className="w-4 h-4 text-muted-foreground" />
               <span className="font-semibold">{session.total_calls}</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-sm text-emerald-600 dark:text-emerald-400">
@@ -88,7 +88,7 @@ export function SessionHeader({
               'p-3 rounded-xl transition-all',
               isPaused
                 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg'
-                : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             )}
           >
             {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}

@@ -37,7 +37,7 @@ const NEXT_STEP_OPTIONS: { id: NextStepType; label: string; icon: typeof Calenda
   { id: 'email', label: 'Email', icon: Mail, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300' },
   { id: 'sms', label: 'SMS', icon: MessageSquare, color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300' },
   { id: 'rdv', label: 'RDV', icon: CalendarPlus, color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300' },
-  { id: 'tache', label: 'Tâche', icon: CheckCircle2, color: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300' },
+  { id: 'tache', label: 'Tâche', icon: CheckCircle2, color: 'bg-muted text-muted-foreground hover:bg-accent' },
 ];
 
 const QUICK_DELAYS: { label: string; value: number | 'tomorrow' }[] = [
@@ -188,8 +188,8 @@ export function NextStepDrawer({
                   onClick={() => setLostReason(reason.id as LostReason)}
                   className={`p-3 rounded-lg text-sm font-medium transition-all ${
                     lostReason === reason.id
-                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                      : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                      ? 'bg-foreground text-background'
+                      : 'bg-muted text-foreground hover:bg-accent'
                   }`}
                 >
                   {reason.label}
@@ -298,7 +298,7 @@ export function NextStepDrawer({
                   <button
                     key={delay.label}
                     onClick={() => handleQuickDelay(delay.value)}
-                    className="px-3 py-1.5 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-md transition-colors"
+                    className="px-3 py-1.5 text-sm bg-muted hover:bg-accent rounded-md transition-colors"
                   >
                     {delay.label}
                   </button>
