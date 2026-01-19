@@ -2,10 +2,8 @@
 import { Command } from 'commander';
 import { collect } from './collect.js';
 import { enrich } from './enrich.js';
-import { exportCSV } from './export.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
-import { writeFileSync } from 'fs';
 import { getStats, findLeads, closeDb, countLeads } from './db.js';
 
 const program = new Command();
@@ -18,7 +16,7 @@ program
 // Commande: run (pipeline complet)
 program
   .command('run')
-  .description('Exécute le pipeline complet: collect → enrich → export')
+  .description('Exécute le pipeline complet: collect → enrich (full SQLite)')
   .option('-c, --config <path>', 'Chemin vers le fichier config', 'config.json')
   .option('--skip-enrich', 'Sauter l\'étape d\'enrichissement Pappers')
   .action(async (options) => {
@@ -35,24 +33,20 @@ program
       console.log('');
     } else {
       console.log('⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
-      // Copier leads_raw vers leads_enriched pour l'export
-      const { readFileSync, writeFileSync } = await import('fs');
-      const raw = JSON.parse(readFileSync('data/leads_raw.json', 'utf-8'));
-      const enriched = raw.map((l: Record<string, unknown>) => ({ ...l, priority: l.website ? 'medium' : 'high' }));
-      writeFileSync('data/leads_enriched.json', JSON.stringify(enriched, null, 2));
     }
 
-    console.log('📤 ÉTAPE 3: EXPORT...');
-    exportCSV();
+    const stats = getStats();
+    console.log(`📊 En base: ${stats.total} leads total`);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n⏱️  Terminé en ${duration}s`);
+    closeDb();
   });
 
 // Commande: scrape (Google Maps)
 program
   .command('scrape')
-  .description('Scraper Google Maps pour collecter des leads (gratuit)')
+  .description('Scraper Google Maps pour collecter des leads (sauvegarde directe en SQLite)')
   .option('--niches <niches>', 'Niches à scraper (séparées par virgule)', 'coiffeur')
   .option('--cities <cities>', 'Villes à scraper (séparées par virgule)', 'Le Mans')
   .option('--skip-enrich', 'Sauter l\'enrichissement Pappers')
@@ -73,36 +67,28 @@ program
       saveToDb: true
     });
     
-    // Filtrer les chaînes exclues
-    const filtered = leads.filter(lead => {
+    // Filtrer les chaînes exclues (déjà fait lors de l'upsert, mais afficher le count)
+    const filteredCount = leads.filter(lead => {
       const lower = lead.name.toLowerCase();
       return !config.exclude_keywords.some(kw => lower.includes(kw.toLowerCase()));
-    });
+    }).length;
     
-    console.log(`✓ Après filtrage chaînes: ${filtered.length}`);
-    writeFileSync('data/leads_raw.json', JSON.stringify(filtered, null, 2));
-    console.log('✓ Sauvegardé: data/leads_raw.json\n');
+    console.log(`✓ Leads scrapés: ${leads.length} (${filteredCount} après filtrage chaînes)`);
 
     // Étape 2: Enrichissement
     if (!options.skipEnrich) {
-      console.log('🔍 ÉTAPE 2: ENRICHISSEMENT...');
+      console.log('\n🔍 ÉTAPE 2: ENRICHISSEMENT...');
       await enrich();
       console.log('');
     } else {
-      console.log('⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
-      const enriched = filtered.map(l => ({ ...l, priority: l.website ? 'medium' : 'high' }));
-      writeFileSync('data/leads_enriched.json', JSON.stringify(enriched, null, 2));
+      console.log('\n⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
     }
-
-    // Étape 3: Export
-    console.log('📤 ÉTAPE 3: EXPORT...');
-    exportCSV();
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     
     // Stats DB
     const stats = getStats();
-    console.log(`\n📊 En base: ${stats.total} leads total`);
+    console.log(`📊 En base: ${stats.total} leads total`);
     
     console.log(`\n⏱️  Terminé en ${duration}s`);
     closeDb();
@@ -125,16 +111,6 @@ program
   .action(async () => {
     console.log('🔍 ENRICHISSEMENT...\n');
     await enrich();
-  });
-
-// Commande: export
-program
-  .command('export')
-  .description('Exporter les leads en CSV')
-  .option('-n, --limit <number>', 'Nombre de leads à exporter', '100')
-  .action(() => {
-    console.log('📤 EXPORT...\n');
-    exportCSV();
   });
 
 // Commande: stats

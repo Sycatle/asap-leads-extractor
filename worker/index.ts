@@ -1,6 +1,5 @@
 import { collect } from './collect.js';
 import { enrich } from './enrich.js';
-import { exportCSV } from './export.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
 import { getDb, closeDb } from './db.js';
@@ -74,11 +73,6 @@ async function runCollectJob(): Promise<number> {
   }
 }
 
-async function runExportJob(): Promise<void> {
-  console.log('\n📤 JOB: Export CSV...');
-  exportCSV();
-}
-
 async function runCycle(): Promise<void> {
   const startTime = Date.now();
   stats.runs++;
@@ -99,9 +93,6 @@ async function runCycle(): Promise<void> {
     // 3. Enrich
     const enriched = await runEnrichJob();
     stats.totalLeadsEnriched += enriched;
-    
-    // 4. Export
-    await runExportJob();
     
     const duration = Date.now() - startTime;
     console.log('\n' + '-'.repeat(60));
@@ -129,10 +120,6 @@ async function runOnce(): Promise<void> {
   console.log('🔍 ÉTAPE 2: ENRICHISSEMENT...');
   await enrich();
   console.log('');
-  
-  // Étape 3: Export
-  console.log('📤 ÉTAPE 3: EXPORT...');
-  exportCSV();
   
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n⏱️  Terminé en ${duration}s`);
@@ -200,11 +187,6 @@ async function main() {
       
     case 'enrich':
       await runEnrichJob();
-      closeDb();
-      break;
-      
-    case 'export':
-      await runExportJob();
       closeDb();
       break;
       
