@@ -28,23 +28,23 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar flex flex-col">
       {/* Logo */}
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="w-9 h-9 rounded-xl bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+      <div className="h-16 flex items-center gap-3 px-6 border-b border-border">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
           <Zap className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-lg font-bold text-foreground">
             LeadFlow
           </h1>
-          <p className="text-xs text-zinc-500">Prospection B2B</p>
+          <p className="text-xs text-muted-foreground">Prospection B2B</p>
         </div>
       </div>
 
       {/* Main Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        <p className="px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Principal
         </p>
         {navigation.map((item) => {
@@ -60,26 +60,26 @@ export function Sidebar() {
               className={cn(
                 'sidebar-item group',
                 isActive && 'active',
-                item.highlight && !isActive && 'text-blue-600 dark:text-blue-400'
+                item.highlight && !isActive && 'text-primary'
               )}
             >
               <Icon className={cn(
                 'w-5 h-5 transition-colors',
-                isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+                isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
               )} />
               <span className="flex-1">{item.name}</span>
               {isActive && (
-                <ChevronRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <ChevronRight className="w-4 h-4 text-primary" />
               )}
               {item.highlight && !isActive && (
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               )}
             </Link>
           );
         })}
 
         <div className="pt-6">
-          <p className="px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Paramètres
           </p>
           {secondaryNav.map((item) => {
@@ -94,7 +94,7 @@ export function Sidebar() {
               >
                 <Icon className={cn(
                   'w-5 h-5 transition-colors',
-                  isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+                  isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                 )} />
                 <span className="flex-1">{item.name}</span>
               </Link>
@@ -104,12 +104,12 @@ export function Sidebar() {
       </nav>
 
       {/* Quick Stats Footer */}
-      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-        <div className="p-3 rounded-xl bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-100 dark:border-blue-900">
-          <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+      <div className="p-4 border-t border-border">
+        <div className="p-3 rounded-xl bg-gradient-to-br from-primary-light to-info-light border border-primary/20">
+          <p className="text-xs font-medium text-primary mb-1">
             Conseil du jour
           </p>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="text-xs text-muted-foreground">
             Les meilleurs moments pour appeler sont entre 10h-12h et 14h-16h.
           </p>
         </div>
@@ -123,7 +123,7 @@ export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card border-t border-border safe-area-bottom">
       <div className="flex items-center justify-around h-16">
         {navigation.map((item) => {
           const isActive = item.exact
@@ -138,8 +138,8 @@ export function MobileNav() {
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors',
                 isActive
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <Icon className="w-5 h-5" />
