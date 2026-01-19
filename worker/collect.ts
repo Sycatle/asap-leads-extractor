@@ -2,7 +2,8 @@ import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { loadConfig } from './config.js';
 import { RawLead, Config } from '../shared/types.js';
-import { upsertLead, type InsertLead } from './db.js';
+import { upsertLeads, type InsertLead } from './db.js';
+import { normalizePhone, extractPostalCode } from './utils.js';
 
 // Mapping colonnes CSV scraper → RawLead
 function mapRow(row: Record<string, string>): RawLead | null {
@@ -23,27 +24,7 @@ function mapRow(row: Record<string, string>): RawLead | null {
   };
 }
 
-// Normalise téléphone FR (format: 0612345678)
-function normalizePhone(raw: string): string {
-  const cleaned = raw.replace(/[\s.\-()]/g, '');
-  // Format FR: commence par 0 ou +33
-  if (cleaned.startsWith('+33')) {
-    return '0' + cleaned.slice(3);
-  }
-  if (cleaned.startsWith('33') && cleaned.length === 11) {
-    return '0' + cleaned.slice(2);
-  }
-  if (/^0[1-9]\d{8}$/.test(cleaned)) {
-    return cleaned;
-  }
-  return ''; // Invalide
-}
 
-// Extrait code postal de l'adresse
-function extractPostalCode(input: string): string {
-  const match = input.match(/\b(\d{5})\b/);
-  return match ? match[1] : '';
-}
 
 // Filtre par département autorisé
 function isAllowedDepartment(postalCode: string, config: Config): boolean {
@@ -89,27 +70,23 @@ export async function collect(): Promise<RawLead[]> {
         console.log(`✓ Importés: ${leads.length}`);
         console.log(`✓ Après dédup: ${deduped.length}`);
 
-        // Sauvegarder directement en SQLite
-        let inserted = 0;
-        for (const lead of deduped) {
-          const dbLead: InsertLead = {
-            phone: lead.phone,
-            name: lead.name,
-            address: lead.address,
-            city: lead.city,
-            postal_code: lead.postal_code,
-            website: lead.website,
-            website_status: lead.website ? undefined : 'none',
-            maps_url: lead.maps_url,
-            rating: lead.rating,
-            reviews_count: lead.reviews_count,
-            niche: lead.niche || null,
-            source: 'import',
-          };
-          const result = upsertLead(dbLead);
-          if (result) inserted++;
-        }
+        // Sauvegarder en batch en SQLite (beaucoup plus efficace)
+        const dbLeads: InsertLead[] = deduped.map(lead => ({
+          phone: lead.phone,
+          name: lead.name,
+          address: lead.address,
+          city: lead.city,
+          postal_code: lead.postal_code,
+          website: lead.website,
+          website_status: lead.website ? undefined : 'none',
+          maps_url: lead.maps_url,
+          rating: lead.rating,
+          reviews_count: lead.reviews_count,
+          niche: lead.niche || null,
+          source: 'import',
+        }));
         
+        const inserted = upsertLeads(dbLeads);
         console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
         resolve(deduped);
       })
