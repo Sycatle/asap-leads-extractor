@@ -15,7 +15,7 @@ function debugData(label: string, data: unknown): void {
 
 const DELAY_BETWEEN_ACTIONS = 1000;
 const SCROLL_PAUSE = 800;
-const MAX_RESULTS_PER_QUERY = 20;
+const MAX_RESULTS_PER_QUERY = 30; // Augmenté pour récupérer plus de leads
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -73,19 +73,24 @@ function extractNameFromUrl(url: string): string {
   return '';
 }
 
-// Nettoyer le nom (retirer les descriptions marketing)
-function cleanName(name: string): string {
-  // Couper au premier séparateur type | ou -
-  let cleaned = name.split(/\s*[|]\s*/)[0];
+// Nettoyer le nom (retirer uniquement les termes de recherche redondants)
+function cleanName(name: string, niche?: string): string {
+  let cleaned = name.trim();
   
-  // Si le nom est encore trop long, couper au premier tiret avec espaces
-  if (cleaned.length > 50) {
-    cleaned = cleaned.split(/\s+-\s+/)[0];
+  // Retirer la ville si elle est répétée à la fin (ex: "Coiffeur Angers" quand on cherche "coiffeur Angers")
+  // Mais garder les distinctions type "| Lorette |" ou "- Centre"
+  
+  // Retirer uniquement les suffixes génériques redondants
+  const genericSuffixes = [
+    /\s*-\s*(?:Salon de )?(?:Coiffure|Coiffeur)\s*$/i,
+    /\s*-\s*(?:Hair Salon|Hairdresser)\s*$/i,
+  ];
+  
+  for (const pattern of genericSuffixes) {
+    cleaned = cleaned.replace(pattern, '');
   }
   
-  // Retirer les parenthèses et leur contenu
-  cleaned = cleaned.replace(/\s*\([^)]*\)\s*/g, ' ');
-  
+  // Nettoyer les espaces multiples
   return cleaned.trim().replace(/\s+/g, ' ');
 }
 
@@ -149,12 +154,24 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
     return leads;
   }
   
-  // Scroll pour charger plus
+  // Scroll pour charger plus de résultats
   const feed = page.locator('div[role="feed"]').first();
   debug('Scroll pour charger plus de résultats...');
-  for (let i = 0; i < 3; i++) {
-    await feed.evaluate(el => el.scrollBy(0, 800));
+  let lastCount = 0;
+  for (let i = 0; i < 8; i++) {
+    await feed.evaluate(el => el.scrollBy(0, 1000));
     await sleep(SCROLL_PAUSE);
+    
+    // Vérifier si de nouveaux éléments sont apparus
+    const currentCount = await page.locator('div[role="feed"] > div > div > a[href*="/maps/place/"]').count();
+    debug(`Scroll ${i+1}: ${currentCount} items`);
+    
+    // Arrêter si on a atteint la limite ou plus de nouveaux résultats
+    if (currentCount >= MAX_RESULTS_PER_QUERY || currentCount === lastCount) {
+      debug('Fin du scroll (limite atteinte ou pas de nouveaux résultats)');
+      break;
+    }
+    lastCount = currentCount;
   }
   
   // Récupérer tous les éléments de la liste
@@ -230,10 +247,10 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       
       const phoneSelectors = [
         'button[data-tooltip*="téléphone"]',
-        'button[aria-label*="téléphone"]', 
         'button[data-item-id*="phone"]',
         'a[data-item-id*="phone"]',
-        'button[aria-label*="Appeler"]',
+        'button[aria-label*="Numéro de téléphone"]',
+        'button[aria-label*="Appeler le"]',
       ];
       
       for (const selector of phoneSelectors) {
@@ -242,6 +259,15 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         
         for (const btn of btns) {
           const label = await btn.getAttribute('aria-label') || await btn.getAttribute('data-item-id') || '';
+          
+          // Exclure les faux positifs
+          if (label.toLowerCase().includes('envoyer vers') || 
+              label.toLowerCase().includes('send to') ||
+              label.toLowerCase().includes('partager')) {
+            debug('  Faux positif ignoré:', label);
+            continue;
+          }
+          
           debug('  Label trouvé:', label);
           const match = label.match(/(\+?33[\s.-]?\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})/);
           if (match) {
@@ -290,10 +316,28 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       
       // Website
       let website: string | undefined;
+      let website_type: 'own' | 'booking' | 'social' | 'none' = 'none';
       const websiteLink = page.locator('a[data-item-id="authority"]').first();
       if (await websiteLink.count() > 0) {
         website = await websiteLink.getAttribute('href') || undefined;
-        debug('Site web:', website);
+        
+        if (website) {
+          // Classifier le type de site
+          const lowerUrl = website.toLowerCase();
+          const bookingPlatforms = ['planity.com', 'doctolib.', 'reservationcoiffeur.', 'treatwell.', 'kiute.', 'balinea.'];
+          const socialPlatforms = ['instagram.com', 'facebook.com', 'fb.com', 'twitter.com', 'tiktok.com', 'linkedin.com'];
+          
+          if (bookingPlatforms.some(p => lowerUrl.includes(p))) {
+            website_type = 'booking';
+            debug('Site web (plateforme résa):', website);
+          } else if (socialPlatforms.some(p => lowerUrl.includes(p))) {
+            website_type = 'social';
+            debug('Site web (réseau social):', website);
+          } else {
+            website_type = 'own';
+            debug('Site web (propre):', website);
+          }
+        }
       } else {
         debug('Pas de site web');
       }
@@ -324,10 +368,20 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       try {
         const hoursBtn = page.locator('button[data-item-id="oh"]').first();
         if (await hoursBtn.count() > 0) {
-          const hoursText = await hoursBtn.textContent({ timeout: 1000 });
+          let hoursText = await hoursBtn.textContent({ timeout: 1000 });
           if (hoursText) {
-            opening_hours = hoursText.trim();
-            debug('Horaires:', opening_hours);
+            // Nettoyer le texte parasite
+            hoursText = hoursText
+              .replace(/Voir plus d'horaires/gi, '')
+              .replace(/See more hours/gi, '')
+              .replace(/Masquer les horaires/gi, '')
+              .replace(/Hide hours/gi, '')
+              .trim();
+            
+            if (hoursText.length > 0) {
+              opening_hours = hoursText;
+              debug('Horaires:', opening_hours);
+            }
           }
         }
       } catch { /* ignore */ }
@@ -340,8 +394,9 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         debug('Réservation en ligne:', has_booking);
       } catch { /* ignore */ }
       
-      const lead: RawLead & { niche: string } = {
-        name: cleanName(name),
+      const niche = query.split(' ')[0];
+      const lead: RawLead & { niche: string; website_type?: string } = {
+        name: cleanName(name, niche),
         phone,
         address: address.replace(/^[^a-zA-Z0-9]+/, '').trim(),
         city: extractCity(address) || query.split(' ').pop() || '',
@@ -350,16 +405,17 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         maps_url: page.url(),
         rating,
         reviews_count,
-        niche: query.split(' ')[0], // Premier mot = niche
+        niche,
         opening_hours,
         has_booking,
+        website_type: website_type !== 'none' ? website_type : undefined,
       };
       
       debugData('Lead complet', lead);
       leads.push(lead);
       
       const hasWebsite = website ? '🌐' : '📞';
-      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name).substring(0, 30).padEnd(30)} ${hasWebsite}   `);
+      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name, niche).substring(0, 30).padEnd(30)} ${hasWebsite}   `);
       
     } catch (err) {
       // Continuer sur erreur
