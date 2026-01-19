@@ -7,3 +7,5 @@ data/leads.csv
 data/raw/*.csv
 !data/raw/.gitkeep
 data/leads.db
+data/leads.db-shm
+data/leads.db-wal
