@@ -17,12 +17,13 @@
   ],
   "scrape": {
     "niches": [
-      "coiffeur",
-      "barbier"
+      "coiffeur"
     ],
     "cities": [
-      "Le Mans",
-      "Angers"
+      "Le  Mans",
+      "Nantes",
+      "Paris",
+      "Bordeaux"
     ]
   },
   "worker": {
