@@ -434,6 +434,51 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         debug('Réservation en ligne:', has_booking);
       } catch { /* ignore */ }
       
+      // ===== EXTRACTION IMAGE =====
+      let image_url: string | undefined;
+      try {
+        // Méthode 1: Image principale dans le header du panneau (bouton avec background-image)
+        const heroImage = page.locator('button[jsaction*="heroHeaderImage"] img, button.aoRNLd img').first();
+        if (await heroImage.count() > 0) {
+          const src = await heroImage.getAttribute('src');
+          if (src && src.startsWith('http') && !src.includes('data:')) {
+            // Nettoyer l'URL pour avoir une bonne résolution (remplacer =w... par une taille standard)
+            image_url = src.replace(/=w\d+-h\d+.*$/, '=w400-h300-k-no');
+            debug('Image hero:', image_url);
+          }
+        }
+        
+        // Méthode 2: Image de couverture dans la galerie
+        if (!image_url) {
+          const coverImg = page.locator('img[decoding="async"][src*="googleusercontent.com"]').first();
+          if (await coverImg.count() > 0) {
+            const src = await coverImg.getAttribute('src');
+            if (src && src.startsWith('http')) {
+              image_url = src.replace(/=w\d+-h\d+.*$/, '=w400-h300-k-no');
+              debug('Image couverture:', image_url);
+            }
+          }
+        }
+        
+        // Méthode 3: Première image de la galerie
+        if (!image_url) {
+          const galleryImg = page.locator('div[role="img"] img, .m6QErb img[src*="googleusercontent"]').first();
+          if (await galleryImg.count() > 0) {
+            const src = await galleryImg.getAttribute('src');
+            if (src && src.startsWith('http') && !src.includes('data:')) {
+              image_url = src.replace(/=w\d+-h\d+.*$/, '=w400-h300-k-no');
+              debug('Image galerie:', image_url);
+            }
+          }
+        }
+        
+        if (!image_url) {
+          debug('Aucune image trouvée pour cet établissement');
+        }
+      } catch (e) {
+        debug('Erreur extraction image:', e);
+      }
+      
       const niche = query.split(' ')[0];
       const lead: RawLead & { niche: string; website_type?: string } = {
         name: cleanName(name, niche),
@@ -449,6 +494,7 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         opening_hours,
         has_booking,
         website_type: website_type !== 'none' ? website_type : undefined,
+        image_url,
       };
       
       debugData('Lead complet', lead);
@@ -580,6 +626,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
         opening_hours: lead.opening_hours,
         has_booking: lead.has_booking,
         best_call_time: computeBestCallTime(lead.opening_hours),
+        image_url: lead.image_url,
       };
       debug(`  Insertion: ${lead.name} (${lead.phone})`);
       const result = upsertLead(dbLead);
