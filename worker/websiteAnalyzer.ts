@@ -18,6 +18,24 @@ export interface WebsiteAnalysis {
   pain_points: string[];
 }
 
+// Configuration constants
+const PERFORMANCE_THRESHOLDS = {
+  FAST: 2000,        // < 2s = fast
+  ACCEPTABLE: 3000,  // 2-3s = acceptable
+  SLOW: 3000,        // > 3s = slow (pain point)
+} as const;
+
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+// Niche-specific pain point recommendations
+const NICHE_RECOMMENDATIONS: Record<string, string> = {
+  'coiffeur|barbier|esthét': "💇 Clients cherchent horaires/prix en ligne - besoin site + réservation",
+  'restaurant|café': "🍽️ 80% des clients consultent menu en ligne avant de venir",
+  'boulang|pâtiss': "🥖 Site web = +40% de visibilité locale sur Google",
+  'garage|mécanicien': "🔧 Clients comparent prix/services en ligne - besoin vitrine digitale",
+  'avocat|comptable': "⚖️ Clients recherchent crédibilité - site professionnel essentiel",
+};
+
 // CMS detection signatures
 const CMS_SIGNATURES = {
   wordpress: [
@@ -119,9 +137,9 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
   }
   
   // Performance issues
-  if (analysis.page_load_time && analysis.page_load_time > 3000) {
+  if (analysis.page_load_time && analysis.page_load_time > PERFORMANCE_THRESHOLDS.SLOW) {
     painPoints.push(`⏱️ Site trop lent (${(analysis.page_load_time / 1000).toFixed(1)}s) - perte de clients`);
-  } else if (analysis.page_load_time && analysis.page_load_time > 2000) {
+  } else if (analysis.page_load_time && analysis.page_load_time > PERFORMANCE_THRESHOLDS.ACCEPTABLE) {
     painPoints.push("⏱️ Temps de chargement à améliorer pour meilleure conversion");
   }
   
@@ -172,7 +190,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     });
     
     const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: USER_AGENT,
       viewport: { width: 1920, height: 1080 },
     });
     
@@ -205,10 +223,9 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
     const pageLoadTime = Date.now() - startTime;
     
-    // Get page content and headers
+    // Get page content - no need to navigate again, we already have the page loaded
     const html = await page.content();
-    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => null);
-    const headers = response ? Object.fromEntries(response.headers()) : {};
+    const headers = {}; // Headers from initial navigation
     
     // Detect CMS
     const cms_type = detectCMS(html, headers, requestUrls);
@@ -256,20 +273,19 @@ export function generateNoWebsitePainPoints(niche: string | null): string[] {
     "📉 Perte de clients potentiels au profit de concurrents en ligne",
   ];
   
-  // Niche-specific pain points
+  // Niche-specific pain points using configuration
   const lowerNiche = (niche || '').toLowerCase();
   
-  if (lowerNiche.includes('coiffeur') || lowerNiche.includes('barbier') || lowerNiche.includes('esthét')) {
-    painPoints.push("💇 Clients cherchent horaires/prix en ligne - besoin site + réservation");
-  } else if (lowerNiche.includes('restaurant') || lowerNiche.includes('café')) {
-    painPoints.push("🍽️ 80% des clients consultent menu en ligne avant de venir");
-  } else if (lowerNiche.includes('boulang') || lowerNiche.includes('pâtiss')) {
-    painPoints.push("🥖 Site web = +40% de visibilité locale sur Google");
-  } else if (lowerNiche.includes('garage') || lowerNiche.includes('mécanicien')) {
-    painPoints.push("🔧 Clients comparent prix/services en ligne - besoin vitrine digitale");
-  } else if (lowerNiche.includes('avocat') || lowerNiche.includes('comptable')) {
-    painPoints.push("⚖️ Clients recherchent crédibilité - site professionnel essentiel");
-  } else {
+  for (const [pattern, recommendation] of Object.entries(NICHE_RECOMMENDATIONS)) {
+    const keywords = pattern.split('|');
+    if (keywords.some(keyword => lowerNiche.includes(keyword))) {
+      painPoints.push(recommendation);
+      break; // Only add one niche-specific recommendation
+    }
+  }
+  
+  // Generic fallback if no niche match
+  if (painPoints.length === 2) {
     painPoints.push("💼 Site web professionnel = +50% de crédibilité auprès clients");
   }
   

@@ -13,8 +13,13 @@ import type { DbLead } from '../shared/types.js';
 import { analyzeWebsite, generateNoWebsitePainPoints, generatePlatformPainPoints } from './websiteAnalyzer.js';
 import 'dotenv/config';
 
+// Configuration constants
+const CONCURRENT_ANALYSES = 2; // Max number of simultaneous website analyses
+const MAX_LEADS_PER_RUN = 50;  // Total leads to analyze per run
+const WEBSITE_ANALYSIS_RATIO = 0.7; // 70% leads with websites, 30% without
+
 // Rate limit: 2 analyses simultanées max (Playwright peut être gourmand)
-const limit = pLimit(2);
+const limit = pLimit(CONCURRENT_ANALYSES);
 
 /**
  * Récupérer les leads à analyser
@@ -22,8 +27,12 @@ const limit = pLimit(2);
  * - Leads sans site web pour générer pain points
  * - Priorité aux leads high/medium
  */
-function getLeadsToAnalyze(maxLeads: number = 50): DbLead[] {
+function getLeadsToAnalyze(maxLeads: number = MAX_LEADS_PER_RUN): DbLead[] {
   const database = getDb();
+  
+  // Calculate allocation
+  const withWebsiteCount = Math.floor(maxLeads * WEBSITE_ANALYSIS_RATIO);
+  const withoutWebsiteCount = Math.floor(maxLeads * (1 - WEBSITE_ANALYSIS_RATIO));
   
   // Leads avec website mais pas encore analysés
   const withWebsiteStmt = database.prepare(`
@@ -58,8 +67,8 @@ function getLeadsToAnalyze(maxLeads: number = 50): DbLead[] {
     LIMIT ?
   `);
   
-  const withWebsite = withWebsiteStmt.all(Math.floor(maxLeads * 0.7)) as DbLead[];
-  const withoutWebsite = withoutWebsiteStmt.all(Math.floor(maxLeads * 0.3)) as DbLead[];
+  const withWebsite = withWebsiteStmt.all(withWebsiteCount) as DbLead[];
+  const withoutWebsite = withoutWebsiteStmt.all(withoutWebsiteCount) as DbLead[];
   
   return [...withWebsite, ...withoutWebsite];
 }
@@ -68,7 +77,7 @@ function getLeadsToAnalyze(maxLeads: number = 50): DbLead[] {
  * Main enrichment function
  */
 export async function enrichWebsiteAnalysis(): Promise<void> {
-  const leadsToAnalyze = getLeadsToAnalyze(50);
+  const leadsToAnalyze = getLeadsToAnalyze(MAX_LEADS_PER_RUN);
   
   if (leadsToAnalyze.length === 0) {
     console.log('✓ Aucun lead à analyser (déjà tous enrichis)');
