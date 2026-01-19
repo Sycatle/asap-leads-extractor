@@ -66,6 +66,38 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Enrichir un seul lead immédiatement (utilisé par le scraper)
+ * Retourne true si enrichi avec succès
+ */
+export async function enrichSingleLead(lead: DbLead): Promise<boolean> {
+  if (!PAPPERS_API_KEY) {
+    return false;
+  }
+  
+  if (lead.siren) {
+    // Déjà enrichi
+    return true;
+  }
+  
+  const result = await searchPappers(lead.name, lead.city);
+  
+  if (result) {
+    const dirigeant = extractDirigeant(result);
+    
+    const updated = enrichLead(lead.id, {
+      siren: result.siren,
+      siret: result.siret,
+      legal_name: result.nom_entreprise,
+      dirigeant,
+    });
+    
+    return updated !== null;
+  }
+  
+  return false;
+}
+
+/**
  * Récupérer les leads à enrichir (pas encore de SIREN)
  */
 function getLeadsToEnrich(maxLeads: number = 100): DbLead[] {

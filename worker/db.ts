@@ -33,54 +33,72 @@ export interface InsertLead {
 }
 
 /**
- * Détecter le type de téléphone (mobile = perso, fixe = pro)
+ * Détecter le type de téléphone (informatif uniquement, pas de pénalité)
+ * Les commerces utilisent souvent des mobiles, ce n'est pas un indicateur B2C
  */
 function detectPhoneType(phone: string): PhoneType {
   if (phone.startsWith('06') || phone.startsWith('07')) {
-    return 'perso'; // Mobile = risque B2C
+    return 'perso'; // Mobile (mais pas forcément B2C pour les commerces)
   }
   if (phone.startsWith('01') || phone.startsWith('02') || phone.startsWith('03') || 
       phone.startsWith('04') || phone.startsWith('05') || phone.startsWith('09')) {
-    return 'pro'; // Fixe = probablement pro
+    return 'pro'; // Fixe
   }
   return 'unknown';
 }
 
 /**
  * Calculer le score du lead (0-100)
+ * Score ÉLEVÉ = business MAL référencé = MEILLEUR prospect pour vendre un site web
  */
 function computeScore(lead: InsertLead): number {
   let score = 50;
   
-  // Pas de site web = +20
-  if (!lead.website) score += 20;
+  // ===== CRITÈRES MAJEURS (business mal référencé = bon prospect) =====
   
-  // Site vieux ou plateforme = +10
-  if (lead.website_status === 'old' || lead.website_status === 'platform') score += 10;
+  // Pas de site web = +25 (critère le plus important!)
+  if (!lead.website) score += 25;
   
-  // Pas de réservation en ligne = +10
+  // Site sur plateforme (Planity, etc.) = +15 (ils ont besoin d'un vrai site)
+  if (lead.website_status === 'platform') score += 15;
+  
+  // Site vieux/obsolète = +10
+  if (lead.website_status === 'old') score += 10;
+  
+  // Pas d'image sur Google Maps = +10 (mal optimisé)
+  if (!lead.image_url) score += 10;
+  
+  // Pas de réservation en ligne = +10 (potentiel de digitalisation)
   if (lead.has_booking === false) score += 10;
   
-  // Peu d'avis = +5
-  if (lead.reviews_count != null && lead.reviews_count < 10) score += 5;
+  // ===== CRITÈRES SECONDAIRES =====
   
-  // Mauvaise note = +5
+  // Peu d'avis = +10 (business moins visible)
+  if (lead.reviews_count != null && lead.reviews_count < 10) score += 10;
+  else if (lead.reviews_count != null && lead.reviews_count < 30) score += 5;
+  
+  // Note moyenne ou basse = +5 (peuvent améliorer leur image)
   if (lead.rating != null && lead.rating < 4) score += 5;
   
-  // Téléphone perso = -10 (risque B2C)
-  const phoneType = lead.phone_type || detectPhoneType(lead.phone);
-  if (phoneType === 'perso') score -= 10;
+  // ===== PÉNALITÉS (business déjà bien référencé = moins prioritaire) =====
   
-  // Bonne note = -10
-  if (lead.rating != null && lead.rating >= 4.5 && lead.reviews_count != null && lead.reviews_count > 50) {
+  // Site web moderne = -15
+  if (lead.website_status === 'modern') score -= 15;
+  
+  // Beaucoup d'avis + bonne note = -10 (déjà bien référencé)
+  if (lead.rating != null && lead.rating >= 4.5 && lead.reviews_count != null && lead.reviews_count > 100) {
     score -= 10;
   }
+  
+  // Réservation en ligne = -5 (déjà digitalisé)
+  if (lead.has_booking === true) score -= 5;
   
   return Math.max(0, Math.min(100, score));
 }
 
 /**
  * Insérer ou mettre à jour un lead (upsert par téléphone)
+ * IMPORTANT: Ne jamais écraser les données commerciales (status, notes, call_status, etc.)
  */
 export function upsertLead(lead: InsertLead): DbLead | null {
   const database = getDb();
@@ -89,6 +107,9 @@ export function upsertLead(lead: InsertLead): DbLead | null {
   const websiteStatus = lead.website_status || (lead.website ? null : 'none');
   const score = lead.score ?? computeScore(lead);
   const source = lead.source ?? 'gmb';
+  
+  // Calculer la priorité basée sur le score
+  const priority = lead.priority ?? (score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low');
   
   const stmt = database.prepare(`
     INSERT INTO leads (
@@ -102,24 +123,37 @@ export function upsertLead(lead: InsertLead): DbLead | null {
       @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update, @image_url
     )
     ON CONFLICT(phone) DO UPDATE SET
+      -- Données GMB: toujours mettre à jour (fraîcheur des données)
       name = excluded.name,
       address = excluded.address,
       city = excluded.city,
       postal_code = excluded.postal_code,
-      website = COALESCE(excluded.website, leads.website),
-      website_status = COALESCE(excluded.website_status, leads.website_status),
       maps_url = excluded.maps_url,
       rating = COALESCE(excluded.rating, leads.rating),
       reviews_count = COALESCE(excluded.reviews_count, leads.reviews_count),
-      niche = COALESCE(excluded.niche, leads.niche),
-      priority = excluded.priority,
-      score = excluded.score,
       opening_hours = COALESCE(excluded.opening_hours, leads.opening_hours),
+      image_url = COALESCE(excluded.image_url, leads.image_url),
+      
+      -- Données enrichies: utiliser les nouvelles si meilleures
+      website = COALESCE(excluded.website, leads.website),
+      website_status = COALESCE(excluded.website_status, leads.website_status),
+      niche = COALESCE(excluded.niche, leads.niche),
       best_call_time = COALESCE(excluded.best_call_time, leads.best_call_time),
       has_booking = COALESCE(excluded.has_booking, leads.has_booking),
       has_seo = COALESCE(excluded.has_seo, leads.has_seo),
       last_gmb_update = COALESCE(excluded.last_gmb_update, leads.last_gmb_update),
-      image_url = COALESCE(excluded.image_url, leads.image_url),
+      
+      -- Score et priorité: recalculer SAUF si le lead a été contacté
+      priority = CASE 
+        WHEN leads.status != 'nouveau' THEN leads.priority 
+        ELSE excluded.priority 
+      END,
+      score = CASE 
+        WHEN leads.status != 'nouveau' THEN leads.score 
+        ELSE excluded.score 
+      END,
+      
+      -- JAMAIS écraser: status, call_status, email_status, notes, attempts, followups
       updated_at = datetime('now')
     RETURNING *
   `);
@@ -138,7 +172,7 @@ export function upsertLead(lead: InsertLead): DbLead | null {
     reviews_count: lead.reviews_count ?? null,
     niche: lead.niche ?? null,
     source: source,
-    priority: lead.priority ?? 'medium',
+    priority: priority,
     score: score,
     opening_hours: lead.opening_hours ?? null,
     best_call_time: lead.best_call_time ?? null,
