@@ -50,7 +50,7 @@ export function PipelineCard({ stats }: PipelineCardProps) {
                   )}>
                     {index + 1}
                   </span>
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  <span className="font-medium text-foreground">
                     {STATUS_LABELS[status]}
                   </span>
                 </div>
@@ -61,7 +61,7 @@ export function PipelineCard({ stats }: PipelineCardProps) {
                   </span>
                 </div>
               </div>
-              <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className={cn(
                     'h-full rounded-full transition-all duration-500',
@@ -77,7 +77,7 @@ export function PipelineCard({ stats }: PipelineCardProps) {
       </div>
 
       {/* Conversion funnel */}
-      <div className="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800">
+      <div className="mt-6 pt-5 border-t border-border">
         <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900">

@@ -37,7 +37,7 @@ export function FollowupSection({
       </div>
 
       {/* Items */}
-      <div className="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+      <div className="bg-card divide-y divide-border">
         {leads.map((lead) => (
           <FollowupSectionItem
             key={lead.id}
@@ -69,7 +69,7 @@ function FollowupSectionItem({
   const followupDate = new Date(lead.next_followup_at);
 
   return (
-    <div className="px-4 py-3 flex items-center gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+    <div className="px-4 py-3 flex items-center gap-4 hover:bg-accent transition-colors">
       {/* Time */}
       <div
         className={cn(
@@ -83,7 +83,7 @@ function FollowupSectionItem({
       {/* Lead info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="font-medium text-foreground truncate">
             {lead.name}
           </span>
           <span className={cn('text-xs', PRIORITY_COLORS[lead.priority])}>
@@ -120,7 +120,7 @@ function FollowupSectionItem({
         <button
           onClick={() => onMarkDone(lead.id)}
           disabled={loading}
-          className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:opacity-50"
+          className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           title="Marquer fait"
         >
           {loading ? (

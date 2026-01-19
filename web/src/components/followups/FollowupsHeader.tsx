@@ -12,10 +12,10 @@ export function FollowupsHeader({ counts }: FollowupsHeaderProps) {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-2xl font-bold text-foreground">
           Relances
         </h1>
-        <p className="text-zinc-500">
+        <p className="text-muted-foreground">
           {counts.total} relances à venir cette semaine
         </p>
       </div>
@@ -43,9 +43,9 @@ function FollowupsQuickStats({ counts }: { counts: FollowupsData['counts'] }) {
 
 export function FollowupsEmpty() {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-12 text-center">
-      <Calendar className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-      <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+    <div className="bg-card rounded-xl border border-border p-12 text-center">
+      <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+      <h2 className="text-xl font-bold text-foreground mb-2">
         Aucune relance prévue
       </h2>
       <p className="text-zinc-500 mb-6">
