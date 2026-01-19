@@ -55,14 +55,26 @@ export async function collect(): Promise<RawLead[]> {
   const leads: RawLead[] = [];
 
   return new Promise((resolve, reject) => {
-    createReadStream(config.input_csv)
+    const stream = createReadStream(config.input_csv);
+    
+    stream.on('error', (error) => {
+      console.error(`❌ Erreur lecture fichier ${config.input_csv}:`, error.message);
+      reject(error);
+    });
+    
+    stream
       .pipe(parse({ columns: true, skip_empty_lines: true, bom: true }))
       .on('data', (row: Record<string, string>) => {
-        const lead = mapRow(row);
-        if (lead &&
-            isAllowedDepartment(lead.postal_code, config) &&
-            !isExcludedChain(lead.name, config)) {
-          leads.push(lead);
+        try {
+          const lead = mapRow(row);
+          if (lead &&
+              isAllowedDepartment(lead.postal_code, config) &&
+              !isExcludedChain(lead.name, config)) {
+            leads.push(lead);
+          }
+        } catch (error) {
+          // Skip invalid rows but log warning
+          console.warn('⚠ Ligne CSV invalide, ignorée:', error);
         }
       })
       .on('end', () => {
@@ -86,11 +98,19 @@ export async function collect(): Promise<RawLead[]> {
           source: 'import',
         }));
         
-        const inserted = upsertLeads(dbLeads);
-        console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
+        try {
+          const inserted = upsertLeads(dbLeads);
+          console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
+        } catch (error) {
+          console.error('❌ Erreur sauvegarde DB:', (error as Error).message);
+        }
+        
         resolve(deduped);
       })
-      .on('error', reject);
+      .on('error', (error) => {
+        console.error('❌ Erreur parsing CSV:', error.message);
+        reject(error);
+      });
   });
 }
 

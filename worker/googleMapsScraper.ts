@@ -3,6 +3,7 @@ import { RawLead } from '../shared/types.js';
 import { upsertLead, closeDb, enrichLead, type InsertLead } from './db.js';
 import { enrichSingleLead } from './enrich.js';
 import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils.js';
+import { classifyWebsiteStatus, computeBestCallTime } from './scoring.js';
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -20,34 +21,7 @@ const SCROLL_PAUSE = 800;
 const MAX_RESULTS_PER_QUERY = 60;
 const MAX_SCROLL_ATTEMPTS = 15;
 
-// Calculer le meilleur moment d'appel basé sur les horaires
-function computeBestCallTime(openingHours: string | undefined): string | undefined {
-  if (!openingHours) return undefined;
-  
-  // Chercher les horaires d'ouverture typiques
-  // Format attendu: "Lundi 9:00-12:00, 14:00-18:00"
-  const timePattern = /(\d{1,2}):(\d{2})/g;
-  const times: number[] = [];
-  
-  let match;
-  while ((match = timePattern.exec(openingHours)) !== null) {
-    times.push(parseInt(match[1], 10));
-  }
-  
-  if (times.length === 0) return undefined;
-  
-  // Trouver l'heure d'ouverture la plus fréquente
-  const openHour = Math.min(...times.filter(h => h >= 7 && h <= 12));
-  
-  if (openHour && openHour < 12) {
-    // Suggérer 30 min après l'ouverture (le temps qu'ils s'installent)
-    const suggestedHour = openHour + 1;
-    return `${suggestedHour}h-${suggestedHour + 1}h`;
-  }
-  
-  // Par défaut: milieu de matinée
-  return '10h-11h';
-}
+
 
 // Extraire le nom depuis l'URL Google Maps
 function extractNameFromUrl(url: string): string {
@@ -323,7 +297,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         debug('Bouton adresse non trouvé');
       }
       
-      // Website - détection approfondie du type de site
+      // Website - use scoring module for classification
       let website: string | undefined;
       let website_status: 'none' | 'platform' | 'modern' | 'old' = 'none';
       const websiteLink = page.locator('a[data-item-id="authority"]').first();
@@ -331,36 +305,9 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         website = await websiteLink.getAttribute('href') || undefined;
         
         if (website) {
-          // Classifier le type de site
-          const lowerUrl = website.toLowerCase();
-          
-          // Plateformes de réservation/annuaires = pas un vrai site (BON PROSPECT)
-          const bookingPlatforms = [
-            'planity.com', 'doctolib.', 'reservationcoiffeur.', 'treatwell.', 
-            'kiute.', 'balinea.', 'moncoiffeur.fr', 'flexy-hair.',
-            'upmysalon.', 'wavy.pro', 'salonkee.', 'timify.'
-          ];
-          
-          // Réseaux sociaux = pas un vrai site (BON PROSPECT)
-          const socialPlatforms = [
-            'instagram.com', 'facebook.com', 'fb.com', 'twitter.com', 
-            'tiktok.com', 'linkedin.com', 'youtube.com'
-          ];
-          
-          // Pages jaunes et annuaires = pas un vrai site (BON PROSPECT)
-          const directoryPlatforms = [
-            'pagesjaunes.fr', 'yelp.', 'tripadvisor.', 'google.com/maps',
-            'justacote.com', 'mappy.com', 'infobel.'
-          ];
-          
-          if ([...bookingPlatforms, ...socialPlatforms, ...directoryPlatforms].some(p => lowerUrl.includes(p))) {
-            website_status = 'platform';
-            debug('Site web (plateforme - bon prospect!):', website);
-          } else {
-            // Site propre - vérifier si moderne ou ancien (TODO: analyse plus poussée)
-            website_status = 'modern'; // Par défaut, on considère comme moderne
-            debug('Site web (propre):', website);
-          }
+          // Use centralized classification
+          website_status = classifyWebsiteStatus(website);
+          debug(`Site web (${website_status}):`, website);
         }
       } else {
         website_status = 'none';
