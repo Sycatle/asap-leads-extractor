@@ -3,6 +3,7 @@ import { enrich } from './enrich.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
 import { getDb, closeDb } from './db.js';
+import { sleep, formatDuration } from './utils.js';
 
 const WORKER_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes par défaut
 
@@ -22,15 +23,7 @@ const stats: WorkerStats = {
   errors: 0,
 };
 
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
+
 
 async function runScrapeJob(): Promise<number> {
   const config = loadConfig();
@@ -140,30 +133,34 @@ async function runWorker(): Promise<void> {
   // Premier run immédiat
   await runCycle();
   
-  // Boucle infinie
-  const loop = async () => {
-    console.log(`\n⏳ Prochain cycle dans ${intervalMs / 60000} minutes...`);
-    await sleep(intervalMs);
-    await runCycle();
-    loop(); // Récursion pour boucle infinie
-  };
+  // Utiliser setInterval pour une boucle plus robuste
+  const intervalId = setInterval(async () => {
+    try {
+      await runCycle();
+    } catch (error) {
+      console.error('❌ Erreur dans le cycle du worker:', error);
+      stats.errors++;
+    }
+  }, intervalMs);
   
-  loop().catch(console.error);
+  console.log(`\n⏳ Prochain cycle dans ${intervalMs / 60000} minutes...`);
   
   // Handle graceful shutdown
-  process.on('SIGINT', () => {
+  const shutdown = () => {
     console.log('\n\n🛑 Arrêt du worker...');
     console.log(`   Runs effectués: ${stats.runs}`);
     console.log(`   Leads scrappés: ${stats.totalLeadsScraped}`);
     console.log(`   Erreurs: ${stats.errors}`);
+    clearInterval(intervalId);
     closeDb();
     process.exit(0);
-  });
+  };
+  
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+
 
 // ===== CLI =====
 

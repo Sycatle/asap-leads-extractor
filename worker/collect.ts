@@ -2,7 +2,8 @@ import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { loadConfig } from './config.js';
 import { RawLead, Config } from '../shared/types.js';
-import { upsertLead, type InsertLead } from './db.js';
+import { upsertLeads, type InsertLead } from './db.js';
+import { normalizePhone, extractPostalCode } from './utils.js';
 
 // Mapping colonnes CSV scraper → RawLead
 function mapRow(row: Record<string, string>): RawLead | null {
@@ -23,27 +24,7 @@ function mapRow(row: Record<string, string>): RawLead | null {
   };
 }
 
-// Normalise téléphone FR (format: 0612345678)
-function normalizePhone(raw: string): string {
-  const cleaned = raw.replace(/[\s.\-()]/g, '');
-  // Format FR: commence par 0 ou +33
-  if (cleaned.startsWith('+33')) {
-    return '0' + cleaned.slice(3);
-  }
-  if (cleaned.startsWith('33') && cleaned.length === 11) {
-    return '0' + cleaned.slice(2);
-  }
-  if (/^0[1-9]\d{8}$/.test(cleaned)) {
-    return cleaned;
-  }
-  return ''; // Invalide
-}
 
-// Extrait code postal de l'adresse
-function extractPostalCode(input: string): string {
-  const match = input.match(/\b(\d{5})\b/);
-  return match ? match[1] : '';
-}
 
 // Filtre par département autorisé
 function isAllowedDepartment(postalCode: string, config: Config): boolean {
@@ -56,6 +37,19 @@ function isAllowedDepartment(postalCode: string, config: Config): boolean {
 function isExcludedChain(name: string, config: Config): boolean {
   const lower = name.toLowerCase();
   return config.exclude_keywords.some(kw => lower.includes(kw.toLowerCase()));
+}
+
+/**
+ * Format error message safely
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return String(error);
 }
 
 // Déduplication par téléphone
@@ -74,14 +68,26 @@ export async function collect(): Promise<RawLead[]> {
   const leads: RawLead[] = [];
 
   return new Promise((resolve, reject) => {
-    createReadStream(config.input_csv)
+    const stream = createReadStream(config.input_csv);
+    
+    stream.on('error', (error) => {
+      console.error(`❌ Erreur lecture fichier ${config.input_csv}:`, getErrorMessage(error));
+      reject(error);
+    });
+    
+    stream
       .pipe(parse({ columns: true, skip_empty_lines: true, bom: true }))
       .on('data', (row: Record<string, string>) => {
-        const lead = mapRow(row);
-        if (lead &&
-            isAllowedDepartment(lead.postal_code, config) &&
-            !isExcludedChain(lead.name, config)) {
-          leads.push(lead);
+        try {
+          const lead = mapRow(row);
+          if (lead &&
+              isAllowedDepartment(lead.postal_code, config) &&
+              !isExcludedChain(lead.name, config)) {
+            leads.push(lead);
+          }
+        } catch (error) {
+          // Skip invalid rows but log warning
+          console.warn('⚠ Ligne CSV invalide, ignorée:', error);
         }
       })
       .on('end', () => {
@@ -89,31 +95,35 @@ export async function collect(): Promise<RawLead[]> {
         console.log(`✓ Importés: ${leads.length}`);
         console.log(`✓ Après dédup: ${deduped.length}`);
 
-        // Sauvegarder directement en SQLite
-        let inserted = 0;
-        for (const lead of deduped) {
-          const dbLead: InsertLead = {
-            phone: lead.phone,
-            name: lead.name,
-            address: lead.address,
-            city: lead.city,
-            postal_code: lead.postal_code,
-            website: lead.website,
-            website_status: lead.website ? undefined : 'none',
-            maps_url: lead.maps_url,
-            rating: lead.rating,
-            reviews_count: lead.reviews_count,
-            niche: lead.niche || null,
-            source: 'import',
-          };
-          const result = upsertLead(dbLead);
-          if (result) inserted++;
+        // Sauvegarder en batch en SQLite (beaucoup plus efficace)
+        const dbLeads: InsertLead[] = deduped.map(lead => ({
+          phone: lead.phone,
+          name: lead.name,
+          address: lead.address,
+          city: lead.city,
+          postal_code: lead.postal_code,
+          website: lead.website,
+          website_status: lead.website ? undefined : 'none',
+          maps_url: lead.maps_url,
+          rating: lead.rating,
+          reviews_count: lead.reviews_count,
+          niche: lead.niche || null,
+          source: 'import',
+        }));
+        
+        try {
+          const inserted = upsertLeads(dbLeads);
+          console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
+        } catch (error) {
+          console.error('❌ Erreur sauvegarde DB:', getErrorMessage(error));
         }
         
-        console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
         resolve(deduped);
       })
-      .on('error', reject);
+      .on('error', (error) => {
+        console.error('❌ Erreur parsing CSV:', getErrorMessage(error));
+        reject(error);
+      });
   });
 }
 

@@ -3,16 +3,24 @@ import pLimit from 'p-limit';
 import { PappersResult } from '../shared/types.js';
 import { getDb, enrichLead } from './db.js';
 import type { DbLead } from '../shared/types.js';
+import { sleep, retryWithBackoff } from './utils.js';
 import 'dotenv/config';
 
 const PAPPERS_API_KEY = process.env.PAPPERS_API_KEY;
 const PAPPERS_BASE_URL = 'https://api.pappers.fr/v2';
+const MAX_RETRIES = 3;
 
-// Rate limit: 2 requêtes/seconde
+// Rate limit: 2 requêtes/seconde (laissons p-limit gérer le rythme)
 const limit = pLimit(2);
 
-// Recherche entreprise par nom + ville
-async function searchPappers(name: string, city: string): Promise<PappersResult | null> {
+// Warn once about missing API key
+if (!PAPPERS_API_KEY) {
+  console.warn('\n⚠ PAPPERS_API_KEY non définie - enrichissement désactivé');
+  console.warn('  Définissez PAPPERS_API_KEY dans .env pour activer l\'enrichissement\n');
+}
+
+// Recherche entreprise par nom + ville avec retry automatique
+async function searchPappers(name: string, city: string, retryCount = 0): Promise<PappersResult | null> {
   if (!PAPPERS_API_KEY) {
     return null;
   }
@@ -24,10 +32,15 @@ async function searchPappers(name: string, city: string): Promise<PappersResult 
     const { statusCode, body } = await request(url);
 
     if (statusCode === 429) {
-      // Rate limited, attendre et retry
-      console.log('  ⚠ Rate limited, attente 2s...');
-      await sleep(2000);
-      return searchPappers(name, city);
+      // Rate limited, attendre et retry avec backoff exponentiel
+      if (retryCount >= MAX_RETRIES) {
+        console.log('  ⚠ Rate limit dépassé après plusieurs tentatives');
+        return null;
+      }
+      const backoffDelay = Math.min(2000 * Math.pow(2, retryCount), 10000);
+      console.log(`  ⚠ Rate limited, attente ${backoffDelay}ms... (tentative ${retryCount + 1}/${MAX_RETRIES})`);
+      await sleep(backoffDelay);
+      return searchPappers(name, city, retryCount + 1);
     }
 
     if (statusCode === 401) {
@@ -61,9 +74,7 @@ function extractDirigeant(result: PappersResult): string | undefined {
   return undefined;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+
 
 /**
  * Enrichir un seul lead immédiatement (utilisé par le scraper)
@@ -124,22 +135,14 @@ export async function enrich(): Promise<DbLead[]> {
   let enrichedCount = 0;
   let current = 0;
 
-  if (!PAPPERS_API_KEY) {
-    console.log('⚠ PAPPERS_API_KEY non définie - enrichissement désactivé');
-    console.log('  Définissez PAPPERS_API_KEY dans .env pour activer l\'enrichissement\n');
-    return leadsToEnrich;
-  }
-
   console.log(`🔍 Enrichissement de ${leadsToEnrich.length} leads...`);
 
+  // Retirer le sleep explicite - laissons p-limit gérer le rythme naturellement
   const tasks = leadsToEnrich.map(lead => limit(async () => {
     current++;
     process.stdout.write(`\r🔍 Enrichissement: ${current}/${leadsToEnrich.length}`);
 
     const result = await searchPappers(lead.name, lead.city);
-    
-    // Pause entre requêtes
-    await sleep(500);
 
     if (result) {
       const dirigeant = extractDirigeant(result);
