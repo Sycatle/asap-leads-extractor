@@ -68,9 +68,24 @@ export async function fetchLead(id: number | string): Promise<Lead> {
   return fetchApi<Lead>(`/api/leads/${id}`);
 }
 
-export async function fetchNextLead(excludeIds?: number[]): Promise<{ lead: Lead | null }> {
-  const param = excludeIds?.length ? `?exclude=${excludeIds.join(',')}` : '';
-  return fetchApi(`/api/leads/next${param}`);
+export interface FetchNextLeadOptions {
+  excludeIds?: number[];
+  recentNiches?: string[];
+}
+
+export async function fetchNextLead(options: FetchNextLeadOptions = {}): Promise<{ lead: Lead | null; reason?: string }> {
+  const params = new URLSearchParams();
+  
+  if (options.excludeIds?.length) {
+    params.set('exclude', options.excludeIds.join(','));
+  }
+  
+  if (options.recentNiches?.length) {
+    params.set('recentNiches', options.recentNiches.join(','));
+  }
+  
+  const queryString = params.toString();
+  return fetchApi(`/api/leads/next${queryString ? `?${queryString}` : ''}`);
 }
 
 export async function fetchLeadHistory(id: number | string): Promise<{ history: HistoryEntry[] }> {

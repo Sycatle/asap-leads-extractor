@@ -48,6 +48,7 @@ export function useCallSession(): UseCallSessionResult {
   const [pendingOutcome, setPendingOutcome] = useState<CallOutcome | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recentNichesRef = useRef<string[]>([]); // Tracking pour rotation niches (ref pour éviter boucle)
   const [needsLeadRefresh, setNeedsLeadRefresh] = useState(0);
 
   // Initialize session and fetch first lead
@@ -66,8 +67,13 @@ export function useCallSession(): UseCallSessionResult {
         setSession(activeSession);
         
         // Fetch first lead immediately after getting session
-        const leadData = await fetchNextLead([]);
+        const leadData = await fetchNextLead({ excludeIds: [] });
         setCurrentLead(leadData.lead);
+        
+        // Track niche for rotation
+        if (leadData.lead?.niche) {
+          recentNichesRef.current = [leadData.lead.niche];
+        }
       } catch (error) {
         console.error('Failed to init session:', error);
       } finally {
@@ -81,8 +87,13 @@ export function useCallSession(): UseCallSessionResult {
   const refreshNextLead = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchNextLead(skippedIds);
+      const data = await fetchNextLead({ excludeIds: skippedIds, recentNiches: recentNichesRef.current });
       setCurrentLead(data.lead);
+      
+      // Update recent niches for rotation (keep last 5)
+      if (data.lead?.niche) {
+        recentNichesRef.current = [data.lead.niche, ...recentNichesRef.current].slice(0, 5);
+      }
     } catch (error) {
       console.error('Failed to fetch next lead:', error);
     }

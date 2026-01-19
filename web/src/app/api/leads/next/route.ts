@@ -11,7 +11,13 @@ export async function GET(request: NextRequest) {
       ? excludeParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
       : [];
     
-    const lead = getNextLead(excludeIds);
+    // Parse recent niches for rotation (comma-separated)
+    const recentNichesParam = searchParams.get('recentNiches');
+    const recentNiches = recentNichesParam 
+      ? recentNichesParam.split(',').filter(n => n.trim())
+      : [];
+    
+    const lead = getNextLead(excludeIds, { recentNiches });
     
     if (!lead) {
       return NextResponse.json({
