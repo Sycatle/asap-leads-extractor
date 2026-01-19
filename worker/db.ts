@@ -138,6 +138,19 @@ export function upsertLead(lead: InsertLead): DbLead | null {
 }
 
 /**
+ * Format error message safely
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return String(error);
+}
+
+/**
  * Insert multiple leads in batch with transaction
  * More efficient than individual inserts
  */
@@ -152,7 +165,7 @@ export function upsertLeads(leads: InsertLead[]): number {
         if (result) inserted++;
       } catch (error) {
         // Log but continue on individual failures
-        console.error(`⚠ Erreur insertion lead ${lead.phone}:`, (error as Error).message);
+        console.error(`⚠ Erreur insertion lead ${lead.phone}:`, getErrorMessage(error));
       }
     }
   });
@@ -160,7 +173,7 @@ export function upsertLeads(leads: InsertLead[]): number {
   try {
     transaction(leads);
   } catch (error) {
-    console.error('❌ Erreur transaction batch:', (error as Error).message);
+    console.error('❌ Erreur transaction batch:', getErrorMessage(error));
   }
   
   return inserted;

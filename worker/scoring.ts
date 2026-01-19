@@ -147,7 +147,10 @@ export function computeBestCallTime(openingHours: string | undefined): string | 
   if (times.length === 0) return undefined;
   
   // Find most common opening hour
-  const openHour = Math.min(...times.filter(h => h >= 7 && h <= 12));
+  const validTimes = times.filter(h => h >= 7 && h <= 12);
+  if (validTimes.length === 0) return undefined;
+  
+  const openHour = Math.min(...validTimes);
   
   if (openHour && openHour < 12) {
     // Suggest 30 min after opening (time for them to settle in)

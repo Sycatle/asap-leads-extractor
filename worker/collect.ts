@@ -39,6 +39,19 @@ function isExcludedChain(name: string, config: Config): boolean {
   return config.exclude_keywords.some(kw => lower.includes(kw.toLowerCase()));
 }
 
+/**
+ * Format error message safely
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return String(error);
+}
+
 // Déduplication par téléphone
 function dedupeByPhone(leads: RawLead[]): RawLead[] {
   const seen = new Set<string>();
@@ -58,7 +71,7 @@ export async function collect(): Promise<RawLead[]> {
     const stream = createReadStream(config.input_csv);
     
     stream.on('error', (error) => {
-      console.error(`❌ Erreur lecture fichier ${config.input_csv}:`, error.message);
+      console.error(`❌ Erreur lecture fichier ${config.input_csv}:`, getErrorMessage(error));
       reject(error);
     });
     
@@ -102,13 +115,13 @@ export async function collect(): Promise<RawLead[]> {
           const inserted = upsertLeads(dbLeads);
           console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
         } catch (error) {
-          console.error('❌ Erreur sauvegarde DB:', (error as Error).message);
+          console.error('❌ Erreur sauvegarde DB:', getErrorMessage(error));
         }
         
         resolve(deduped);
       })
       .on('error', (error) => {
-        console.error('❌ Erreur parsing CSV:', error.message);
+        console.error('❌ Erreur parsing CSV:', getErrorMessage(error));
         reject(error);
       });
   });

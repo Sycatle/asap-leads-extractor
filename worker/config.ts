@@ -2,7 +2,8 @@ import { readFileSync, existsSync } from 'fs';
 import { Config } from '../shared/types.js';
 
 // Default configuration values
-const DEFAULT_CONFIG: Partial<Config> = {
+const DEFAULT_CONFIG: Config = {
+  input_csv: '',
   target: 100,
   allowed_departments: [],
   exclude_keywords: [],
@@ -37,7 +38,7 @@ export function loadConfig(path?: string): Config {
       ...DEFAULT_CONFIG,
       ...config,
       worker: config.worker ? {
-        ...DEFAULT_CONFIG.worker!,
+        ...DEFAULT_CONFIG.worker,
         ...config.worker,
       } : DEFAULT_CONFIG.worker,
     };
