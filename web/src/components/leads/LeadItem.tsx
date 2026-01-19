@@ -12,26 +12,26 @@ interface LeadTableRowProps {
 
 export function LeadTableRow({ lead }: LeadTableRowProps) {
   return (
-    <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+    <tr className="hover:bg-accent transition-colors">
       <td className="px-4 py-3">
         <div>
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">{lead.name}</p>
+          <p className="font-medium text-foreground">{lead.name}</p>
           {lead.priority && (
             <PriorityBadge priority={lead.priority} />
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+      <td className="px-4 py-3 text-sm text-muted-foreground">
         {lead.city || '-'}
       </td>
-      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+      <td className="px-4 py-3 text-sm text-muted-foreground">
         {lead.niche || '-'}
       </td>
       <td className="px-4 py-3">
         {lead.phone ? (
           <a
             href={`tel:${lead.phone}`}
-            className="text-sm font-mono text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-sm font-mono text-primary hover:underline"
           >
             {lead.phone}
           </a>
@@ -56,7 +56,7 @@ export function LeadTableRow({ lead }: LeadTableRowProps) {
               href={lead.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
               title="Voir le site"
             >
               <ExternalLink className="w-4 h-4" />
@@ -65,7 +65,7 @@ export function LeadTableRow({ lead }: LeadTableRowProps) {
           {lead.phone && (
             <a
               href={`tel:${lead.phone}`}
-              className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-green-600 dark:hover:text-green-400"
+              className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-green-600"
               title="Appeler"
             >
               <Phone className="w-4 h-4" />
@@ -73,7 +73,7 @@ export function LeadTableRow({ lead }: LeadTableRowProps) {
           )}
           <Link
             href={`/leads/${lead.id}`}
-            className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400"
+            className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-primary"
             title="Voir la fiche"
           >
             <Eye className="w-4 h-4" />
@@ -93,13 +93,13 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, showActions = true }: LeadCardProps) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+    <div className="bg-card rounded-lg border border-border p-4 hover:border-border/80 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Link
               href={`/leads/${lead.id}`}
-              className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 truncate"
+              className="font-medium text-foreground hover:text-primary truncate"
             >
               {lead.name}
             </Link>
@@ -159,7 +159,7 @@ export function FollowupItem({ lead }: FollowupItemProps) {
   return (
     <Link
       href={`/leads/${lead.id}`}
-      className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+      className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-accent transition-colors"
     >
       {isOverdue ? (
         <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -168,12 +168,12 @@ export function FollowupItem({ lead }: FollowupItemProps) {
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          <p className="font-medium text-foreground truncate">
             {lead.name}
           </p>
           <PriorityBadge priority={lead.priority} />
         </div>
-        <p className="text-sm text-zinc-500 truncate">
+        <p className="text-sm text-muted-foreground truncate">
           {lead.city} {lead.niche && `• ${lead.niche}`}
         </p>
       </div>
@@ -200,7 +200,7 @@ export function FollowupListItem({ lead }: FollowupListItemProps) {
   const followupDate = new Date(lead.next_followup_at);
 
   return (
-    <div className="px-4 py-3 flex items-center gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+    <div className="px-4 py-3 flex items-center gap-4 hover:bg-accent transition-colors">
       {/* Time */}
       <div className={cn('w-20 text-sm font-medium', isOverdue ? 'text-red-600 dark:text-red-400' : 'text-zinc-500')}>
         {formatRelativeTime(followupDate, isOverdue)}
@@ -209,7 +209,7 @@ export function FollowupListItem({ lead }: FollowupListItemProps) {
       {/* Lead info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="font-medium text-foreground truncate">
             {lead.name}
           </span>
           <PriorityBadge priority={lead.priority} />

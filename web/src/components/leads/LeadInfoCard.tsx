@@ -14,7 +14,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Contact Info */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Contact</h3>
+          <h3 className="font-semibold text-foreground">Contact</h3>
 
           <InfoRow
             icon={Phone}
@@ -23,7 +23,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
               <div>
                 <a
                   href={`tel:${lead.phone}`}
-                  className="font-mono text-lg text-blue-600 dark:text-blue-400 hover:underline"
+                  className="font-mono text-lg text-primary hover:underline"
                 >
                   {lead.phone}
                 </a>
@@ -41,7 +41,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
                   href={lead.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  className="text-primary hover:underline flex items-center gap-1"
                 >
                   {new URL(lead.website).hostname}
                   <ExternalLink className="w-3 h-3" />
@@ -54,7 +54,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
             icon={MapPin}
             iconColor="zinc"
             content={
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+              <div className="text-sm text-muted-foreground">
                 <p>{lead.address}</p>
                 <p>{lead.postal_code} {lead.city}</p>
               </div>
@@ -66,7 +66,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
               icon={Star}
               iconColor="yellow"
               content={
-                <span className="text-zinc-600 dark:text-zinc-400">
+                <span className="text-muted-foreground">
                   {lead.rating} ({lead.reviews_count} avis)
                 </span>
               }
@@ -76,7 +76,7 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
 
         {/* Business Info */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Entreprise</h3>
+          <h3 className="font-semibold text-foreground">Entreprise</h3>
 
           {lead.legal_name && (
             <InfoRow
@@ -84,9 +84,9 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
               iconColor="purple"
               content={
                 <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{lead.legal_name}</p>
+                  <p className="text-sm text-muted-foreground">{lead.legal_name}</p>
                   {lead.siren && (
-                    <p className="text-xs text-zinc-500">SIREN: {lead.siren}</p>
+                    <p className="text-xs text-muted-foreground">SIREN: {lead.siren}</p>
                   )}
                 </div>
               }
@@ -99,8 +99,8 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
               iconColor="indigo"
               content={
                 <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{lead.dirigeant}</p>
-                  <p className="text-xs text-zinc-500">Dirigeant</p>
+                  <p className="text-sm text-muted-foreground">{lead.dirigeant}</p>
+                  <p className="text-xs text-muted-foreground">Dirigeant</p>
                 </div>
               }
             />
@@ -156,7 +156,7 @@ interface InfoRowProps {
 const iconBgColors = {
   green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
   blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
-  zinc: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
+  zinc: 'bg-muted text-muted-foreground',
   yellow: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-400',
   purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400',
   indigo: 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400',

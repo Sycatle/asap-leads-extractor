@@ -23,7 +23,7 @@ export function LeadActionsCard({
 
       {/* Call actions */}
       <div className="mb-4">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
           Résultat d&apos;appel
         </p>
         <div className="flex flex-wrap gap-2">
@@ -60,7 +60,7 @@ export function LeadActionsCard({
 
       {/* Status actions */}
       <div className="mb-4">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
           Changer le statut
         </p>
         <div className="flex flex-wrap gap-2">
@@ -117,7 +117,7 @@ export function LeadActionsCard({
             href={lead.maps_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
           >
             <MapPin className="w-4 h-4" />
             Maps
