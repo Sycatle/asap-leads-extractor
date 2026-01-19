@@ -10,23 +10,23 @@ type StatColor = 'blue' | 'green' | 'orange' | 'purple' | 'red';
 
 const colorStyles: Record<StatColor, { icon: string; glow: string }> = {
   blue: {
-    icon: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    icon: 'bg-primary/10 text-primary',
     glow: 'stat-card-blue',
   },
   green: {
-    icon: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    icon: 'bg-success/10 text-success',
     glow: 'stat-card-green',
   },
   orange: {
-    icon: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    icon: 'bg-warning/10 text-warning',
     glow: 'stat-card-orange',
   },
   purple: {
-    icon: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    icon: 'bg-info/10 text-info',
     glow: 'stat-card-purple',
   },
   red: {
-    icon: 'bg-red-500/10 text-red-600 dark:text-red-400',
+    icon: 'bg-danger/10 text-danger',
     glow: 'stat-card-red',
   },
 };
@@ -56,7 +56,7 @@ export function StatCard({
   
   const content = (
     <div className={cn(
-      'bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 group relative overflow-hidden transition-all duration-300',
+      'bg-card rounded-xl border border-border p-6 group relative overflow-hidden transition-all duration-300',
       href && 'cursor-pointer hover:scale-[1.02] hover:shadow-lg',
       styles.glow
     )}>
@@ -68,20 +68,20 @@ export function StatCard({
           )}>
             <Icon className="w-5 h-5" />
             {alert && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900 animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card animate-pulse" />
             )}
           </div>
           
           <div>
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+            <p className="text-sm font-medium text-muted-foreground mb-1">
               {label}
             </p>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+              <p className="text-3xl font-bold text-foreground tracking-tight">
                 {value}
               </p>
               {subValue && (
-                <span className="text-sm font-medium text-zinc-400 dark:text-zinc-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {subValue}
                 </span>
               )}
@@ -89,7 +89,7 @@ export function StatCard({
             {trend && (
               <p className={cn(
                 'text-xs font-medium mt-1',
-                trend.positive ? 'text-emerald-600' : 'text-red-500'
+                trend.positive ? 'text-success' : 'text-danger'
               )}>
                 {trend.positive ? '↑' : '↓'} {Math.abs(trend.value)}% vs last week
               </p>
@@ -98,7 +98,7 @@ export function StatCard({
         </div>
         
         {href && (
-          <ArrowUpRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors" />
+          <ArrowUpRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
         )}
       </div>
     </div>
@@ -125,15 +125,15 @@ export function MiniStat({ label, value, total, color = 'blue' }: MiniStatProps)
   const styles = colorStyles[color];
 
   return (
-    <div className="text-center p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800">
+    <div className="text-center p-4 rounded-xl bg-accent transition-all hover:bg-accent/80">
       <div className={cn(
         'inline-flex items-center justify-center w-10 h-10 rounded-lg mb-2',
         styles.icon
       )}>
         <span className="text-lg font-bold">{percentage}%</span>
       </div>
-      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -177,10 +177,10 @@ export function LoadingState({ message = 'Chargement...', className }: LoadingSt
       className
     )}>
       <div className="relative">
-        <div className="w-16 h-16 rounded-full border-4 border-zinc-200 dark:border-zinc-800" />
-        <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+        <div className="w-16 h-16 rounded-full border-4 border-border" />
+        <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
       </div>
-      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{message}</p>
+      <p className="text-sm font-medium text-muted-foreground">{message}</p>
     </div>
   );
 }
@@ -189,16 +189,16 @@ export function LoadingState({ message = 'Chargement...', className }: LoadingSt
 
 export function SkeletonCard() {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+    <div className="bg-card rounded-xl border border-border p-6 space-y-4">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
+        <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
         <div className="flex-1 space-y-2">
-          <div className="h-5 w-1/3 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
-          <div className="h-4 w-1/2 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-5 w-1/3 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-1/2 bg-muted rounded animate-pulse" />
         </div>
       </div>
-      <div className="h-4 w-full bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
-      <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+      <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
     </div>
   );
 }
@@ -208,11 +208,11 @@ export function SkeletonCard() {
 export function SkeletonTableRow() {
   return (
     <tr className="animate-pulse">
-      <td className="p-4"><div className="h-5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
-      <td className="p-4"><div className="h-5 w-24 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
-      <td className="p-4"><div className="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full" /></td>
-      <td className="p-4"><div className="h-5 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" /></td>
-      <td className="p-4"><div className="h-8 w-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg" /></td>
+      <td className="p-4"><div className="h-5 w-32 bg-muted rounded" /></td>
+      <td className="p-4"><div className="h-5 w-24 bg-muted rounded" /></td>
+      <td className="p-4"><div className="h-6 w-20 bg-muted rounded-full" /></td>
+      <td className="p-4"><div className="h-5 w-28 bg-muted rounded" /></td>
+      <td className="p-4"><div className="h-8 w-8 bg-muted rounded-lg" /></td>
     </tr>
   );
 }

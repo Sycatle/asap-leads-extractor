@@ -16,7 +16,7 @@ export function Label({ children, className, required, ...props }: LabelProps) {
   return (
     <label
       className={cn(
-        'block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2',
+        'block text-sm font-medium text-foreground mb-2',
         className
       )}
       {...props}
@@ -76,9 +76,8 @@ export function NativeSelect({ children, className, ...props }: NativeSelectProp
   return (
     <select
       className={cn(
-        'flex h-9 rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+        'flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-sm transition-colors',
+        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
