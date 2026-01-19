@@ -11,6 +11,7 @@
     "scrape": "tsx worker/index.ts scrape",
     "collect": "tsx worker/cli.ts collect",
     "enrich": "tsx worker/index.ts enrich",
+    "enrich:website": "tsx worker/enrichWebsite.ts",
     "stats": "tsx worker/cli.ts stats",
     "web": "cd web && pnpm dev",
     "web:build": "cd web && pnpm build"

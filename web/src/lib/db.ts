@@ -14,6 +14,21 @@ export type {
 } from '../../../shared/types.js';
 
 import type { DbLead, LeadStatus, CallStatus, EmailStatus } from '../../../shared/types.js';
+import type { Lead } from '@/types';
+
+/**
+ * Transform DbLead to Lead (parse JSON fields)
+ */
+export function transformDbLead(dbLead: DbLead): Lead {
+  return {
+    ...dbLead,
+    has_booking: Boolean(dbLead.has_booking),
+    has_seo: Boolean(dbLead.has_seo),
+    has_mobile_friendly: dbLead.has_mobile_friendly !== null ? Boolean(dbLead.has_mobile_friendly) : null,
+    has_ssl: dbLead.has_ssl !== null ? Boolean(dbLead.has_ssl) : null,
+    pain_points: dbLead.pain_points ? JSON.parse(dbLead.pain_points) : null,
+  } as Lead;
+}
 
 // DB Path - Trouver le chemin vers data/leads.db
 // 1. Priorité: variable d'environnement DATABASE_PATH
@@ -642,7 +657,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get() as DbLead | undefined;
-  if (overdue) return overdue;
+  if (overdue) return transformDbLead(overdue);
   
   // 2. Relances aujourd'hui (plus tôt d'abord)
   const todayFollowup = database.prepare(`
@@ -655,7 +670,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get() as DbLead | undefined;
-  if (todayFollowup) return todayFollowup;
+  if (todayFollowup) return transformDbLead(todayFollowup);
   
   // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
   const freshLeads = database.prepare(`
@@ -675,7 +690,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return scoredLeads[0].lead;
+    return transformDbLead(scoredLeads[0].lead);
   }
   
   // 4. Leads à rappeler depuis > 24h - triés par SCORE AJUSTÉ
@@ -695,7 +710,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return scoredLeads[0].lead;
+    return transformDbLead(scoredLeads[0].lead);
   }
   
   // 5. Fallback sans filtre de niche (si on a bloqué par rotation)

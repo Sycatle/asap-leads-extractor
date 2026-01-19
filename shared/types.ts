@@ -3,6 +3,7 @@
 export type PhoneType = 'pro' | 'perso' | 'unknown';
 export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
+export type CMSType = 'wordpress' | 'wix' | 'shopify' | 'prestashop' | 'squarespace' | 'webflow' | 'custom' | 'unknown';
 
 // ===== STATUTS DE SUIVI =====
 
@@ -61,6 +62,12 @@ export interface EnrichedLead extends RawLead {
   website_status?: WebsiteStatus;
   best_call_time?: string;
   has_seo?: boolean;
+  // Website technology analysis
+  cms_type?: CMSType;
+  has_mobile_friendly?: boolean;
+  has_ssl?: boolean;
+  page_load_time?: number; // in milliseconds
+  pain_points?: string[]; // Identified issues for sales talking points
 }
 
 // ===== LEAD EN BASE =====
@@ -98,6 +105,13 @@ export interface DbLead {
   has_booking: number; // SQLite: 0 ou 1
   has_seo: number;     // SQLite: 0 ou 1
   last_gmb_update: string | null;
+  
+  // Website analysis enrichment
+  cms_type: string | null; // CMSType
+  has_mobile_friendly: number | null; // SQLite: 0 ou 1
+  has_ssl: number | null; // SQLite: 0 ou 1
+  page_load_time: number | null; // in milliseconds
+  pain_points: string | null; // JSON array of identified issues
   
   // Suivi commercial
   status: LeadStatus;

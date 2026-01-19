@@ -202,6 +202,11 @@ function migrateSchema(database: Database.Database): void {
     ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
     ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
     ['image_url', "ALTER TABLE leads ADD COLUMN image_url TEXT"],
+    ['cms_type', "ALTER TABLE leads ADD COLUMN cms_type TEXT"],
+    ['has_mobile_friendly', "ALTER TABLE leads ADD COLUMN has_mobile_friendly INTEGER"],
+    ['has_ssl', "ALTER TABLE leads ADD COLUMN has_ssl INTEGER"],
+    ['page_load_time', "ALTER TABLE leads ADD COLUMN page_load_time INTEGER"],
+    ['pain_points', "ALTER TABLE leads ADD COLUMN pain_points TEXT"],
   ];
   
   for (const [column, sql] of migrations) {

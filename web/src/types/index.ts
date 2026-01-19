@@ -6,6 +6,7 @@ export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'boun
 export type Priority = 'high' | 'medium' | 'low';
 export type PhoneType = 'pro' | 'perso' | 'unknown';
 export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
+export type CMSType = 'wordpress' | 'wix' | 'shopify' | 'prestashop' | 'squarespace' | 'webflow' | 'custom' | 'unknown';
 
 export interface Lead {
   id: number;
@@ -45,6 +46,12 @@ export interface Lead {
   has_booking?: boolean;
   has_seo?: boolean;
   last_gmb_update?: string | null;
+  // Website analysis fields
+  cms_type?: CMSType | null;
+  has_mobile_friendly?: boolean | null;
+  has_ssl?: boolean | null;
+  page_load_time?: number | null;
+  pain_points?: string[] | null;
 }
 
 export interface LeadSummary {

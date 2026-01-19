@@ -608,6 +608,38 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
         </div>
       )}
 
+      {/* ===== BLOC 4.5: PAIN POINTS ===== */}
+      {lead.pain_points && lead.pain_points.length > 0 && (
+        <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-b border-border">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-900 dark:text-red-300 mb-1.5">
+                Points de Douleur - Arguments de Vente
+              </h3>
+              <ul className="space-y-1.5">
+                {lead.pain_points.map((point, idx) => (
+                  <li key={idx} className="text-sm text-red-800 dark:text-red-200 flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5">•</span>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              {lead.cms_type && lead.cms_type !== 'unknown' && (
+                <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    <strong>Techno détectée:</strong> {lead.cms_type.toUpperCase()}
+                    {lead.has_mobile_friendly === false && ' • Non mobile'}
+                    {lead.has_ssl === false && ' • Pas de HTTPS'}
+                    {lead.page_load_time && lead.page_load_time > 3000 && ` • Lent (${(lead.page_load_time / 1000).toFixed(1)}s)`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== BLOC 5: HISTORIQUE AVEC RÉSUMÉ ===== */}
       {(history.length > 0 || loadingHistory) && (
         <div className="p-3">

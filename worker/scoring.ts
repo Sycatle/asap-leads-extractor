@@ -32,6 +32,16 @@ export function calculateLeadScore(lead: InsertLead): number {
     score += 10;
   }
   
+  // CMS-specific scoring adjustments
+  const cms_type = (lead as any).cms_type;
+  if (cms_type === 'wix') {
+    score += 12; // Wix sites are good prospects (SEO limitations)
+  } else if (cms_type === 'wordpress' && (lead as any).page_load_time && (lead as any).page_load_time > 3000) {
+    score += 8; // Slow WordPress = needs optimization
+  } else if (cms_type === 'shopify') {
+    score += 5; // Shopify can be expensive, opportunity for custom
+  }
+  
   // No image on Google Maps = +10 (poorly optimized)
   if (!lead.image_url) {
     score += 10;
@@ -108,12 +118,18 @@ export function classifyWebsiteStatus(url: string | null | undefined): WebsiteSt
     'justacote.com', 'mappy.com', 'infobel.'
   ];
   
-  if ([...bookingPlatforms, ...socialPlatforms, ...directoryPlatforms]
+  // Website builders with obvious URLs = platform (GOOD PROSPECT)
+  const websiteBuilders = [
+    'wixsite.com', 'wordpress.com', 'weebly.com', 'blogspot.',
+    'squarespace.com', 'webflow.io', 'shopify.com'
+  ];
+  
+  if ([...bookingPlatforms, ...socialPlatforms, ...directoryPlatforms, ...websiteBuilders]
       .some(platform => lowerUrl.includes(platform))) {
     return 'platform';
   }
   
-  // Own website - default to modern (could be improved with further analysis)
+  // Own website - default to modern (will be refined by website analyzer)
   // TODO: Add actual website age/quality analysis
   return 'modern';
 }
