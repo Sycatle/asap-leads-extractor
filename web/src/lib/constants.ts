@@ -89,19 +89,19 @@ export const URGENCY_CONFIG: Record<FollowupUrgency, {
 
 export const CALL_OUTCOMES: CallOutcomeOption[] = [
   // Pas de contact
-  { id: 'injoignable', label: 'Injoignable', color: 'red', key: '1', requiresNextStep: true },
-  { id: 'messagerie', label: 'Messagerie', color: 'yellow', key: '2', requiresNextStep: true },
-  { id: 'mauvais_numero', label: 'Mauvais n°', color: 'zinc', key: '3', requiresNextStep: false },
+  { id: 'injoignable', label: 'Injoignable', color: 'red', key: 'i', requiresNextStep: true },
+  { id: 'messagerie', label: 'Messagerie', color: 'yellow', key: 'm', requiresNextStep: true },
+  { id: 'mauvais_numero', label: 'Mauvais n°', color: 'zinc', key: 'n', requiresNextStep: false },
   // Contact partiel
-  { id: 'accueil', label: 'Accueil/Standard', color: 'orange', key: '4', requiresNextStep: true },
-  { id: 'rappeler', label: 'À rappeler', color: 'blue', key: '5', requiresNextStep: true },
+  { id: 'accueil', label: 'Accueil/Standard', color: 'orange', key: 'a', requiresNextStep: true },
+  { id: 'rappeler', label: 'À rappeler', color: 'blue', key: 'r', requiresNextStep: true },
   // Contact positif
-  { id: 'interesse', label: 'Intéressé', color: 'green', key: '6', requiresNextStep: true },
-  { id: 'rdv_pris', label: 'RDV pris', color: 'green', key: '7', requiresNextStep: true },
-  { id: 'devis_envoye', label: 'Devis envoyé', color: 'purple', key: '8', requiresNextStep: true },
+  { id: 'interesse', label: 'Intéressé', color: 'green', key: 't', requiresNextStep: true },
+  { id: 'rdv_pris', label: 'RDV pris', color: 'green', key: 'v', requiresNextStep: true },
+  { id: 'devis_envoye', label: 'Devis envoyé', color: 'purple', key: 'd', requiresNextStep: true },
   // Clôture
-  { id: 'perdu', label: 'Perdu', color: 'zinc', key: '9', requiresNextStep: false },
-  { id: 'opt_out', label: 'Opt-out', color: 'red', key: '0', requiresNextStep: false },
+  { id: 'perdu', label: 'Perdu', color: 'zinc', key: 'p', requiresNextStep: false },
+  { id: 'opt_out', label: 'Opt-out', color: 'red', key: 'o', requiresNextStep: false },
 ];
 
 // Workflows par statut (next steps suggérés)
@@ -158,3 +158,32 @@ export const ICON_COLORS = {
 } as const;
 
 export type IconColor = keyof typeof ICON_COLORS;
+
+// ===== LEAD SELECTION ALGORITHM CONFIG =====
+
+export const LEAD_SELECTION_CONFIG = {
+  // Filtres globaux
+  maxAttempts: 5,                    // Max tentatives avant abandon
+  coolingOffHours: 4,                // Délai minimum entre 2 appels (heures)
+  
+  // Score dynamique - bonus
+  bonusBestCallTime: 20,             // Si l'heure actuelle match best_call_time
+  bonusNoWebsite: 15,                // Pas de site web = plus besoin
+  bonusPriorityHigh: 30,             // Priorité haute
+  bonusPriorityMedium: 15,           // Priorité moyenne
+  
+  // Score dynamique - malus
+  malusPerAttempt: 5,                // Pénalité par tentative
+  malusPhonePerso: 20,               // Numéro personnel
+  
+  // Rotation des niches
+  maxConsecutiveSameNiche: 3,        // Max leads consécutifs de la même niche
+  
+  // Heures de travail (pour matcher best_call_time)
+  workHours: {
+    start: 9,  // 9h
+    end: 19,   // 19h
+  },
+} as const;
+
+export type LeadSelectionConfig = typeof LEAD_SELECTION_CONFIG;

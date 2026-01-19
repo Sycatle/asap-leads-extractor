@@ -537,61 +537,173 @@ export function getSessionById(id: number): CallSession | null {
 
 // ===== NEXT LEAD (INTELLIGENT) =====
 
-export function getNextLead(excludeIds: number[] = []): DbLead | null {
+import { LEAD_SELECTION_CONFIG } from './constants';
+
+/**
+ * Vérifie si l'heure actuelle correspond au best_call_time du lead
+ * Format attendu: "10h-12h" ou "14h-18h" ou "10h-12h, 14h-18h"
+ */
+function matchesBestCallTime(bestCallTime: string | null): boolean {
+  if (!bestCallTime) return false;
+  
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Parser les plages horaires
+  const ranges = bestCallTime.split(',').map(r => r.trim());
+  
+  for (const range of ranges) {
+    const match = range.match(/(\d{1,2})h?\s*[-–]\s*(\d{1,2})h?/i);
+    if (match) {
+      const start = parseInt(match[1]);
+      const end = parseInt(match[2]);
+      if (currentHour >= start && currentHour < end) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Calcule le score ajusté pour un lead selon l'algorithme intelligent
+ */
+function calculateAdjustedScore(lead: DbLead): number {
+  const config = LEAD_SELECTION_CONFIG;
+  let adjustedScore = lead.score || 50;
+  
+  // Bonus heure optimale
+  if (matchesBestCallTime(lead.best_call_time)) {
+    adjustedScore += config.bonusBestCallTime;
+  }
+  
+  // Bonus pas de site web
+  if (!lead.website) {
+    adjustedScore += config.bonusNoWebsite;
+  }
+  
+  // Bonus priorité
+  if (lead.priority === 'high') {
+    adjustedScore += config.bonusPriorityHigh;
+  } else if (lead.priority === 'medium') {
+    adjustedScore += config.bonusPriorityMedium;
+  }
+  
+  // Malus tentatives
+  adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
+  
+  // Malus numéro perso
+  if (lead.phone_type === 'perso') {
+    adjustedScore -= config.malusPhonePerso;
+  }
+  
+  return adjustedScore;
+}
+
+export interface NextLeadOptions {
+  excludeIds?: number[];
+  recentNiches?: string[]; // Les niches des derniers leads appelés
+}
+
+export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): DbLead | null {
   const database = getDb();
+  const config = LEAD_SELECTION_CONFIG;
   
   const excludeClause = excludeIds.length > 0 
     ? `AND id NOT IN (${excludeIds.join(',')})` 
     : '';
   
-  // 1. Relances en retard (plus ancien d'abord)
+  // Filtres globaux (toujours appliqués)
+  const globalFilters = `
+    AND opt_out = 0
+    AND status NOT IN ('converti', 'perdu')
+    AND attempts_count < ${config.maxAttempts}
+    AND (last_contact_at IS NULL OR last_contact_at < datetime('now', '-${config.coolingOffHours} hours'))
+  `;
+  
+  // Filtre de rotation des niches (éviter les mêmes niches consécutives)
+  let nicheFilter = '';
+  if (options.recentNiches && options.recentNiches.length >= config.maxConsecutiveSameNiche) {
+    const lastNiche = options.recentNiches[0];
+    const consecutiveCount = options.recentNiches.filter(n => n === lastNiche).length;
+    if (consecutiveCount >= config.maxConsecutiveSameNiche && lastNiche) {
+      nicheFilter = `AND (niche IS NULL OR niche != '${lastNiche.replace(/'/g, "''")}') `;
+    }
+  }
+  
+  // 1. Relances en retard (plus ancien d'abord) - PRIORITÉ ABSOLUE
   const overdue = database.prepare(`
     SELECT * FROM leads 
     WHERE next_followup_at < datetime('now')
-    AND status NOT IN ('converti', 'perdu')
+    ${globalFilters}
     ${excludeClause}
+    ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get() as DbLead | undefined;
   if (overdue) return overdue;
   
   // 2. Relances aujourd'hui (plus tôt d'abord)
-  const today = database.prepare(`
+  const todayFollowup = database.prepare(`
     SELECT * FROM leads 
     WHERE date(next_followup_at) = date('now')
     AND datetime(next_followup_at) >= datetime('now')
-    AND status NOT IN ('converti', 'perdu')
+    ${globalFilters}
     ${excludeClause}
+    ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get() as DbLead | undefined;
-  if (today) return today;
+  if (todayFollowup) return todayFollowup;
   
-  // 3. Nouveaux leads jamais appelés (priority DESC)
-  const fresh = database.prepare(`
+  // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
+  const freshLeads = database.prepare(`
     SELECT * FROM leads 
     WHERE call_status = 'non_appele'
     AND status = 'nouveau'
+    ${globalFilters}
     ${excludeClause}
-    ORDER BY 
-      CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-      created_at ASC
-    LIMIT 1
-  `).get() as DbLead | undefined;
-  if (fresh) return fresh;
+    ${nicheFilter}
+    ORDER BY created_at ASC
+    LIMIT 50
+  `).all() as DbLead[];
   
-  // 4. Leads à rappeler depuis > 24h
-  const stale = database.prepare(`
+  if (freshLeads.length > 0) {
+    // Calculer le score ajusté pour chaque lead et trier
+    const scoredLeads = freshLeads
+      .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
+      .sort((a, b) => b.adjustedScore - a.adjustedScore);
+    
+    return scoredLeads[0].lead;
+  }
+  
+  // 4. Leads à rappeler depuis > 24h - triés par SCORE AJUSTÉ
+  const staleLeads = database.prepare(`
     SELECT * FROM leads 
     WHERE call_status = 'rappeler'
     AND last_contact_at < datetime('now', '-1 day')
-    AND status NOT IN ('converti', 'perdu')
+    ${globalFilters}
     ${excludeClause}
+    ${nicheFilter}
     ORDER BY last_contact_at ASC
-    LIMIT 1
-  `).get() as DbLead | undefined;
+    LIMIT 50
+  `).all() as DbLead[];
   
-  return stale ?? null;
+  if (staleLeads.length > 0) {
+    const scoredLeads = staleLeads
+      .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
+      .sort((a, b) => b.adjustedScore - a.adjustedScore);
+    
+    return scoredLeads[0].lead;
+  }
+  
+  // 5. Fallback sans filtre de niche (si on a bloqué par rotation)
+  if (nicheFilter) {
+    return getNextLead(excludeIds, { recentNiches: [] });
+  }
+  
+  return null;
 }
 
 // ===== FOLLOWUPS =====
