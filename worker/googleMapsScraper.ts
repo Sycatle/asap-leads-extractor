@@ -1,6 +1,7 @@
 import { chromium, Browser, Page } from 'playwright';
 import { RawLead } from '../shared/types.js';
-import { upsertLead, closeDb, type InsertLead } from './db.js';
+import { upsertLead, closeDb, enrichLead, type InsertLead } from './db.js';
+import { enrichSingleLead } from './enrich.js';
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -15,7 +16,8 @@ function debugData(label: string, data: unknown): void {
 
 const DELAY_BETWEEN_ACTIONS = 1000;
 const SCROLL_PAUSE = 800;
-const MAX_RESULTS_PER_QUERY = 30; // Augmenté pour récupérer plus de leads
+const MAX_RESULTS_PER_QUERY = 60; // Augmenté pour récupérer davantage de leads
+const MAX_SCROLL_ATTEMPTS = 15; // Plus de scrolls pour charger plus de résultats
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -112,9 +114,16 @@ function normalizePhone(raw: string): string {
   return '';
 }
 
+interface ScrapeQueryOptions {
+  saveImmediately?: boolean;
+  enrichImmediately?: boolean;
+}
+
 // Scraper avec extraction depuis le panneau latéral (plus rapide)
-async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
+// Insère chaque lead en DB dès qu'il est extrait pour éviter les pertes
+async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOptions = {}): Promise<RawLead[]> {
   const leads: RawLead[] = [];
+  const { saveImmediately = true, enrichImmediately = false } = options;
   
   console.log(`\n  🔍 Recherche: "${query}"`);
   
@@ -154,22 +163,35 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
     return leads;
   }
   
-  // Scroll pour charger plus de résultats
+  // Scroll pour charger plus de résultats - on va plus loin pour trouver les business moins bien référencés
   const feed = page.locator('div[role="feed"]').first();
   debug('Scroll pour charger plus de résultats...');
   let lastCount = 0;
-  for (let i = 0; i < 8; i++) {
-    await feed.evaluate(el => el.scrollBy(0, 1000));
+  let noNewResultsCount = 0;
+  
+  for (let i = 0; i < MAX_SCROLL_ATTEMPTS; i++) {
+    await feed.evaluate(el => el.scrollBy(0, 1500)); // Scroll plus grand
     await sleep(SCROLL_PAUSE);
     
     // Vérifier si de nouveaux éléments sont apparus
     const currentCount = await page.locator('div[role="feed"] > div > div > a[href*="/maps/place/"]').count();
     debug(`Scroll ${i+1}: ${currentCount} items`);
     
-    // Arrêter si on a atteint la limite ou plus de nouveaux résultats
-    if (currentCount >= MAX_RESULTS_PER_QUERY || currentCount === lastCount) {
-      debug('Fin du scroll (limite atteinte ou pas de nouveaux résultats)');
+    // Arrêter si on a atteint la limite
+    if (currentCount >= MAX_RESULTS_PER_QUERY) {
+      debug('Limite de résultats atteinte');
       break;
+    }
+    
+    // Arrêter après 3 scrolls sans nouveaux résultats
+    if (currentCount === lastCount) {
+      noNewResultsCount++;
+      if (noNewResultsCount >= 3) {
+        debug('Fin de la liste atteinte (plus de nouveaux résultats)');
+        break;
+      }
+    } else {
+      noNewResultsCount = 0;
     }
     lastCount = currentCount;
   }
@@ -190,8 +212,18 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
     try {
       const item = items.nth(i);
       const itemHref = await item.getAttribute('href');
+      const ariaLabel = await item.getAttribute('aria-label') || '';
       debug(`\n--- Item ${i+1}/${count} ---`);
       debug('Href:', itemHref?.substring(0, 100));
+      debug('aria-label:', ariaLabel);
+      
+      // Ignorer les résultats sponsorisés directement
+      if (ariaLabel.toLowerCase().includes('sponsorisé') || 
+          ariaLabel.toLowerCase().includes('sponsored') ||
+          ariaLabel.toLowerCase().includes('annonce')) {
+        debug('⏭ Résultat sponsorisé ignoré');
+        continue;
+      }
       
       // Cliquer pour ouvrir le panneau latéral
       await item.click();
@@ -203,34 +235,35 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       
       debug('URL après clic:', page.url());
       
-      // Nom - plusieurs stratégies
+      // Nom - plusieurs stratégies (privilégier aria-label qui est plus fiable)
       let name = '';
       
-      // 1. Essayer depuis le H1 du panneau de détails (pas celui de la recherche)
-      const h1Elements = await page.locator('h1').all();
-      debug('Nombre de H1 trouvés:', h1Elements.length);
+      // 1. D'abord essayer l'aria-label du lien (le plus fiable)
+      if (ariaLabel && ariaLabel.length > 2) {
+        name = ariaLabel.trim();
+        debug('Nom depuis aria-label:', name);
+      }
       
-      for (const h1 of h1Elements) {
-        const text = await h1.textContent({ timeout: 1000 }).catch(() => '');
-        debug('H1 text:', text);
-        // Ignorer "Résultats" ou textes trop courts
-        if (text && text.length > 2 && !text.toLowerCase().includes('résultat')) {
-          name = text.trim();
-          break;
+      // 2. Fallback: H1 du panneau de détails
+      if (!name || !isValidName(name)) {
+        const h1Elements = await page.locator('h1').all();
+        debug('Nombre de H1 trouvés:', h1Elements.length);
+        
+        for (const h1 of h1Elements) {
+          const text = await h1.textContent({ timeout: 1000 }).catch(() => '');
+          debug('H1 text:', text);
+          // Ignorer "Résultats", "Sponsorisé" ou textes trop courts
+          if (text && text.length > 2 && isValidName(text)) {
+            name = text.trim();
+            break;
+          }
         }
       }
       
-      // 2. Fallback: extraire depuis l'URL
-      if (!name || name.toLowerCase().includes('résultat')) {
+      // 3. Fallback: extraire depuis l'URL
+      if (!name || !isValidName(name)) {
         name = extractNameFromUrl(page.url());
         debug('Nom extrait de URL:', name);
-      }
-      
-      // 3. Fallback: aria-label du lien cliqué
-      if (!name) {
-        const ariaLabel = await item.getAttribute('aria-label').catch(() => '');
-        debug('aria-label:', ariaLabel);
-        if (ariaLabel) name = ariaLabel;
       }
       
       debug('Nom final:', name);
@@ -314,9 +347,9 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         debug('Bouton adresse non trouvé');
       }
       
-      // Website
+      // Website - détection approfondie du type de site
       let website: string | undefined;
-      let website_type: 'own' | 'booking' | 'social' | 'none' = 'none';
+      let website_status: 'none' | 'platform' | 'modern' | 'old' = 'none';
       const websiteLink = page.locator('a[data-item-id="authority"]').first();
       if (await websiteLink.count() > 0) {
         website = await websiteLink.getAttribute('href') || undefined;
@@ -324,22 +357,38 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         if (website) {
           // Classifier le type de site
           const lowerUrl = website.toLowerCase();
-          const bookingPlatforms = ['planity.com', 'doctolib.', 'reservationcoiffeur.', 'treatwell.', 'kiute.', 'balinea.'];
-          const socialPlatforms = ['instagram.com', 'facebook.com', 'fb.com', 'twitter.com', 'tiktok.com', 'linkedin.com'];
           
-          if (bookingPlatforms.some(p => lowerUrl.includes(p))) {
-            website_type = 'booking';
-            debug('Site web (plateforme résa):', website);
-          } else if (socialPlatforms.some(p => lowerUrl.includes(p))) {
-            website_type = 'social';
-            debug('Site web (réseau social):', website);
+          // Plateformes de réservation/annuaires = pas un vrai site (BON PROSPECT)
+          const bookingPlatforms = [
+            'planity.com', 'doctolib.', 'reservationcoiffeur.', 'treatwell.', 
+            'kiute.', 'balinea.', 'moncoiffeur.fr', 'flexy-hair.',
+            'upmysalon.', 'wavy.pro', 'salonkee.', 'timify.'
+          ];
+          
+          // Réseaux sociaux = pas un vrai site (BON PROSPECT)
+          const socialPlatforms = [
+            'instagram.com', 'facebook.com', 'fb.com', 'twitter.com', 
+            'tiktok.com', 'linkedin.com', 'youtube.com'
+          ];
+          
+          // Pages jaunes et annuaires = pas un vrai site (BON PROSPECT)
+          const directoryPlatforms = [
+            'pagesjaunes.fr', 'yelp.', 'tripadvisor.', 'google.com/maps',
+            'justacote.com', 'mappy.com', 'infobel.'
+          ];
+          
+          if ([...bookingPlatforms, ...socialPlatforms, ...directoryPlatforms].some(p => lowerUrl.includes(p))) {
+            website_status = 'platform';
+            debug('Site web (plateforme - bon prospect!):', website);
           } else {
-            website_type = 'own';
+            // Site propre - vérifier si moderne ou ancien (TODO: analyse plus poussée)
+            website_status = 'modern'; // Par défaut, on considère comme moderne
             debug('Site web (propre):', website);
           }
         }
       } else {
-        debug('Pas de site web');
+        website_status = 'none';
+        debug('Pas de site web - EXCELLENT PROSPECT!');
       }
       
       // Rating
@@ -480,7 +529,7 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
       }
       
       const niche = query.split(' ')[0];
-      const lead: RawLead & { niche: string; website_type?: string } = {
+      const lead: RawLead & { niche: string; website_status?: string } = {
         name: cleanName(name, niche),
         phone,
         address: address.replace(/^[^a-zA-Z0-9]+/, '').trim(),
@@ -493,15 +542,54 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         niche,
         opening_hours,
         has_booking,
-        website_type: website_type !== 'none' ? website_type : undefined,
+        website_status,
         image_url,
       };
       
       debugData('Lead complet', lead);
+      
+      // Sauvegarde immédiate en DB si demandé (par défaut: oui)
+      if (saveImmediately) {
+        const dbLead: InsertLead = {
+          phone: lead.phone,
+          name: lead.name,
+          address: lead.address,
+          city: lead.city,
+          postal_code: lead.postal_code,
+          website: lead.website,
+          website_status: (lead.website_status as 'none' | 'platform' | 'modern' | 'old') || (lead.website ? undefined : 'none'),
+          maps_url: lead.maps_url,
+          rating: lead.rating,
+          reviews_count: lead.reviews_count,
+          niche: lead.niche || null,
+          source: 'gmb',
+          opening_hours: lead.opening_hours,
+          has_booking: lead.has_booking,
+          best_call_time: computeBestCallTime(lead.opening_hours),
+          image_url: lead.image_url,
+        };
+        
+        const result = upsertLead(dbLead);
+        if (result) {
+          debug(`  💾 Sauvegardé en DB (id: ${result.id}, score: ${result.score})`);
+          
+          // Enrichissement immédiat si demandé
+          if (enrichImmediately && result.siren === null) {
+            try {
+              await enrichSingleLead(result);
+              debug(`  🔍 Enrichi SIREN`);
+            } catch (e) {
+              debug(`  ⚠ Enrichissement échoué`);
+            }
+          }
+        }
+      }
+      
       leads.push(lead);
       
       const hasWebsite = website ? '🌐' : '📞';
-      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name, niche).substring(0, 30).padEnd(30)} ${hasWebsite}   `);
+      const saved = saveImmediately ? '💾' : '';
+      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name, niche).substring(0, 30).padEnd(30)} ${hasWebsite} ${saved}   `);
       
     } catch (err) {
       // Continuer sur erreur
@@ -517,16 +605,22 @@ export interface ScrapeConfig {
   niches: string[];
   cities: string[];
   maxPerQuery?: number;
-  saveToDb?: boolean;
+  saveToDb?: boolean; // Déprécié: la sauvegarde est maintenant immédiate par défaut
+  enrichImmediately?: boolean; // Enrichir chaque lead immédiatement (Pappers API)
 }
 
 export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]> {
   const allLeads: RawLead[] = [];
   
+  // Options de sauvegarde: immédiate par défaut (sauf si saveToDb === false explicitement)
+  const saveImmediately = config.saveToDb !== false;
+  const enrichImmediately = config.enrichImmediately ?? false;
+  
   console.log('🌐 Démarrage du scraper Google Maps\n');
   console.log(`  Niches: ${config.niches.join(', ')}`);
   console.log(`  Villes: ${config.cities.join(', ')}`);
-  console.log(`  Requêtes totales: ${config.niches.length * config.cities.length}\n`);
+  console.log(`  Requêtes totales: ${config.niches.length * config.cities.length}`);
+  console.log(`  Mode: ${saveImmediately ? '💾 Sauvegarde immédiate' : '📋 Collecte seule'}${enrichImmediately ? ' + 🔍 Enrichissement' : ''}\n`);
   
   if (DEBUG) {
     console.log('\n' + '='.repeat(60));
@@ -565,7 +659,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
         debug(`▶ Traitement requête: "${query}"`);
         debug(`${'─'.repeat(50)}`);
         
-        const leads = await scrapeQuery(page, query);
+        const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately });
         
         debug(`✓ Requête terminée: ${leads.length} leads trouvés`);
         debugData('Leads de cette requête', leads.map(l => ({ name: l.name, phone: l.phone, hasWebsite: !!l.website })));
@@ -599,47 +693,10 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   debug(`Après dédup: ${uniqueLeads.length} leads (${allLeads.length - uniqueLeads.length} doublons)`);
   
   console.log(`\n✓ Total brut: ${allLeads.length}`);
-  console.log(`✓ Après dédup: ${uniqueLeads.length}`);
+  console.log(`✓ Uniques (en mémoire): ${uniqueLeads.length}`);
   
-  // Sauvegarder en DB si demandé
-  if (config.saveToDb) {
-    debug('\nSauvegarde en base de données...');
-    let inserted = 0;
-    let skipped = 0;
-    for (const lead of uniqueLeads) {
-      const priority = lead.website ? 'medium' : 'high';
-      const extendedLead = lead as RawLead & { niche?: string };
-      const dbLead: InsertLead = {
-        phone: lead.phone,
-        name: lead.name,
-        address: lead.address,
-        city: lead.city,
-        postal_code: lead.postal_code,
-        website: lead.website,
-        website_status: lead.website ? undefined : 'none',
-        maps_url: lead.maps_url,
-        rating: lead.rating,
-        reviews_count: lead.reviews_count,
-        niche: extendedLead.niche || null,
-        source: 'gmb',
-        priority,
-        opening_hours: lead.opening_hours,
-        has_booking: lead.has_booking,
-        best_call_time: computeBestCallTime(lead.opening_hours),
-        image_url: lead.image_url,
-      };
-      debug(`  Insertion: ${lead.name} (${lead.phone})`);
-      const result = upsertLead(dbLead);
-      if (result) {
-        inserted++;
-        debug(`    ✓ Inséré/Mis à jour`);
-      } else {
-        skipped++;
-        debug(`    ⊖ Ignoré (déjà existant ou erreur)`);
-      }
-    }
-    debug(`\nRésumé DB: ${inserted} insérés, ${skipped} ignorés`);
-    console.log(`✓ Insérés en DB: ${inserted}`);
+  if (saveImmediately) {
+    console.log(`💾 Tous les leads ont été sauvegardés en temps réel (pas de doublons grâce à l'upsert)`);
   }
   
   if (DEBUG) {
