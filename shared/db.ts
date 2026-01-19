@@ -117,6 +117,7 @@ function initSchema(database: Database.Database): void {
       has_booking INTEGER DEFAULT 0,
       has_seo INTEGER DEFAULT 0,
       last_gmb_update TEXT,
+      image_url TEXT,
       
       -- Suivi commercial
       status TEXT CHECK(status IN ('nouveau', 'contacte', 'qualifie', 'proposition', 'converti', 'perdu')) DEFAULT 'nouveau',
@@ -200,6 +201,7 @@ function migrateSchema(database: Database.Database): void {
     ['last_gmb_update', "ALTER TABLE leads ADD COLUMN last_gmb_update TEXT"],
     ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
     ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
+    ['image_url', "ALTER TABLE leads ADD COLUMN image_url TEXT"],
   ];
   
   for (const [column, sql] of migrations) {

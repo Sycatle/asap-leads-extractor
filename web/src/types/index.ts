@@ -20,6 +20,7 @@ export interface Lead {
   rating: number | null;
   reviews_count: number | null;
   niche: string | null;
+  image_url: string | null;
   siren: string | null;
   siret: string | null;
   legal_name: string | null;
@@ -58,6 +59,7 @@ export interface LeadSummary {
   rating: number | null;
   reviews_count: number | null;
   website: string | null;
+  image_url: string | null;
   next_followup_at: string | null;
   created_at: string;
 }

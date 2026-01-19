@@ -29,6 +29,7 @@ export interface InsertLead {
   has_booking?: boolean;
   has_seo?: boolean;
   last_gmb_update?: string | null;
+  image_url?: string | null;
 }
 
 /**
@@ -93,12 +94,12 @@ export function upsertLead(lead: InsertLead): DbLead | null {
     INSERT INTO leads (
       phone, phone_type, name, address, city, postal_code, website, website_status,
       maps_url, rating, reviews_count, niche, source, priority, score,
-      opening_hours, best_call_time, has_booking, has_seo, last_gmb_update
+      opening_hours, best_call_time, has_booking, has_seo, last_gmb_update, image_url
     )
     VALUES (
       @phone, @phone_type, @name, @address, @city, @postal_code, @website, @website_status,
       @maps_url, @rating, @reviews_count, @niche, @source, @priority, @score,
-      @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update
+      @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update, @image_url
     )
     ON CONFLICT(phone) DO UPDATE SET
       name = excluded.name,
@@ -118,6 +119,7 @@ export function upsertLead(lead: InsertLead): DbLead | null {
       has_booking = COALESCE(excluded.has_booking, leads.has_booking),
       has_seo = COALESCE(excluded.has_seo, leads.has_seo),
       last_gmb_update = COALESCE(excluded.last_gmb_update, leads.last_gmb_update),
+      image_url = COALESCE(excluded.image_url, leads.image_url),
       updated_at = datetime('now')
     RETURNING *
   `);
@@ -143,6 +145,7 @@ export function upsertLead(lead: InsertLead): DbLead | null {
     has_booking: lead.has_booking ? 1 : 0,
     has_seo: lead.has_seo ? 1 : 0,
     last_gmb_update: lead.last_gmb_update ?? null,
+    image_url: lead.image_url ?? null,
   }) as DbLead | undefined;
   
   return result ?? null;

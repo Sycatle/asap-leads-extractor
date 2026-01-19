@@ -45,6 +45,7 @@ export interface RawLead {
   opening_hours?: string;
   has_booking?: boolean;
   last_gmb_update?: string;
+  image_url?: string;
 }
 
 // ===== LEAD ENRICHI =====
@@ -78,6 +79,7 @@ export interface DbLead {
   rating: number | null;
   reviews_count: number | null;
   niche: string | null;
+  image_url: string | null;
   source: LeadSource;
   
   // Enrichissement Pappers
