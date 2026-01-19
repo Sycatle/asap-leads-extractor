@@ -24,11 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <div className="min-h-screen">
           {/* Sidebar - desktop only */}
           <div className="hidden md:block">
             <Sidebar />
