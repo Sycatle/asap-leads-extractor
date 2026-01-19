@@ -363,28 +363,68 @@ async function scrapeQuery(page: Page, query: string): Promise<RawLead[]> {
         debug('Nombre avis:', reviews_count);
       }
       
-      // Horaires d'ouverture
+      // Horaires d'ouverture - extraction complète
       let opening_hours: string | undefined;
       try {
-        const hoursBtn = page.locator('button[data-item-id="oh"]').first();
-        if (await hoursBtn.count() > 0) {
-          let hoursText = await hoursBtn.textContent({ timeout: 1000 });
-          if (hoursText) {
-            // Nettoyer le texte parasite
-            hoursText = hoursText
-              .replace(/Voir plus d'horaires/gi, '')
-              .replace(/See more hours/gi, '')
-              .replace(/Masquer les horaires/gi, '')
-              .replace(/Hide hours/gi, '')
-              .trim();
+        // Méthode 1: Cliquer sur le dropdown pour déplier les horaires
+        const hoursDropdown = page.locator('.OMl5r[role="button"], div[data-hide-tooltip-on-mouse-move="true"][role="button"]').first();
+        if (await hoursDropdown.count() > 0) {
+          // Cliquer pour ouvrir le dropdown
+          await hoursDropdown.click();
+          await sleep(300);
+          debug('Dropdown horaires cliqué');
+        }
+        
+        // Méthode 2: Extraire depuis le tableau des horaires
+        const hoursTable = page.locator('table.eK4R0e');
+        if (await hoursTable.count() > 0) {
+          const rows = await page.locator('table.eK4R0e tr.y0skZc').all();
+          const hoursData: string[] = [];
+          
+          for (const row of rows) {
+            const day = await row.locator('td.ylH6lf div').textContent({ timeout: 500 }).catch(() => '');
+            const hours = await row.locator('td.mxowUb').getAttribute('aria-label').catch(() => '') || 
+                          await row.locator('td.mxowUb li.G8aQO').textContent({ timeout: 500 }).catch(() => '');
             
-            if (hoursText.length > 0) {
-              opening_hours = hoursText;
-              debug('Horaires:', opening_hours);
+            if (day && hours) {
+              // Nettoyer les heures (enlever "de" et "à")
+              const cleanHours = hours
+                .replace(/^de\s+/i, '')
+                .replace(/\s+à\s+/g, '-')
+                .trim();
+              hoursData.push(`${day}: ${cleanHours}`);
+            }
+          }
+          
+          if (hoursData.length > 0) {
+            opening_hours = hoursData.join(' | ');
+            debug('Horaires complets:', opening_hours);
+          }
+        }
+        
+        // Fallback: texte simple du bouton
+        if (!opening_hours) {
+          const hoursBtn = page.locator('button[data-item-id="oh"]').first();
+          if (await hoursBtn.count() > 0) {
+            let hoursText = await hoursBtn.textContent({ timeout: 1000 });
+            if (hoursText) {
+              hoursText = hoursText
+                .replace(/Voir plus d'horaires/gi, '')
+                .replace(/See more hours/gi, '')
+                .replace(/Afficher les horaires.*/gi, '')
+                .replace(/Masquer les horaires/gi, '')
+                .trim();
+              
+              if (hoursText.length > 0) {
+                opening_hours = hoursText;
+                debug('Horaires (fallback):', opening_hours);
+              }
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        debug('Erreur extraction horaires:', e);
+      }
       
       // Réservation en ligne
       let has_booking = false;
