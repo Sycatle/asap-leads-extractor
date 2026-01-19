@@ -296,11 +296,16 @@ export function generateNoWebsitePainPoints(niche: string | null): string[] {
 
 /**
  * Generate pain points for platform-based websites (Planity, etc.)
+ * 
+ * Note: Uses substring matching for URL patterns. This is intentional for 
+ * pain point generation and not a security check. We're matching common 
+ * patterns in URLs from our database to provide helpful sales guidance.
  */
 export function generatePlatformPainPoints(url: string, niche: string | null): string[] {
   const painPoints: string[] = [];
   const lowerUrl = url.toLowerCase();
   
+  // Note: URL substring checks are for classification only, not security
   if (lowerUrl.includes('planity') || lowerUrl.includes('doctolib')) {
     painPoints.push("📱 Plateforme de réservation ≠ vrai site web");
     painPoints.push("❌ Pas de contrôle sur votre image/contenu");
