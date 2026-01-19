@@ -1,14 +1,41 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { Users, Phone, ExternalLink, Eye, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Users, Phone, ExternalLink, Eye, ChevronLeft, ChevronRight, Loader2, Building2 } from 'lucide-react';
 import type { LeadSummary } from '@/types';
 import { StatusBadge, PriorityBadge, RatingBadge } from '@/components/ui';
+
+// ===== LEAD AVATAR =====
+
+function LeadAvatar({ lead }: { lead: LeadSummary }) {
+  if (lead.image_url) {
+    return (
+      <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800">
+        <Image
+          src={lead.image_url}
+          alt={lead.name}
+          fill
+          className="object-cover"
+          sizes="40px"
+          unoptimized // Google Maps images are external
+        />
+      </div>
+    );
+  }
+
+  // Fallback: icon placeholder
+  return (
+    <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+      <Building2 className="w-5 h-5 text-zinc-400" />
+    </div>
+  );
+}
 
 // ===== TABLE HEADER =====
 
 const TABLE_HEADERS = [
-  { key: 'name', label: 'Nom' },
+  { key: 'name', label: 'Établissement' },
   { key: 'city', label: 'Ville' },
   { key: 'niche', label: 'Niche' },
   { key: 'phone', label: 'Téléphone' },
@@ -43,11 +70,18 @@ interface LeadRowProps {
 function LeadRow({ lead }: LeadRowProps) {
   return (
     <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-      {/* Name & Priority */}
+      {/* Name & Priority with Avatar */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">{lead.name}</p>
-          {lead.priority && <PriorityBadge priority={lead.priority} />}
+        <div className="flex items-center gap-3">
+          <LeadAvatar lead={lead} />
+          <div className="min-w-0">
+            <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">{lead.name}</p>
+            {lead.priority && (
+              <div className="mt-0.5">
+                <PriorityBadge priority={lead.priority} />
+              </div>
+            )}
+          </div>
         </div>
       </td>
 

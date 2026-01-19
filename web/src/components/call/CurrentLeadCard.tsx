@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Phone,
@@ -34,6 +35,32 @@ const SOURCE_LABELS: Record<string, string> = {
   import: 'Import',
   manual: 'Manuel',
 };
+
+// ===== LEAD AVATAR =====
+
+function LeadImage({ lead }: { lead: Lead }) {
+  if (lead.image_url) {
+    return (
+      <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800 shadow-md">
+        <Image
+          src={lead.image_url}
+          alt={lead.name}
+          fill
+          className="object-cover"
+          sizes="80px"
+          unoptimized // Google Maps images are external
+        />
+      </div>
+    );
+  }
+
+  // Fallback: icon placeholder
+  return (
+    <div className="w-20 h-20 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-md">
+      <Building2 className="w-8 h-8 text-zinc-400" />
+    </div>
+  );
+}
 
 function formatLastContact(dateStr: string | null): string {
   if (!dateStr) return 'Jamais contacté';
@@ -92,12 +119,15 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
   return (
     <Card className="p-0 overflow-hidden">
       {/* ===== BLOC 1: ESSENTIEL ===== */}
-      <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
+      <div className="p-6 border-b border-border">
+        <div className="flex items-start gap-5 mb-4">
+          {/* Lead Image */}
+          <LeadImage lead={lead} />
+
+          <div className="flex-1 min-w-0">
             {/* Name + Priority */}
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <h2 className="text-2xl font-bold text-foreground truncate">
                 {lead.name}
               </h2>
               <span
@@ -116,14 +146,14 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             </div>
 
             {/* Activity + City */}
-            <div className="flex items-center gap-4 text-sm text-zinc-500">
-              {lead.niche && <span className="font-medium text-zinc-700 dark:text-zinc-300">{lead.niche}</span>}
+            <div className="flex items-center gap-4 text-sm text-zinc-500 flex-wrap">
+              {lead.niche && <span className="font-medium text-foreground">{lead.niche}</span>}
               <span className="flex items-center gap-1">
                 <MapPin className="w-4 h-4" />
                 {lead.city}
               </span>
               {lead.source && (
-                <span className="text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                <span className="text-xs bg-muted px-2 py-0.5 rounded">
                   {SOURCE_LABELS[lead.source] || lead.source}
                 </span>
               )}
@@ -131,13 +161,13 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
           </div>
 
           {/* Quick links */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {lead.website && (
               <a
                 href={lead.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
                 title="Site web"
               >
                 <Globe className="w-5 h-5" />
@@ -148,7 +178,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
                 href={lead.maps_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
                 title="Google Maps"
               >
                 <ExternalLink className="w-5 h-5" />
@@ -156,7 +186,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             )}
             <Link
               href={`/leads/${lead.id}`}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
               title="Voir la fiche"
             >
               <Eye className="w-5 h-5" />
@@ -199,7 +229,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             <Clock className="w-4 h-4" />
             <span>Dernier contact: <strong>{formatLastContact(lead.last_contact_at)}</strong></span>
             {lead.call_status !== 'non_appele' && (
-              <span className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
                 {CALL_STATUS_LABELS[lead.call_status]}
               </span>
             )}
@@ -229,7 +259,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
       </div>
 
       {/* ===== BLOC 2: CONTEXTE DE VENTE ===== */}
-      <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="p-4 bg-muted border-b border-border">
         <div className="flex items-start justify-between gap-4">
           {/* Left: Website & GMB status */}
           <div className="flex-1 space-y-2">
@@ -255,7 +285,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             {lead.rating && (
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                <span className="text-sm text-muted-foreground">
                   Note GMB: <strong>{lead.rating}/5</strong> ({lead.reviews_count} avis)
                 </span>
                 {lead.maps_url && (
@@ -318,9 +348,9 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
 
         {/* Previous notes (if any and no history) */}
         {lead.notes && history.length === 0 && (
-          <div className="mt-2 p-3 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+          <div className="mt-2 p-3 bg-muted rounded-lg">
             <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Notes</p>
-            <pre className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap line-clamp-3">
+            <pre className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
               {lead.notes}
             </pre>
           </div>
