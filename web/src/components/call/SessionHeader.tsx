@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Clock, Pause, Play, ArrowLeft, Phone, CheckCircle, Voicemail, X } from 'lucide-react';
+import { Clock, Pause, Play, ArrowLeft, Phone, CheckCircle, Voicemail, X, TrendingUp } from 'lucide-react';
 import { formatTime, cn } from '@/lib/utils';
 
 import type { Session } from '@/types';
@@ -12,6 +12,15 @@ interface SessionHeaderProps {
   onEnd: () => void;
 }
 
+// Format average time per call
+function formatAvgTime(totalSeconds: number, totalCalls: number): string {
+  if (totalCalls === 0) return '-';
+  const avgSeconds = Math.round(totalSeconds / totalCalls);
+  const mins = Math.floor(avgSeconds / 60);
+  const secs = avgSeconds % 60;
+  return `${mins}m${secs.toString().padStart(2, '0')}s`;
+}
+
 export function SessionHeader({
   session,
   elapsedTime,
@@ -19,6 +28,9 @@ export function SessionHeader({
   onTogglePause,
   onEnd,
 }: SessionHeaderProps) {
+  const avgTimePerCall = formatAvgTime(elapsedTime, session.total_calls);
+  const isLongCall = session.total_calls > 0 && (elapsedTime / session.total_calls) > 300; // > 5min avg
+
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between">
@@ -43,7 +55,7 @@ export function SessionHeader({
             </div>
             <p className="text-sm text-zinc-400 mt-0.5">
               <span className="hidden md:inline">Raccourcis: </span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">1-5</kbd> résultat
+              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">I M R V</kbd> résultat
               <span className="mx-1">•</span>
               <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">Espace</kbd> passer
               <span className="mx-1">•</span>
@@ -54,15 +66,28 @@ export function SessionHeader({
 
         {/* Session stats */}
         <div className="flex items-center gap-4">
-          {/* Timer */}
-          <div className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl',
-            isPaused 
-              ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'
-              : 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
-          )}>
-            <Clock className="w-4 h-4" />
-            <span className="font-mono text-lg font-bold tabular-nums">{formatTime(elapsedTime)}</span>
+          {/* Timer + Average */}
+          <div className="flex flex-col items-center">
+            <div className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-xl',
+              isPaused 
+                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'
+                : isLongCall
+                  ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400'
+                  : 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+            )}>
+              <Clock className="w-4 h-4" />
+              <span className="font-mono text-lg font-bold tabular-nums">{formatTime(elapsedTime)}</span>
+            </div>
+            {session.total_calls > 0 && (
+              <div className={cn(
+                'flex items-center gap-1 text-xs mt-1',
+                isLongCall ? 'text-red-500' : 'text-muted-foreground'
+              )}>
+                <TrendingUp className="w-3 h-3" />
+                <span>Moy: {avgTimePerCall}/appel</span>
+              </div>
+            )}
           </div>
           
           {/* Stats pills */}

@@ -106,7 +106,7 @@ export default function CallSessionPage() {
     pendingOutcome !== 'mauvais_numero';
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-6xl mx-auto space-y-4 animate-fade-in">
       {/* Header */}
       <SessionHeader
         session={session}
@@ -122,26 +122,31 @@ export default function CallSessionPage() {
       ) : !currentLead ? (
         <SessionCompleteCard session={session} onEnd={handleEnd} />
       ) : (
-        <>
-          {/* Current lead card */}
-          <CurrentLeadCard lead={currentLead} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left column: Lead info (2/3 width) */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Current lead card */}
+            <CurrentLeadCard lead={currentLead} />
 
-          {/* Call outcomes */}
-          <CallOutcomesCard
-            onOutcome={handleOutcome}
-            loading={actionLoading}
-          />
+            {/* Quick note */}
+            <QuickNoteInput value={note} onChange={setNote} />
 
-          {/* Quick note */}
-          <QuickNoteInput value={note} onChange={setNote} />
+            {/* Actions */}
+            <CallActions
+              onSkip={handleSkip}
+              onEnd={handleEnd}
+              disabled={actionLoading}
+            />
+          </div>
 
-          {/* Actions */}
-          <CallActions
-            onSkip={handleSkip}
-            onEnd={handleEnd}
-            disabled={actionLoading}
-          />
-        </>
+          {/* Right column: Call outcomes (1/3 width, sticky) */}
+          <div className="lg:sticky lg:top-4 lg:self-start">
+            <CallOutcomesCard
+              onOutcome={handleOutcome}
+              loading={actionLoading}
+            />
+          </div>
+        </div>
       )}
 
       {/* Next Step Drawer */}

@@ -65,7 +65,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         key={outcome.id}
         onClick={() => onOutcome(outcome.id)}
         disabled={loading}
-        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl font-medium transition-all disabled:opacity-50 ${
+        className={`flex flex-col items-center gap-1 p-2.5 rounded-xl font-medium transition-all disabled:opacity-50 ${
           OUTCOME_COLORS[outcome.color]
         }`}
       >
@@ -75,7 +75,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
           <Icon className="w-5 h-5" />
         )}
         <span className="text-xs">{outcome.label}</span>
-        <kbd className="text-[10px] opacity-50 bg-white/50 dark:bg-black/20 px-1.5 py-0.5 rounded">
+        <kbd className="text-xs font-mono font-bold bg-white/60 dark:bg-black/30 px-2 py-0.5 rounded uppercase">
           {outcome.key}
         </kbd>
       </button>
