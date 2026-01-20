@@ -85,13 +85,14 @@ export async function enrichWebsiteAnalysis(): Promise<void> {
   }
 
   let analyzedCount = 0;
+  let errorCount = 0;
   let current = 0;
 
   console.log(`\n🔍 Analyse de ${leadsToAnalyze.length} sites web...`);
 
   const tasks = leadsToAnalyze.map(lead => limit(async () => {
     current++;
-    process.stdout.write(`\r🔍 Analyse: ${current}/${leadsToAnalyze.length}`);
+    process.stdout.write(`\r🔍 Analyse: ${current}/${leadsToAnalyze.length} (✓ ${analyzedCount} | ✗ ${errorCount})`);
 
     try {
       // Cas 1: Pas de site web - générer pain points génériques
@@ -124,7 +125,7 @@ export async function enrichWebsiteAnalysis(): Promise<void> {
         return;
       }
       
-      // Cas 3: Analyser le site web réel
+      // Cas 3: Analyser le site web réel avec timeout robuste
       const analysis = await analyzeWebsite(lead.website, 15000);
       
       if (analysis) {
@@ -139,15 +140,26 @@ export async function enrichWebsiteAnalysis(): Promise<void> {
         if (updated) {
           analyzedCount++;
         }
+      } else {
+        // Analysis failed but didn't throw - count as error
+        errorCount++;
+        console.error(`\n  ✗ Analyse échouée pour lead ${lead.id} (${lead.website})`);
       }
     } catch (error) {
-      console.error(`\n  ✗ Erreur lead ${lead.id}:`, (error as Error).message);
+      errorCount++;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`\n  ✗ Erreur lead ${lead.id} (${lead.website}): ${errorMessage}`);
+      
+      // Log stack trace in debug mode
+      if (process.env.DEBUG) {
+        console.error(error);
+      }
     }
   }));
 
   await Promise.all(tasks);
 
-  console.log(`\n✓ Analysés: ${analyzedCount}/${leadsToAnalyze.length}`);
+  console.log(`\n✓ Analysés: ${analyzedCount}/${leadsToAnalyze.length} (${errorCount} erreurs)`);
   console.log(`\n💡 Conseils:`);
   console.log(`  - Les pain points sont maintenant visibles sur la page de call`);
   console.log(`  - Utilisez ces informations pour personnaliser votre approche`);

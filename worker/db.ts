@@ -424,27 +424,39 @@ export function enrichLeadWebsiteAnalysis(id: number, data: {
   page_load_time?: number;
   pain_points?: string[];
 }): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET 
-      cms_type = COALESCE(?, cms_type),
-      has_mobile_friendly = COALESCE(?, has_mobile_friendly),
-      has_ssl = COALESCE(?, has_ssl),
-      page_load_time = COALESCE(?, page_load_time),
-      pain_points = COALESCE(?, pain_points),
-      updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(
-    data.cms_type ?? null, 
-    data.has_mobile_friendly !== undefined ? (data.has_mobile_friendly ? 1 : 0) : null,
-    data.has_ssl !== undefined ? (data.has_ssl ? 1 : 0) : null,
-    data.page_load_time ?? null,
-    data.pain_points ? JSON.stringify(data.pain_points) : null,
-    id
-  );
-  return result.changes > 0;
+  // Validate input
+  if (!id || id <= 0) {
+    console.error('enrichLeadWebsiteAnalysis: ID invalide', id);
+    return false;
+  }
+  
+  try {
+    const database = getDb();
+    const stmt = database.prepare(`
+      UPDATE leads 
+      SET 
+        cms_type = COALESCE(?, cms_type),
+        has_mobile_friendly = COALESCE(?, has_mobile_friendly),
+        has_ssl = COALESCE(?, has_ssl),
+        page_load_time = COALESCE(?, page_load_time),
+        pain_points = COALESCE(?, pain_points),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `);
+    const result = stmt.run(
+      data.cms_type ?? null, 
+      data.has_mobile_friendly !== undefined ? (data.has_mobile_friendly ? 1 : 0) : null,
+      data.has_ssl !== undefined ? (data.has_ssl ? 1 : 0) : null,
+      data.page_load_time ?? null,
+      data.pain_points ? JSON.stringify(data.pain_points) : null,
+      id
+    );
+    return result.changes > 0;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`enrichLeadWebsiteAnalysis: Erreur pour lead ${id}: ${errorMessage}`);
+    return false;
+  }
 }
 
 // ===== STATISTIQUES =====

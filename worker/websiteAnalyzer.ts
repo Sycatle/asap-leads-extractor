@@ -326,8 +326,14 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
  */
 export async function analyzeWebsite(url: string, timeout: number = 15000): Promise<WebsiteAnalysis | null> {
   let browser: Browser | null = null;
+  const startTime = Date.now();
   
   try {
+    // Validate URL format
+    if (!url || url.trim() === '') {
+      throw new Error('URL vide ou invalide');
+    }
+    
     // Normalize URL
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       // Try HTTPS first, fallback to HTTP
@@ -335,9 +341,9 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     }
     
     const hasSSL = url.startsWith('https://');
-    const startTime = Date.now();
     const requestUrls: string[] = [];
     
+    // Launch browser with timeout protection
     browser = await chromium.launch({ 
       headless: true,
       timeout: 30000,
@@ -357,7 +363,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       requestUrls.push(request.url());
     });
     
-    // Navigate to page
+    // Navigate to page with retry logic
     try {
       response = await page.goto(url, { 
         waitUntil: 'domcontentloaded',
@@ -367,11 +373,16 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       // If HTTPS fails, try HTTP
       if (hasSSL && url.startsWith('https://')) {
         const httpUrl = url.replace('https://', 'http://');
-        response = await page.goto(httpUrl, { 
-          waitUntil: 'domcontentloaded',
-          timeout,
-        });
-        url = httpUrl;
+        try {
+          response = await page.goto(httpUrl, { 
+            waitUntil: 'domcontentloaded',
+            timeout,
+          });
+          url = httpUrl;
+        } catch (httpError) {
+          // Both HTTPS and HTTP failed
+          throw new Error(`Navigation échouée (HTTPS et HTTP): ${httpError instanceof Error ? httpError.message : String(httpError)}`);
+        }
       } else {
         throw error;
       }
@@ -379,8 +390,14 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
     const pageLoadTime = Date.now() - startTime;
     
-    // Get page content and headers
-    const html = await page.content();
+    // Get page content and headers with timeout protection
+    const html = await Promise.race([
+      page.content(),
+      new Promise<string>((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout lors de la récupération du contenu')), 5000)
+      )
+    ]);
+    
     const headers: Record<string, string> = response ? Object.fromEntries(
       Object.entries(response.headers())
     ) : {};
@@ -410,7 +427,9 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     };
     const pain_points = generatePainPoints(partial, finalUrl, cms_type);
     
+    // Clean up browser
     await browser.close();
+    browser = null;
     
     return {
       cms_type,
@@ -422,10 +441,19 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     };
     
   } catch (error) {
-    console.error(`  ✗ Erreur analyse site ${url}:`, (error as Error).message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`  ✗ Erreur analyse site ${url}: ${errorMessage}`);
+    
+    // Ensure browser is closed
     if (browser) {
-      await browser.close().catch(() => {});
+      try {
+        await browser.close();
+      } catch (closeError) {
+        // Ignore close errors
+        console.error(`  ⚠️ Erreur fermeture browser: ${closeError instanceof Error ? closeError.message : String(closeError)}`);
+      }
     }
+    
     return null;
   }
 }
