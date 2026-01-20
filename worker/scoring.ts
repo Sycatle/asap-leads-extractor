@@ -89,10 +89,10 @@ export function calculateLeadScore(lead: InsertLead): number {
 }
 
 /**
- * Classify website status based on URL
+ * Classify website status based on URL and analysis data
  * Returns the type of website (none, platform, modern, old)
  */
-export function classifyWebsiteStatus(url: string | null | undefined): WebsiteStatus {
+export function classifyWebsiteStatus(url: string | null | undefined, websiteAge?: 'old' | 'modern' | null): WebsiteStatus {
   if (!url) {
     return 'none';
   }
@@ -129,9 +129,102 @@ export function classifyWebsiteStatus(url: string | null | undefined): WebsiteSt
     return 'platform';
   }
   
-  // Own website - default to modern (will be refined by website analyzer)
-  // TODO: Add actual website age/quality analysis
+  // If we have website age analysis, use it
+  if (websiteAge === 'old') {
+    return 'old';
+  }
+  
+  // Default to modern for own websites
   return 'modern';
+}
+
+/**
+ * Analyze website to determine if it's old or modern
+ * Checks for obsolete patterns and last-modified headers
+ */
+export function analyzeWebsiteAge(html: string, headers: Record<string, string>): 'old' | 'modern' | null {
+  const lowerHtml = html.toLowerCase();
+  
+  // Obsolete design patterns indicating old website
+  const obsoletePatterns = [
+    // Flash content
+    /<object[^>]*application\/x-shockwave-flash/,
+    /<embed[^>]*application\/x-shockwave-flash/,
+    /\.swf["']/,
+    
+    // Table-based layouts (old school)
+    /<table[^>]*>\s*<tr[^>]*>\s*<td[^>]*>(?:.*<table)/s,
+    
+    // Frames (very old)
+    /<frameset/,
+    /<frame\s/,
+    
+    // Marquee (ancient)
+    /<marquee/,
+    
+    // Font tags (pre-CSS)
+    /<font\s/,
+    
+    // Very old meta tags
+    /<meta[^>]*generator[^>]*frontpage/i,
+    /<meta[^>]*generator[^>]*dreamweaver/i,
+  ];
+  
+  // Check for obsolete patterns
+  const hasObsoletePatterns = obsoletePatterns.some(pattern => pattern.test(lowerHtml));
+  
+  if (hasObsoletePatterns) {
+    return 'old';
+  }
+  
+  // Check last-modified header for age
+  const lastModified = headers['last-modified'] || headers['Last-Modified'];
+  if (lastModified) {
+    try {
+      const lastModifiedDate = new Date(lastModified);
+      const now = new Date();
+      const yearsSinceUpdate = (now.getTime() - lastModifiedDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      
+      // If not updated in 3+ years, likely old
+      if (yearsSinceUpdate > 3) {
+        return 'old';
+      }
+    } catch (e) {
+      // Invalid date, ignore
+    }
+  }
+  
+  // Modern indicators
+  const modernPatterns = [
+    // Modern frameworks/libraries
+    /react/,
+    /vue\.js/,
+    /angular/,
+    /next\.js/,
+    /nuxt/,
+    
+    // Modern CSS
+    /flexbox/,
+    /grid/,
+    /css-grid/,
+    
+    // Modern HTML5 tags
+    /<main/,
+    /<article/,
+    /<section/,
+    /<nav/,
+    /<header/,
+    /<footer/,
+  ];
+  
+  const hasModernPatterns = modernPatterns.some(pattern => pattern.test(lowerHtml));
+  
+  if (hasModernPatterns) {
+    return 'modern';
+  }
+  
+  // Unable to determine
+  return null;
 }
 
 /**

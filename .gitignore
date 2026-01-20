@@ -6,4 +6,5 @@ data/leads_enriched.json
 data/leads.csv
 data/raw/*.csv
 !data/raw/.gitkeep
+data/*.db
 data/*

@@ -4,10 +4,11 @@
  * Analyzes websites to detect:
  * - CMS type (WordPress, Wix, Shopify, etc.)
  * - Website quality indicators (mobile-friendly, SSL, performance)
+ * - Website age (old vs modern)
  * - Pain points for sales conversations
  */
 
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, Page, Response } from 'playwright';
 import type { CMSType } from '../shared/types.js';
 
 export interface WebsiteAnalysis {
@@ -16,6 +17,7 @@ export interface WebsiteAnalysis {
   has_ssl: boolean;
   page_load_time: number; // milliseconds
   pain_points: string[];
+  website_age?: 'old' | 'modern' | null; // New field for age detection
 }
 
 // Configuration constants
@@ -248,6 +250,11 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
     painPoints.push("⏱️ Temps de chargement à améliorer pour meilleure conversion");
   }
   
+  // Old website detected
+  if (analysis.website_age === 'old') {
+    painPoints.push("🕰️ Site obsolète (design/technologies dépassés) - mauvaise image de marque");
+  }
+  
   // Plateformes métier - pain points spécifiques
   if (cms_type === 'planity') {
     painPoints.push("📅 Page Planity uniquement - pas de site propre, dépendant de la plateforme");
@@ -343,6 +350,8 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
     const page = await context.newPage();
     
+    let response: Response | null = null;
+    
     // Track network requests for CMS detection
     page.on('request', request => {
       requestUrls.push(request.url());
@@ -350,7 +359,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
     // Navigate to page
     try {
-      await page.goto(url, { 
+      response = await page.goto(url, { 
         waitUntil: 'domcontentloaded',
         timeout,
       });
@@ -358,7 +367,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       // If HTTPS fails, try HTTP
       if (hasSSL && url.startsWith('https://')) {
         const httpUrl = url.replace('https://', 'http://');
-        await page.goto(httpUrl, { 
+        response = await page.goto(httpUrl, { 
           waitUntil: 'domcontentloaded',
           timeout,
         });
@@ -370,12 +379,18 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
     const pageLoadTime = Date.now() - startTime;
     
-    // Get page content - no need to navigate again, we already have the page loaded
+    // Get page content and headers
     const html = await page.content();
-    const headers = {}; // Headers from initial navigation
+    const headers: Record<string, string> = response ? Object.fromEntries(
+      Object.entries(response.headers())
+    ) : {};
     
     // Get final URL (after redirects)
     const finalUrl = page.url();
+    
+    // Import analyzeWebsiteAge from scoring
+    const { analyzeWebsiteAge } = await import('./scoring.js');
+    const website_age = analyzeWebsiteAge(html, headers);
     
     // Detect CMS - pass both content and URL
     const cms_type = detectCMS(html, headers, requestUrls, finalUrl);
@@ -387,10 +402,11 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     const has_ssl = finalUrl.startsWith('https://');
     
     // Generate pain points
-    const partial = {
+    const partial: Partial<WebsiteAnalysis> = {
       has_ssl,
       has_mobile_friendly,
       page_load_time: pageLoadTime,
+      website_age,
     };
     const pain_points = generatePainPoints(partial, finalUrl, cms_type);
     
@@ -402,6 +418,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       has_ssl,
       page_load_time: pageLoadTime,
       pain_points,
+      website_age,
     };
     
   } catch (error) {
