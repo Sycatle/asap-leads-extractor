@@ -158,11 +158,6 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
     debug('Items alternatifs (tous les liens place):', altItems);
   }
   
-  // Scroll retour au début du feed pour traiter les items depuis le haut
-  await feed.evaluate(el => el.scrollTo(0, 0));
-  await sleep(500);
-  debug('Scroll retour au début du feed');
-  
   for (let i = 0; i < Math.min(count, MAX_RESULTS_PER_QUERY); i++) {
     try {
       const item = items.nth(i);
@@ -180,16 +175,28 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         continue;
       }
       
-      // Scroll l'élément dans le viewport avant de cliquer
-      await item.scrollIntoViewIfNeeded().catch(() => {
-        debug('ScrollIntoView fallback');
+      // Scroll l'élément dans le viewport - méthode robuste
+      // D'abord scroller le feed pour que l'item soit visible
+      await item.evaluate((el) => {
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      }).catch(() => {
+        debug('ScrollIntoView via evaluate fallback');
       });
-      await sleep(300);
+      await sleep(400);
       
-      // Vérifier que l'élément est visible avant de cliquer
-      const isVisible = await item.isVisible().catch(() => false);
+      // Retry: si toujours pas visible, scroller le feed manuellement
+      let isVisible = await item.isVisible().catch(() => false);
       if (!isVisible) {
-        debug('⏭ Élément non visible après scroll, skip');
+        debug('Premier scroll insuffisant, retry avec scroll feed');
+        // Scroller le feed directement vers une position approximative
+        const scrollPosition = i * 120; // ~120px par item
+        await feed.evaluate((el, pos) => el.scrollTo(0, pos), scrollPosition);
+        await sleep(400);
+        isVisible = await item.isVisible().catch(() => false);
+      }
+      
+      if (!isVisible) {
+        debug('⏭ Élément non visible après retry, skip');
         continue;
       }
       
