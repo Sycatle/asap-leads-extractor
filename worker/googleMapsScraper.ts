@@ -175,23 +175,33 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         continue;
       }
       
-      // Scroll l'élément dans le viewport - méthode robuste
-      // D'abord scroller le feed pour que l'item soit visible
+      // Scroll le feed pour rendre l'élément visible
+      // D'abord scroller le feed vers la position approximative de l'item
+      const scrollPosition = Math.max(0, (i - 3) * 120); // ~120px par item, avec marge de 3 items
+      await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), scrollPosition);
+      await sleep(300);
+      
+      // Puis utiliser scrollIntoView pour ajustement fin
       await item.evaluate((el) => {
         el.scrollIntoView({ behavior: 'instant', block: 'center' });
       }).catch(() => {
-        debug('ScrollIntoView via evaluate fallback');
+        debug('ScrollIntoView fallback');
       });
-      await sleep(400);
+      await sleep(300);
       
-      // Retry: si toujours pas visible, scroller le feed manuellement
+      // Vérifier la visibilité
       let isVisible = await item.isVisible().catch(() => false);
+      
+      // Retry avec scroll plus agressif si nécessaire
       if (!isVisible) {
-        debug('Premier scroll insuffisant, retry avec scroll feed');
-        // Scroller le feed directement vers une position approximative
-        const scrollPosition = i * 120; // ~120px par item
-        await feed.evaluate((el, pos) => el.scrollTo(0, pos), scrollPosition);
+        debug('Premier scroll insuffisant, retry...');
+        // Scroller un peu plus loin
+        await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), scrollPosition + 200);
         await sleep(400);
+        await item.evaluate((el) => {
+          el.scrollIntoView({ behavior: 'instant', block: 'center' });
+        }).catch(() => {});
+        await sleep(300);
         isVisible = await item.isVisible().catch(() => false);
       }
       
