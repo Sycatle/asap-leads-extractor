@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { runMigrations } from './migrations.js';
 
 // ===== CONNEXION PARTAGÉE =====
 
@@ -86,6 +87,5 @@ export function getDbPath(): string {
  * Initialize database schema using the migration system
  */
 function initSchema(database: Database.Database): void {
-  const { runMigrations } = require('./migrations.js');
   runMigrations(database);
 }

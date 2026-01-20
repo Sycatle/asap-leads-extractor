@@ -158,6 +158,11 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
     debug('Items alternatifs (tous les liens place):', altItems);
   }
   
+  // Scroll retour au début du feed pour traiter les items depuis le haut
+  await feed.evaluate(el => el.scrollTo(0, 0));
+  await sleep(500);
+  debug('Scroll retour au début du feed');
+  
   for (let i = 0; i < Math.min(count, MAX_RESULTS_PER_QUERY); i++) {
     try {
       const item = items.nth(i);
@@ -175,8 +180,21 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         continue;
       }
       
+      // Scroll l'élément dans le viewport avant de cliquer
+      await item.scrollIntoViewIfNeeded().catch(() => {
+        debug('ScrollIntoView fallback');
+      });
+      await sleep(300);
+      
+      // Vérifier que l'élément est visible avant de cliquer
+      const isVisible = await item.isVisible().catch(() => false);
+      if (!isVisible) {
+        debug('⏭ Élément non visible après scroll, skip');
+        continue;
+      }
+      
       // Cliquer pour ouvrir le panneau latéral
-      await item.click();
+      await item.click({ timeout: 10000 });
       await sleep(DELAY_BETWEEN_ACTIONS);
       
       // Attendre que le panneau se charge
