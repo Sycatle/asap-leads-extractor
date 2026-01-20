@@ -3,7 +3,20 @@
 export type PhoneType = 'pro' | 'perso' | 'unknown';
 export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 export type WebsiteStatus = 'none' | 'old' | 'platform' | 'modern';
-export type CMSType = 'wordpress' | 'wix' | 'shopify' | 'prestashop' | 'squarespace' | 'webflow' | 'custom' | 'unknown';
+export type CMSType = 
+  // CMS classiques
+  | 'wordpress' | 'wix' | 'shopify' | 'prestashop' | 'squarespace' | 'webflow'
+  | 'weebly' | 'jimdo' | 'blogger' | 'ghost'
+  // E-commerce
+  | 'woocommerce' | 'magento' | 'opencart'
+  // Plateformes métier (coiffure, beauté, santé)
+  | 'planity' | 'treatwell' | 'doctolib' | 'kiute' | 'flexy' | 'wavy'
+  // Plateformes restaurant
+  | 'thefork' | 'zenchef'
+  // Réseaux sociaux / annuaires
+  | 'facebook' | 'instagram' | 'linktree' | 'pagesjaunes'
+  // Autres
+  | 'custom' | 'unknown';
 
 // ===== STATUTS DE SUIVI =====
 

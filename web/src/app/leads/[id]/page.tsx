@@ -1,29 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 import { useLead } from '@/hooks';
-import { FollowupModal } from '@/components/ui';
+import { FollowupModal, StatusBadge } from '@/components/ui';
+import { CurrentLeadCard } from '@/components/call';
 import {
-  LeadDetailHeader,
-  LeadInfoCard,
   LeadActionsCard,
   LeadNotesCard,
-  LeadHistory,
 } from '@/components/leads';
 import type { CallStatus, LeadStatus } from '@/types';
 
 export default function LeadDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const leadId = params.id as string;
   const [showFollowupModal, setShowFollowupModal] = useState(false);
 
   const {
     lead,
-    history,
     loading,
     actionLoading,
     logCall,
@@ -60,24 +58,29 @@ export default function LeadDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <LeadDetailHeader lead={lead} />
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header with back button and status */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => router.back()}
+          className="p-2 rounded-lg hover:bg-accent"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-foreground">
+            {lead.name}
+          </h1>
+          <p className="text-muted-foreground">{lead.niche} • {lead.city}</p>
+        </div>
+        <StatusBadge status={lead.status} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column - Info & Actions */}
+        {/* Left column - Lead info card (same as call page) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Contact & Business Info */}
-          <LeadInfoCard lead={lead} />
-
-          {/* Quick Actions */}
-          <LeadActionsCard
-            lead={lead}
-            actionLoading={actionLoading}
-            onLogCall={(status) => logCall(status as CallStatus)}
-            onUpdateStatus={(status) => updateStatus(status as LeadStatus)}
-            onScheduleFollowup={() => setShowFollowupModal(true)}
-          />
+          {/* Current Lead Card - Same rich info as /call page */}
+          <CurrentLeadCard lead={lead} hideViewButton />
 
           {/* Notes */}
           <LeadNotesCard
@@ -87,9 +90,16 @@ export default function LeadDetailPage() {
           />
         </div>
 
-        {/* Right column - History */}
-        <div className="space-y-6">
-          <LeadHistory history={history} />
+        {/* Right column - Actions */}
+        <div className="lg:sticky lg:top-4 lg:self-start space-y-6">
+          {/* Quick Actions */}
+          <LeadActionsCard
+            lead={lead}
+            actionLoading={actionLoading}
+            onLogCall={(status) => logCall(status as CallStatus)}
+            onUpdateStatus={(status) => updateStatus(status as LeadStatus)}
+            onScheduleFollowup={() => setShowFollowupModal(true)}
+          />
         </div>
       </div>
 

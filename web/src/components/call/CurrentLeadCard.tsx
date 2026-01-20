@@ -31,6 +31,8 @@ import type { Lead, HistoryEntry } from '@/types';
 
 interface CurrentLeadCardProps {
   lead: Lead;
+  /** Cacher le bouton "Voir la fiche" (utile quand on est déjà sur la page de détail) */
+  hideViewButton?: boolean;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -137,20 +139,315 @@ function formatLastContact(dateStr: string | null): string {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-function getWebsiteStatusLabel(lead: Lead): { label: string; color: string } | null {
+// Labels lisibles pour chaque CMS/plateforme
+const CMS_LABELS: Record<string, string> = {
+  // CMS classiques
+  wordpress: 'WordPress',
+  wix: 'Wix',
+  squarespace: 'Squarespace',
+  webflow: 'Webflow',
+  weebly: 'Weebly',
+  jimdo: 'Jimdo',
+  blogger: 'Blogger',
+  ghost: 'Ghost',
+  // E-commerce
+  shopify: 'Shopify',
+  prestashop: 'PrestaShop',
+  woocommerce: 'WooCommerce',
+  magento: 'Magento',
+  opencart: 'OpenCart',
+  // Plateformes métier (coiffure, beauté, santé)
+  planity: 'Planity',
+  treatwell: 'Treatwell',
+  doctolib: 'Doctolib',
+  kiute: 'Kiute Pro',
+  flexy: 'Flexy',
+  wavy: 'Wavy',
+  // Plateformes restaurant
+  thefork: 'TheFork',
+  zenchef: 'Zenchef',
+  metro: 'Metro Menu',
+  // Pages jaunes / Annuaires
+  pagesjaunes: 'Pages Jaunes',
+  solocal: 'Solocal',
+  // Réseaux sociaux comme site
+  facebook: 'Page Facebook',
+  instagram: 'Instagram',
+  linktree: 'Linktree',
+  // Autres
+  custom: 'Sur-mesure',
+  unknown: 'Inconnu',
+};
+
+// CMS considérés comme "plateformes" limitantes (bon argument de vente)
+const PLATFORM_CMS = ['wix', 'squarespace', 'weebly', 'jimdo', 'blogger', 'linktree'];
+
+// Plateformes métier - pas un vrai site, juste une page de réservation
+const BOOKING_PLATFORMS = ['planity', 'treatwell', 'doctolib', 'kiute', 'flexy', 'wavy', 'thefork', 'zenchef'];
+
+// Pages sur réseaux sociaux utilisées comme site
+const SOCIAL_AS_WEBSITE = ['facebook', 'instagram', 'linktree'];
+
+// E-commerce
+const ECOMMERCE_CMS = ['shopify', 'prestashop', 'woocommerce', 'magento', 'opencart'];
+
+interface WebsiteInfo {
+  label: string;
+  sublabel?: string;
+  type: 'none' | 'old' | 'platform' | 'ecommerce' | 'modern' | 'custom';
+  issues: string[];
+}
+
+function getWebsiteInfo(lead: Lead): WebsiteInfo {
+  const issues: string[] = [];
+  
+  // Collecter les problèmes techniques
+  if (lead.has_mobile_friendly === false) issues.push('Non mobile-friendly');
+  if (lead.has_ssl === false) issues.push('Pas de HTTPS');
+  if (lead.page_load_time && lead.page_load_time > 3000) {
+    issues.push(`Lent (${(lead.page_load_time / 1000).toFixed(1)}s)`);
+  }
+  
+  // Pas de site web
   if (!lead.website) {
-    return { label: 'Pas de site web', color: 'text-red-600 dark:text-red-400' };
+    return { label: '🚫 Pas de site web', type: 'none', issues };
   }
+  
+  const cms = lead.cms_type?.toLowerCase() || 'unknown';
+  const cmsLabel = CMS_LABELS[cms] || cms.toUpperCase();
+  
+  // Site vieillot
   if (lead.website_status === 'old') {
-    return { label: 'Site vieillot', color: 'text-yellow-600 dark:text-yellow-400' };
+    return {
+      label: '⚠️ Site vieillot',
+      sublabel: cms !== 'unknown' ? `Tech: ${cmsLabel}` : undefined,
+      type: 'old',
+      issues,
+    };
   }
-  if (lead.website_status === 'platform') {
-    return { label: 'Site plateforme (Wix, etc.)', color: 'text-yellow-600 dark:text-yellow-400' };
+  
+  // Réseaux sociaux comme site (Facebook, Instagram, Linktree)
+  if (SOCIAL_AS_WEBSITE.includes(cms)) {
+    return {
+      label: `📱 ${cmsLabel} uniquement`,
+      sublabel: 'Pas de vrai site web',
+      type: 'none',
+      issues,
+    };
   }
+  
+  // Plateformes de réservation métier (Planity, Doctolib, etc.)
+  if (BOOKING_PLATFORMS.includes(cms)) {
+    return {
+      label: `📅 Page ${cmsLabel}`,
+      sublabel: 'Plateforme de réservation, pas un site propre',
+      type: 'platform',
+      issues,
+    };
+  }
+  
+  // Plateforme limitante (Wix, Squarespace, etc.)
+  if (lead.website_status === 'platform' || PLATFORM_CMS.includes(cms)) {
+    return {
+      label: `📦 Site ${cmsLabel}`,
+      sublabel: 'Plateforme limitante',
+      type: 'platform',
+      issues,
+    };
+  }
+  
+  // E-commerce
+  if (ECOMMERCE_CMS.includes(cms)) {
+    return {
+      label: `🛒 E-commerce ${cmsLabel}`,
+      type: 'ecommerce',
+      issues,
+    };
+  }
+  
+  // WordPress (cas spécial - peut être bon ou mauvais)
+  if (cms === 'wordpress') {
+    if (lead.website_status === 'modern') {
+      return {
+        label: '✓ Site WordPress',
+        sublabel: 'Moderne',
+        type: 'modern',
+        issues,
+      };
+    }
+    return {
+      label: '🔧 Site WordPress',
+      sublabel: issues.length > 0 ? 'À optimiser' : undefined,
+      type: 'custom',
+      issues,
+    };
+  }
+  
+  // Site moderne
   if (lead.website_status === 'modern') {
-    return { label: 'Site moderne', color: 'text-green-600 dark:text-green-400' };
+    return {
+      label: '✓ Site moderne',
+      sublabel: cms !== 'unknown' ? cmsLabel : undefined,
+      type: 'modern',
+      issues,
+    };
   }
-  return null;
+  
+  // Sur-mesure ou inconnu
+  if (cms === 'custom') {
+    return {
+      label: '🔧 Site sur-mesure',
+      type: 'custom',
+      issues,
+    };
+  }
+  
+  return {
+    label: '🌐 Site web',
+    sublabel: cms !== 'unknown' ? cmsLabel : undefined,
+    type: 'custom',
+    issues,
+  };
+}
+
+// ===== COMPOSANT ARGUMENTS DE VENTE =====
+function SalesArgumentsSection({ lead }: { lead: Lead }) {
+  const websiteInfo = getWebsiteInfo(lead);
+  const hasPainPoints = lead.pain_points && lead.pain_points.length > 0;
+  const hasTechIssues = websiteInfo.issues.length > 0;
+  const hasOpportunity = websiteInfo.type === 'none' || websiteInfo.type === 'old' || websiteInfo.type === 'platform';
+  
+  const cms = lead.cms_type?.toLowerCase() || 'unknown';
+  const isBookingPlatform = BOOKING_PLATFORMS.includes(cms);
+  const isSocialOnly = SOCIAL_AS_WEBSITE.includes(cms);
+  
+  // Ne rien afficher s'il n'y a rien d'intéressant
+  if (!hasPainPoints && !hasTechIssues && !hasOpportunity) {
+    return null;
+  }
+  
+  return (
+    <div className="border-b border-border">
+      {/* Header avec titre accrocheur */}
+      <div className="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 dark:from-orange-600 dark:to-red-600">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🎯</span>
+          <h3 className="text-base font-bold text-white">
+            Arguments de Vente
+          </h3>
+          {(hasPainPoints || hasTechIssues) && (
+            <span className="ml-auto px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium text-white">
+              {(lead.pain_points?.length || 0) + websiteInfo.issues.length} opportunités
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-4 bg-gradient-to-b from-orange-50 to-white dark:from-orange-950/20 dark:to-background space-y-4">
+        {/* Situation site web */}
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg shrink-0 ${
+            websiteInfo.type === 'none' ? 'bg-red-100 dark:bg-red-900/50' :
+            websiteInfo.type === 'old' ? 'bg-yellow-100 dark:bg-yellow-900/50' :
+            websiteInfo.type === 'platform' ? 'bg-orange-100 dark:bg-orange-900/50' :
+            websiteInfo.type === 'modern' ? 'bg-green-100 dark:bg-green-900/50' :
+            'bg-blue-100 dark:bg-blue-900/50'
+          }`}>
+            <Globe className={`w-5 h-5 ${
+              websiteInfo.type === 'none' ? 'text-red-600 dark:text-red-400' :
+              websiteInfo.type === 'old' ? 'text-yellow-600 dark:text-yellow-400' :
+              websiteInfo.type === 'platform' ? 'text-orange-600 dark:text-orange-400' :
+              websiteInfo.type === 'modern' ? 'text-green-600 dark:text-green-400' :
+              'text-blue-600 dark:text-blue-400'
+            }`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold ${
+              websiteInfo.type === 'none' ? 'text-red-700 dark:text-red-300' :
+              websiteInfo.type === 'old' ? 'text-yellow-700 dark:text-yellow-300' :
+              websiteInfo.type === 'platform' ? 'text-orange-700 dark:text-orange-300' :
+              websiteInfo.type === 'modern' ? 'text-green-700 dark:text-green-300' :
+              'text-blue-700 dark:text-blue-300'
+            }`}>
+              {websiteInfo.label}
+            </p>
+            {websiteInfo.sublabel && (
+              <p className="text-sm text-muted-foreground">{websiteInfo.sublabel}</p>
+            )}
+            
+            {/* Issues techniques */}
+            {websiteInfo.issues.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {websiteInfo.issues.map((issue, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                  >
+                    <AlertTriangle className="w-3 h-3" />
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pain points détaillés */}
+        {hasPainPoints && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" />
+              Points de douleur identifiés
+            </p>
+            <div className="grid gap-2">
+              {lead.pain_points!.map((point, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2 p-2.5 rounded-lg bg-white dark:bg-zinc-800/50 border border-orange-200 dark:border-orange-800/50 shadow-sm"
+                >
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  <p className="text-sm text-foreground">{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Résumé rapide si pas de pain points mais opportunité */}
+        {!hasPainPoints && hasOpportunity && (
+          <div className="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">
+            <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+              {isSocialOnly && "💡 Juste un réseau social = pas de vitrine professionnelle, aucun référencement Google"}
+              {isBookingPlatform && "💡 Seulement une page de réservation = pas de site propre, dépendant de la plateforme, pas de SEO"}
+              {websiteInfo.type === 'none' && !isSocialOnly && !isBookingPlatform && "💡 Pas de présence en ligne = besoin urgent d'un site web"}
+              {websiteInfo.type === 'old' && "💡 Site vieillot = perte de crédibilité et de clients potentiels"}
+              {websiteInfo.type === 'platform' && !isBookingPlatform && "💡 Plateforme limitante = difficile de se démarquer et de bien référencer"}
+            </p>
+          </div>
+        )}
+        
+        {/* CMS et tech - toujours visible si disponible */}
+        {lead.cms_type && lead.cms_type !== 'unknown' && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t border-border">
+            <span className="font-medium">Techno:</span>
+            <span className="px-1.5 py-0.5 rounded bg-muted font-mono">
+              {CMS_LABELS[lead.cms_type] || lead.cms_type}
+            </span>
+            {lead.has_booking === false && (
+              <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">
+                Pas de RDV en ligne
+              </span>
+            )}
+            {lead.has_seo === false && (
+              <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">
+                SEO faible
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ===== SCRIPTS PAR NICHE =====
@@ -279,7 +576,7 @@ function isOptimalCallTime(bestCallTime: string | null): 'optimal' | 'suboptimal
   return 'suboptimal';
 }
 
-export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
+export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCardProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -332,7 +629,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
     }
   }, [lead.phone]);
 
-  const websiteStatus = getWebsiteStatusLabel(lead);
+  const websiteInfo = getWebsiteInfo(lead);
   const phoneTypeLabel = lead.phone_type === 'perso' ? 'PERSO' : lead.phone_type === 'pro' ? 'PRO' : null;
   const isPersoPhone = lead.phone_type === 'perso';
   const callTimeStatus = isOptimalCallTime(lead.best_call_time ?? null);
@@ -433,13 +730,15 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
                 <ExternalLink className="w-5 h-5" />
               </a>
             )}
-            <Link
-              href={`/leads/${lead.id}`}
-              className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
-              title="Voir la fiche"
-            >
-              <Eye className="w-5 h-5" />
-            </Link>
+            {!hideViewButton && (
+              <Link
+                href={`/leads/${lead.id}`}
+                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                title="Voir la fiche"
+              >
+                <Eye className="w-5 h-5" />
+              </Link>
+            )}
           </div>
         </div>
 
@@ -483,19 +782,20 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
 
         {/* ===== TAGS CRITIQUES SOUS LE TÉLÉPHONE ===== */}
         <div className="flex flex-wrap justify-center gap-2 py-2">
-          {/* Website status */}
-          {websiteStatus && (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-              !lead.website 
-                ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' 
-                : lead.website_status === 'modern'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
-                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
-            }`}>
-              <Globe className="w-4 h-4" />
-              {websiteStatus.label}
-            </span>
-          )}
+          {/* Website status - compact version */}
+          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+            websiteInfo.type === 'none' 
+              ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' 
+              : websiteInfo.type === 'modern'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                : websiteInfo.type === 'platform' || websiteInfo.type === 'old'
+                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'
+                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+          }`}>
+            <Globe className="w-4 h-4" />
+            {websiteInfo.label}
+            {websiteInfo.sublabel && <span className="opacity-75">• {websiteInfo.sublabel}</span>}
+          </span>
           
           {/* Créneau optimal */}
           {lead.best_call_time && (
@@ -509,13 +809,6 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
                 ? `✓ Bon moment (${lead.best_call_time})`
                 : `Appeler ${lead.best_call_time}`
               }
-            </span>
-          )}
-          
-          {/* Pas de réservation */}
-          {lead.has_booking === false && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">
-              Pas de RDV en ligne
             </span>
           )}
           
@@ -608,37 +901,8 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
         </div>
       )}
 
-      {/* ===== BLOC 4.5: PAIN POINTS ===== */}
-      {lead.pain_points && lead.pain_points.length > 0 && (
-        <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-b border-border">
-          <div className="flex items-start gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-red-900 dark:text-red-300 mb-1.5">
-                Points de Douleur - Arguments de Vente
-              </h3>
-              <ul className="space-y-1.5">
-                {lead.pain_points.map((point, idx) => (
-                  <li key={idx} className="text-sm text-red-800 dark:text-red-200 flex items-start gap-2">
-                    <span className="shrink-0 mt-0.5">•</span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-              {lead.cms_type && lead.cms_type !== 'unknown' && (
-                <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800">
-                  <p className="text-xs text-red-700 dark:text-red-300">
-                    <strong>Techno détectée:</strong> {lead.cms_type.toUpperCase()}
-                    {lead.has_mobile_friendly === false && ' • Non mobile'}
-                    {lead.has_ssl === false && ' • Pas de HTTPS'}
-                    {lead.page_load_time && lead.page_load_time > 3000 && ` • Lent (${(lead.page_load_time / 1000).toFixed(1)}s)`}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ===== BLOC 4.5: ARGUMENTS DE VENTE (Pain Points + Tech Issues) ===== */}
+      <SalesArgumentsSection lead={lead} />
 
       {/* ===== BLOC 5: HISTORIQUE AVEC RÉSUMÉ ===== */}
       {(history.length > 0 || loadingHistory) && (

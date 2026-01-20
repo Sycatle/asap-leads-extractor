@@ -38,6 +38,68 @@ const NICHE_RECOMMENDATIONS: Record<string, string> = {
 
 // CMS detection signatures
 const CMS_SIGNATURES = {
+  // Plateformes métier (coiffure, beauté, santé) - en premier car prioritaires
+  planity: [
+    'planity.com',
+    'widget.planity.com',
+    'booking.planity.com',
+    'cdn.planity.com',
+    'planity-widget',
+  ],
+  treatwell: [
+    'treatwell.fr',
+    'treatwell.com',
+    'wahanda.com',
+    'treatwell-widget',
+  ],
+  doctolib: [
+    'doctolib.fr',
+    'doctolib.com',
+    'doctolib-widget',
+    'cdn.doctolib',
+  ],
+  kiute: [
+    'kiute.com',
+    'kiute-pro',
+    'kiutepro.com',
+  ],
+  flexy: [
+    'flexy.com',
+    'flexybeauty.com',
+  ],
+  wavy: [
+    'wavy.co',
+    'getwav.com',
+  ],
+  // Plateformes restaurant
+  thefork: [
+    'thefork.com',
+    'lafourchette.com',
+    'thefork-widget',
+  ],
+  zenchef: [
+    'zenchef.com',
+    'module.zenchef',
+  ],
+  // Réseaux sociaux comme site principal
+  facebook: [
+    'facebook.com/pages',
+    'facebook.com/pg/',
+    'fb.com/',
+  ],
+  instagram: [
+    'instagram.com/',
+  ],
+  linktree: [
+    'linktr.ee',
+    'linktree.com',
+  ],
+  // Annuaires
+  pagesjaunes: [
+    'pagesjaunes.fr',
+    'solocal.com',
+  ],
+  // CMS classiques
   wordpress: [
     '/wp-content/',
     '/wp-includes/',
@@ -74,14 +136,42 @@ const CMS_SIGNATURES = {
     'webflow.io',
     'data-wf-',
   ],
+  weebly: [
+    'weebly.com',
+    'editmysite.com',
+  ],
+  jimdo: [
+    'jimdo.com',
+    'jimdofree.com',
+  ],
+  blogger: [
+    'blogger.com',
+    'blogspot.com',
+  ],
+  // E-commerce
+  magento: [
+    'magento',
+    'mage-',
+    '/skin/frontend/',
+  ],
+  woocommerce: [
+    'woocommerce',
+    'wc-ajax',
+    '/wc-api/',
+  ],
+  opencart: [
+    'opencart',
+    '/catalog/view/',
+  ],
 };
 
 /**
- * Detect CMS type from page content and network requests
+ * Detect CMS type from page content, URL and network requests
  */
-function detectCMS(html: string, headers: Record<string, string>, requestUrls: string[]): CMSType {
+function detectCMS(html: string, headers: Record<string, string>, requestUrls: string[], pageUrl: string = ''): CMSType {
   const lowerHtml = html.toLowerCase();
-  const allContent = [lowerHtml, ...requestUrls.map(u => u.toLowerCase())];
+  const lowerUrl = pageUrl.toLowerCase();
+  const allContent = [lowerHtml, lowerUrl, ...requestUrls.map(u => u.toLowerCase())];
   const headerString = JSON.stringify(headers).toLowerCase();
   
   // Check each CMS signature
@@ -143,21 +233,52 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
     painPoints.push("⏱️ Temps de chargement à améliorer pour meilleure conversion");
   }
   
-  // CMS-specific pain points
-  if (cms_type === 'wix') {
+  // Plateformes métier - pain points spécifiques
+  if (cms_type === 'planity') {
+    painPoints.push("📅 Page Planity uniquement - pas de site propre, dépendant de la plateforme");
+    painPoints.push("🔍 Pas de référencement Google - les clients ne vous trouvent pas naturellement");
+    painPoints.push("💡 Un site vitrine permettrait de se différencier et capter plus de clients");
+  } else if (cms_type === 'treatwell') {
+    painPoints.push("📅 Présence limitée à Treatwell - dépendant des commissions de la plateforme");
+    painPoints.push("💡 Site propre = image professionnelle + indépendance");
+  } else if (cms_type === 'doctolib') {
+    painPoints.push("📅 Page Doctolib uniquement - pas de vitrine digitale complète");
+    painPoints.push("💡 Un site web renforcerait la crédibilité professionnelle");
+  } else if (cms_type === 'thefork' || cms_type === 'zenchef') {
+    painPoints.push("🍽️ Dépendant de la plateforme de réservation - commissions élevées");
+    painPoints.push("💡 Site propre avec menu + réservation directe = économies + image");
+  } else if (cms_type === 'facebook' || cms_type === 'instagram') {
+    painPoints.push("📱 Uniquement présent sur les réseaux sociaux - pas de vitrine pro");
+    painPoints.push("🔍 Invisible sur Google - perte de nombreux clients potentiels");
+    painPoints.push("💡 Un site web capte les 80% de clients qui cherchent sur Google");
+  } else if (cms_type === 'linktree') {
+    painPoints.push("🔗 Linktree n'est pas un site web - image amateur");
+    painPoints.push("💡 Un vrai site renforce la crédibilité et le référencement");
+  } else if (cms_type === 'pagesjaunes') {
+    painPoints.push("📒 Présence limitée aux Pages Jaunes - pas de contrôle sur l'image");
+    painPoints.push("💡 Site propre = meilleur référencement + image maîtrisée");
+  // CMS classiques - pain points
+  } else if (cms_type === 'wix') {
     painPoints.push("⚠️ Site Wix - limité pour le SEO, performances moyennes");
     painPoints.push("💡 Migration vers site professionnel = +30% visibilité Google");
+  } else if (cms_type === 'squarespace' || cms_type === 'weebly' || cms_type === 'jimdo') {
+    painPoints.push("⚠️ Plateforme DIY limitante - difficile de se démarquer");
+    painPoints.push("💡 Site sur-mesure = meilleur SEO + design unique");
   } else if (cms_type === 'wordpress' && analysis.page_load_time && analysis.page_load_time > 3000) {
     painPoints.push("🔧 WordPress mal optimisé - besoin de refonte technique");
+  } else if (cms_type === 'blogger') {
+    painPoints.push("📝 Blog Blogger - aspect daté, pas pro pour une entreprise");
+    painPoints.push("💡 Site vitrine moderne = crédibilité + clients");
   } else if (cms_type === 'shopify') {
     painPoints.push("🛍️ Shopify = coûts mensuels élevés, envisager alternative");
   } else if (cms_type === 'unknown' || cms_type === 'custom') {
     painPoints.push("🎨 Site custom/vieillot - modernisation pour meilleure image");
   }
   
-  // Platform-based website
+  // Platform-based website URL
   if (url.includes('wixsite.com') || url.includes('blogspot.') || 
-      url.includes('weebly.') || url.includes('wordpress.com')) {
+      url.includes('weebly.') || url.includes('wordpress.com') ||
+      url.includes('jimdofree.') || url.includes('my.canva.site')) {
     painPoints.push("🏷️ URL non professionnelle - impact sur crédibilité");
   }
   
@@ -227,14 +348,16 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     const html = await page.content();
     const headers = {}; // Headers from initial navigation
     
-    // Detect CMS
-    const cms_type = detectCMS(html, headers, requestUrls);
+    // Get final URL (after redirects)
+    const finalUrl = page.url();
+    
+    // Detect CMS - pass both content and URL
+    const cms_type = detectCMS(html, headers, requestUrls, finalUrl);
     
     // Check mobile-friendly
     const has_mobile_friendly = isMobileFriendly(html);
     
     // Check SSL (from final URL)
-    const finalUrl = page.url();
     const has_ssl = finalUrl.startsWith('https://');
     
     // Generate pain points

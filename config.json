@@ -17,13 +17,10 @@
   ],
   "scrape": {
     "niches": [
-      "coiffeur"
+      "restaurant"
     ],
     "cities": [
-      "Le  Mans",
-      "Nantes",
-      "Paris",
-      "Bordeaux"
+      "Le  Mans"
     ]
   },
   "worker": {
