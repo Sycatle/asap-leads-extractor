@@ -81,14 +81,29 @@ const CMS_SIGNATURES = {
     'zenchef.com',
     'module.zenchef',
   ],
+  eatbu: [
+    'eatbu.com',
+    '.eatbu.com',
+  ],
+  foxorders: [
+    'foxorders.fr',
+    'foxorders.com',
+  ],
+  // Google Sites
+  googlesites: [
+    'sites.google.com',
+  ],
   // Réseaux sociaux comme site principal
   facebook: [
     'facebook.com/pages',
     'facebook.com/pg/',
+    'facebook.com/profile',
+    'www.facebook.com/',
     'fb.com/',
   ],
   instagram: [
     'instagram.com/',
+    'www.instagram.com/',
   ],
   linktree: [
     'linktr.ee',
@@ -247,6 +262,17 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
   } else if (cms_type === 'thefork' || cms_type === 'zenchef') {
     painPoints.push("🍽️ Dépendant de la plateforme de réservation - commissions élevées");
     painPoints.push("💡 Site propre avec menu + réservation directe = économies + image");
+  } else if (cms_type === 'eatbu') {
+    painPoints.push("🍽️ Page Eatbu uniquement - menu en ligne sans site propre");
+    painPoints.push("🔍 Invisible sur Google - les clients ne trouvent pas le restaurant");
+    painPoints.push("💡 Un site vitrine améliorerait la visibilité et l'image");
+  } else if (cms_type === 'foxorders') {
+    painPoints.push("🍽️ Page FoxOrders - dépendant d'une plateforme de commande");
+    painPoints.push("💡 Site propre = image pro + commandes directes sans commission");
+  } else if (cms_type === 'googlesites') {
+    painPoints.push("📄 Google Sites - très limité, aspect amateur et daté");
+    painPoints.push("🔍 SEO minimal - difficile de ressortir sur Google");
+    painPoints.push("💡 Site professionnel = crédibilité + référencement optimal");
   } else if (cms_type === 'facebook' || cms_type === 'instagram') {
     painPoints.push("📱 Uniquement présent sur les réseaux sociaux - pas de vitrine pro");
     painPoints.push("🔍 Invisible sur Google - perte de nombreux clients potentiels");

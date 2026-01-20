@@ -12,9 +12,11 @@ export type CMSType =
   // Plateformes métier (coiffure, beauté, santé)
   | 'planity' | 'treatwell' | 'doctolib' | 'kiute' | 'flexy' | 'wavy'
   // Plateformes restaurant
-  | 'thefork' | 'zenchef'
+  | 'thefork' | 'zenchef' | 'eatbu' | 'foxorders'
   // Réseaux sociaux / annuaires
   | 'facebook' | 'instagram' | 'linktree' | 'pagesjaunes'
+  // Google Sites
+  | 'googlesites'
   // Autres
   | 'custom' | 'unknown';
 

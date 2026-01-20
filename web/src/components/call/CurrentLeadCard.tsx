@@ -167,9 +167,13 @@ const CMS_LABELS: Record<string, string> = {
   thefork: 'TheFork',
   zenchef: 'Zenchef',
   metro: 'Metro Menu',
+  eatbu: 'Eatbu',
+  foxorders: 'FoxOrders',
   // Pages jaunes / Annuaires
   pagesjaunes: 'Pages Jaunes',
   solocal: 'Solocal',
+  // Google Sites
+  googlesites: 'Google Sites',
   // Réseaux sociaux comme site
   facebook: 'Page Facebook',
   instagram: 'Instagram',
@@ -180,10 +184,10 @@ const CMS_LABELS: Record<string, string> = {
 };
 
 // CMS considérés comme "plateformes" limitantes (bon argument de vente)
-const PLATFORM_CMS = ['wix', 'squarespace', 'weebly', 'jimdo', 'blogger', 'linktree'];
+const PLATFORM_CMS = ['wix', 'squarespace', 'weebly', 'jimdo', 'blogger', 'linktree', 'googlesites'];
 
 // Plateformes métier - pas un vrai site, juste une page de réservation
-const BOOKING_PLATFORMS = ['planity', 'treatwell', 'doctolib', 'kiute', 'flexy', 'wavy', 'thefork', 'zenchef'];
+const BOOKING_PLATFORMS = ['planity', 'treatwell', 'doctolib', 'kiute', 'flexy', 'wavy', 'thefork', 'zenchef', 'eatbu', 'foxorders'];
 
 // Pages sur réseaux sociaux utilisées comme site
 const SOCIAL_AS_WEBSITE = ['facebook', 'instagram', 'linktree'];
