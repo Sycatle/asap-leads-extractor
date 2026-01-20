@@ -17,7 +17,25 @@
   ],
   "scrape": {
     "niches": [
-      "restaurant"
+      "entreprise rénovation",
+      "rénovation maison",
+      "rénovation intérieure",
+      "rénovation appartement",
+      "rénovation salle de bain",
+      "rénovation cuisine",
+      "extension maison",
+      "rénovation énergétique",
+      "devis rénovation",
+      "couvreur",
+      "réparation toiture",
+      "rénovation toiture",
+      "zingueur",
+      "étanchéité toiture",
+      "démoussage toiture",
+      "nettoyage toiture",
+      "urgence toiture",
+      "fuite toiture",
+      "devis couvreur"
     ],
     "cities": [
       "Le  Mans"
