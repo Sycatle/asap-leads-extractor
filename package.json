@@ -13,6 +13,10 @@
     "enrich": "tsx worker/index.ts enrich",
     "enrich:website": "tsx worker/enrichWebsite.ts",
     "stats": "tsx worker/cli.ts stats",
+    "migrate": "tsx shared/migrate.ts",
+    "migrate:status": "tsx shared/migrate.ts status",
+    "migrate:up": "tsx shared/migrate.ts up",
+    "migrate:rollback": "tsx shared/migrate.ts rollback",
     "web": "cd web && pnpm dev",
     "web:build": "cd web && pnpm build"
   },
