@@ -1,6 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import { RawLead } from '../shared/types.js';
-import { upsertLead, closeDb, enrichLead, type InsertLead } from './db.js';
+import { upsertLead, closeDb, enrichLead, type InsertLead, getExistingPhones } from './db.js';
 import { enrichSingleLead } from './enrich.js';
 import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils.js';
 import { classifyWebsiteStatus, computeBestCallTime } from './scoring.js';
@@ -16,10 +16,10 @@ function debugData(label: string, data: unknown): void {
   if (DEBUG) console.log(`[DEBUG] ${label}:`, JSON.stringify(data, null, 2));
 }
 
-const DELAY_BETWEEN_ACTIONS = 1000;
-const SCROLL_PAUSE = 800;
-const MAX_RESULTS_PER_QUERY = 60;
-const MAX_SCROLL_ATTEMPTS = 15;
+const DELAY_BETWEEN_ACTIONS = 600;  // Optimisé: 1000 → 600
+const SCROLL_PAUSE = 500;           // Optimisé: 800 → 500  
+const MAX_RESULTS_PER_QUERY = 50;   // Compromis: assez pour trouver les mal référencés
+const MAX_SCROLL_ATTEMPTS = 12;     // Ajusté pour 50 résultats
 
 
 
@@ -65,13 +65,15 @@ function isValidName(name: string): boolean {
 interface ScrapeQueryOptions {
   saveImmediately?: boolean;
   enrichImmediately?: boolean;
+  existingPhones?: Set<string>; // Pré-chargé pour skip doublons
 }
 
 // Scraper avec extraction depuis le panneau latéral (plus rapide)
 // Insère chaque lead en DB dès qu'il est extrait pour éviter les pertes
 async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOptions = {}): Promise<RawLead[]> {
   const leads: RawLead[] = [];
-  const { saveImmediately = true, enrichImmediately = false } = options;
+  const { saveImmediately = true, enrichImmediately = false, existingPhones = new Set() } = options;
+  let skippedDuplicates = 0;
   
   console.log(`\n  🔍 Recherche: "${query}"`);
   
@@ -176,37 +178,54 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       }
       
       // Scroll le feed pour rendre l'élément visible
-      // D'abord scroller le feed vers la position approximative de l'item
-      const scrollPosition = Math.max(0, (i - 3) * 120); // ~120px par item, avec marge de 3 items
-      await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), scrollPosition);
-      await sleep(300);
+      // Google Maps virtualise le feed - les éléments hors écran sont supprimés du DOM
+      // On doit scroller progressivement pour forcer le rendu
+      const targetScrollPosition = i * 120; // ~120px par item
       
-      // Puis utiliser scrollIntoView pour ajustement fin
-      await item.evaluate((el) => {
-        el.scrollIntoView({ behavior: 'instant', block: 'center' });
-      }).catch(() => {
-        debug('ScrollIntoView fallback');
-      });
-      await sleep(300);
-      
-      // Vérifier la visibilité
-      let isVisible = await item.isVisible().catch(() => false);
-      
-      // Retry avec scroll plus agressif si nécessaire
-      if (!isVisible) {
-        debug('Premier scroll insuffisant, retry...');
-        // Scroller un peu plus loin
-        await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), scrollPosition + 200);
+      // Scroll progressif pour forcer Google Maps à rendre l'élément
+      let isVisible = false;
+      for (let scrollAttempt = 0; scrollAttempt < 3; scrollAttempt++) {
+        await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), targetScrollPosition);
         await sleep(400);
+        
+        // Vérifier si l'élément est maintenant dans le DOM et visible
+        const isInDom = await item.count() > 0;
+        if (isInDom) {
+          await item.evaluate((el) => {
+            el.scrollIntoView({ behavior: 'instant', block: 'center' });
+          }).catch(() => {});
+          await sleep(300);
+          
+          isVisible = await item.isVisible().catch(() => false);
+          if (isVisible) break;
+        }
+        
+        // Si pas dans le DOM ou pas visible, scroller un peu plus haut puis revenir
+        if (scrollAttempt < 2) {
+          debug(`Scroll attempt ${scrollAttempt + 1} failed, retrying...`);
+          await feed.evaluate((el, pos) => el.scrollTo({ top: Math.max(0, pos - 500), behavior: 'instant' }), targetScrollPosition);
+          await sleep(200);
+        }
+      }
+      
+      if (!isVisible) {
+        // Dernier essai: scroll plus agressif
+        debug('Élément non visible, scroll agressif...');
+        await feed.evaluate((el, pos) => el.scrollTo({ top: Math.max(0, pos - 300), behavior: 'instant' }), targetScrollPosition);
+        await sleep(300);
+        await feed.evaluate((el, pos) => el.scrollTo({ top: pos, behavior: 'instant' }), targetScrollPosition);
+        await sleep(400);
+        
         await item.evaluate((el) => {
           el.scrollIntoView({ behavior: 'instant', block: 'center' });
         }).catch(() => {});
         await sleep(300);
+        
         isVisible = await item.isVisible().catch(() => false);
       }
-      
+
       if (!isVisible) {
-        debug('⏭ Élément non visible après retry, skip');
+        debug('⏭ Élément non visible après retries, skip');
         continue;
       }
       
@@ -319,6 +338,15 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         debug('Aucun téléphone trouvé pour cet établissement');
         continue;
       }
+      
+      // Skip si téléphone déjà en base (doublon)
+      if (existingPhones.has(phone)) {
+        skippedDuplicates++;
+        debug(`⏭ Doublon skip: ${phone} (déjà en DB)`);
+        continue;
+      }
+      // Ajouter au Set pour éviter doublons dans cette session
+      existingPhones.add(phone);
       
       debug('Téléphone validé:', phone);
       
@@ -559,6 +587,9 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
     }
   }
   
+  if (skippedDuplicates > 0) {
+    console.log(`  ⏩ ${skippedDuplicates} doublons évités (déjà en DB)`);
+  }
   console.log('');
   return leads;
 }
@@ -577,6 +608,11 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   // Options de sauvegarde: immédiate par défaut (sauf si saveToDb === false explicitement)
   const saveImmediately = config.saveToDb !== false;
   const enrichImmediately = config.enrichImmediately ?? false;
+  
+  // Pré-charger les téléphones existants pour skip doublons
+  console.log('📂 Chargement des leads existants...');
+  const existingPhones = saveImmediately ? getExistingPhones() : new Set<string>();
+  console.log(`  ${existingPhones.size} leads déjà en base\n`);
   
   console.log('🌐 Démarrage du scraper Google Maps\n');
   console.log(`  Niches: ${config.niches.join(', ')}`);
@@ -621,7 +657,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
         debug(`▶ Traitement requête: "${query}"`);
         debug(`${'─'.repeat(50)}`);
         
-        const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately });
+        const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately, existingPhones });
         
         debug(`✓ Requête terminée: ${leads.length} leads trouvés`);
         debugData('Leads de cette requête', leads.map(l => ({ name: l.name, phone: l.phone, hasWebsite: !!l.website })));
@@ -629,9 +665,9 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
         allLeads.push(...leads);
         debug(`Total cumulé: ${allLeads.length} leads`);
         
-        // Pause entre les recherches
-        debug(`Pause de ${DELAY_BETWEEN_ACTIONS * 2}ms avant la prochaine requête...`);
-        await sleep(DELAY_BETWEEN_ACTIONS * 2);
+        // Pause entre les recherches (optimisée)
+        debug(`Pause de ${DELAY_BETWEEN_ACTIONS}ms avant la prochaine requête...`);
+        await sleep(DELAY_BETWEEN_ACTIONS);
       }
     }
   } finally {

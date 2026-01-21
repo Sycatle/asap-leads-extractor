@@ -158,6 +158,27 @@ export function upsertLead(lead: InsertLead): DbLead | null {
 }
 
 /**
+ * Check if a phone number already exists in the database
+ * Used to skip already-collected leads during scraping
+ */
+export function phoneExists(phone: string): boolean {
+  const database = getDb();
+  const stmt = database.prepare('SELECT 1 FROM leads WHERE phone = ?');
+  return stmt.get(phone) !== undefined;
+}
+
+/**
+ * Get all existing phones as a Set for fast lookup
+ * More efficient than checking each phone individually
+ */
+export function getExistingPhones(): Set<string> {
+  const database = getDb();
+  const stmt = database.prepare('SELECT phone FROM leads');
+  const rows = stmt.all() as { phone: string }[];
+  return new Set(rows.map(r => r.phone));
+}
+
+/**
  * Format error message safely
  */
 function getErrorMessage(error: unknown): string {
