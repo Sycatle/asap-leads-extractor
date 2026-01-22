@@ -164,9 +164,9 @@ export function useCallSession(): UseCallSessionResult {
         // Map outcome to call status for logging
         const callStatusMap: Record<CallOutcome, CallStatus> = {
           injoignable: 'injoignable',
-          messagerie: 'messagerie',
           mauvais_numero: 'appele',
           accueil: 'appele',
+          decideur_absent: 'rappeler',
           rappeler: 'rappeler',
           interesse: 'appele',
           rdv_pris: 'appele',
@@ -199,9 +199,6 @@ export function useCallSession(): UseCallSessionResult {
       const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
       if (['interesse', 'rdv_pris', 'devis_envoye', 'accueil'].includes(outcome)) {
         stats.total_reached = session.total_reached + 1;
-      }
-      if (outcome === 'messagerie') {
-        stats.total_voicemail = session.total_voicemail + 1;
       }
       if (nextStep.datetime || outcome === 'rdv_pris') {
         stats.total_scheduled = session.total_scheduled + 1;
@@ -244,9 +241,7 @@ export function useCallSession(): UseCallSessionResult {
     
     try {
       const callStatus = (outcome === 'pas_interesse' ? 'appele' : outcome) as CallStatus;
-      await logLeadCall(currentLead.id, callStatus, {
-        auto_schedule: outcome === 'messagerie',
-      });
+      await logLeadCall(currentLead.id, callStatus, {});
 
       if (outcome === 'pas_interesse') {
         await updateLeadStatus(currentLead.id, 'perdu' as LeadStatus, 'Pas intéressé');
@@ -258,7 +253,6 @@ export function useCallSession(): UseCallSessionResult {
 
       const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
       if (outcome === 'appele') stats.total_reached = session.total_reached + 1;
-      if (outcome === 'messagerie') stats.total_voicemail = session.total_voicemail + 1;
       if (outcome === 'rappeler' || followupDatetime) stats.total_scheduled = session.total_scheduled + 1;
 
       const updatedSession = await updateSession(session.id, { stats });

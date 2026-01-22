@@ -178,6 +178,15 @@ export const migrations: Migration[] = [
       ALTER TABLE leads ADD COLUMN pain_points TEXT;
     `,
   },
+  {
+    id: 13,
+    name: '013_update_call_status_values',
+    description: 'Migrate messagerie and occupe call_status to valid values',
+    up: (db) => {
+      // Migrate any 'messagerie' or 'occupe' values to 'injoignable'
+      db.prepare("UPDATE leads SET call_status = 'injoignable' WHERE call_status IN ('messagerie', 'occupe')").run();
+    },
+  },
 ];
 
 /**

@@ -14,7 +14,6 @@ export const STATUS_LABELS: Record<LeadStatus, string> = {
 export const CALL_STATUS_LABELS: Record<CallStatus, string> = {
   non_appele: 'Non appelé',
   appele: 'Appelé',
-  messagerie: 'Messagerie',
   rappeler: 'À rappeler',
   injoignable: 'Injoignable',
 };
@@ -90,10 +89,10 @@ export const URGENCY_CONFIG: Record<FollowupUrgency, {
 export const CALL_OUTCOMES: CallOutcomeOption[] = [
   // Pas de contact
   { id: 'injoignable', label: 'Pas décroché', color: 'red', key: 'i', requiresNextStep: true },
-  { id: 'messagerie', label: 'Répondeur', color: 'yellow', key: 'm', requiresNextStep: true },
   { id: 'mauvais_numero', label: 'Faux numéro', color: 'zinc', key: 'n', requiresNextStep: false },
   // Contact partiel
   { id: 'accueil', label: 'Standard', color: 'orange', key: 'a', requiresNextStep: true },
+  { id: 'decideur_absent', label: 'Décideur absent', color: 'orange', key: 'z', requiresNextStep: true },
   { id: 'rappeler', label: 'Rappeler', color: 'blue', key: 'r', requiresNextStep: true },
   // Contact positif
   { id: 'interesse', label: 'Intéressé', color: 'green', key: 't', requiresNextStep: true },
@@ -106,16 +105,25 @@ export const CALL_OUTCOMES: CallOutcomeOption[] = [
 
 // Workflows par statut (next steps suggérés)
 export const OUTCOME_WORKFLOWS: Record<CallOutcome, { suggestedNextSteps: string[]; defaultDelay?: string }> = {
-  injoignable: { suggestedNextSteps: ['rappel'], defaultDelay: '+2d' },
-  messagerie: { suggestedNextSteps: ['rappel', 'sms'], defaultDelay: '+1d' },
+  injoignable: { suggestedNextSteps: ['rappel'], defaultDelay: '+2h' },
   mauvais_numero: { suggestedNextSteps: [] },
   accueil: { suggestedNextSteps: ['rappel', 'email'], defaultDelay: '+1d' },
+  decideur_absent: { suggestedNextSteps: ['rappel'], defaultDelay: '+1d' },
   rappeler: { suggestedNextSteps: ['rappel'], defaultDelay: '+2d' },
   interesse: { suggestedNextSteps: ['rdv', 'email'], defaultDelay: '+2d' },
   rdv_pris: { suggestedNextSteps: ['email'], defaultDelay: undefined },
   devis_envoye: { suggestedNextSteps: ['rappel', 'email'], defaultDelay: '+2d' },
   perdu: { suggestedNextSteps: ['rappel'], defaultDelay: '+90d' },
   opt_out: { suggestedNextSteps: [] },
+};
+
+// Stratégie de rappel dynamique selon le nombre de tentatives
+export const RETRY_STRATEGY: Record<number, { delay: string; tip: string }> = {
+  1: { delay: '+4h', tip: 'Rappeler à une heure différente' },
+  2: { delay: '+1d', tip: 'Changer de créneau (matin/après-midi)' },
+  3: { delay: '+2d', tip: 'Essayer un autre jour de la semaine' },
+  4: { delay: '+1w', tip: 'Dernière tentative téléphonique' },
+  5: { delay: 'archive', tip: 'Passer en nurturing email uniquement' },
 };
 
 // Raisons de perte

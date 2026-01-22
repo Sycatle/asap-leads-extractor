@@ -33,9 +33,8 @@ export type LeadStatus =
 export type CallStatus = 
   | 'non_appele'   // Jamais appelé
   | 'appele'       // Appelé, conversation OK
-  | 'messagerie'   // Tombé sur messagerie
   | 'rappeler'     // Demande de rappel
-  | 'injoignable'; // Numéro invalide/plus attribué
+  | 'injoignable'; // Pas décroché / non joignable
 
 export type EmailStatus = 
   | 'non_envoye'   // Pas d'email envoyé

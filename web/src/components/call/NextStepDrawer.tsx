@@ -40,13 +40,31 @@ const NEXT_STEP_OPTIONS: { id: NextStepType; label: string; icon: typeof Calenda
   { id: 'tache', label: 'Tâche', icon: CheckCircle2, color: 'bg-muted text-muted-foreground hover:bg-accent' },
 ];
 
-const QUICK_DELAYS: { label: string; value: number | 'tomorrow' | 'in2days' | 'nextweek' }[] = [
-  { label: '+1h', value: 1 },
-  { label: '+2h', value: 2 },
-  { label: 'Demain 10h', value: 'tomorrow' },
-  { label: '+2j', value: 'in2days' },
-  { label: '+1 sem', value: 'nextweek' },
-];
+const QUICK_DELAYS: Record<string, { label: string; value: number | 'tomorrow' | 'in2days' | 'nextweek' }[]> = {
+  injoignable: [
+    { label: '+1h', value: 1 },
+    { label: '+2h', value: 2 },
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+  ],
+  accueil: [
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+  decideur_absent: [
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+  default: [
+    { label: '+1h', value: 1 },
+    { label: '+2h', value: 2 },
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+};
 
 // Skip weekends: if date falls on Saturday, move to Monday; if Sunday, move to Monday
 function skipWeekend(date: Date): Date {
@@ -155,10 +173,13 @@ export function NextStepDrawer({
   const getTitle = () => {
     switch (outcome) {
       case 'injoignable':
-      case 'messagerie':
-        return 'Planifier la relance';
+        return 'Planifier le rappel';
+      case 'occupe':
+        return 'Ligne occupée';
       case 'accueil':
         return 'Action suite accueil';
+      case 'decideur_absent':
+        return 'Décideur absent';
       case 'rappeler':
         return 'Quand rappeler ?';
       case 'interesse':
@@ -178,10 +199,12 @@ export function NextStepDrawer({
     switch (outcome) {
       case 'injoignable':
         return `${leadName} n'a pas décroché. Planifiez une nouvelle tentative.`;
-      case 'messagerie':
-        return `Vous avez laissé un message à ${leadName}. Quand relancer ?`;
+      case 'occupe':
+        return `${leadName} est en ligne. Rappelez dans quelques minutes.`;
       case 'accueil':
         return `Vous avez eu l'accueil. Quelle action pour joindre le décideur ?`;
+      case 'decideur_absent':
+        return `Le décideur n'est pas disponible. Quand le rappeler ?`;
       case 'interesse':
         return `${leadName} est intéressé ! Quelle est la prochaine étape ?`;
       case 'rdv_pris':
@@ -326,7 +349,7 @@ export function NextStepDrawer({
               
               {/* Quick delays */}
               <div className="flex flex-wrap gap-2">
-                {QUICK_DELAYS.map((delay) => (
+                {(QUICK_DELAYS[outcome || ''] || QUICK_DELAYS.default).map((delay) => (
                   <button
                     key={delay.label}
                     onClick={() => handleQuickDelay(delay.value)}

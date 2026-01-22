@@ -1,7 +1,7 @@
 // ===== LEAD TYPES =====
 
 export type LeadStatus = 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | 'converti' | 'perdu';
-export type CallStatus = 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable';
+export type CallStatus = 'non_appele' | 'appele' | 'rappeler' | 'injoignable';
 export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'bounce';
 export type Priority = 'high' | 'medium' | 'low';
 export type PhoneType = 'pro' | 'perso' | 'unknown';
@@ -181,9 +181,9 @@ export interface Config {
 
 export type CallOutcome = 
   | 'injoignable'
-  | 'messagerie'
   | 'mauvais_numero'
   | 'accueil'
+  | 'decideur_absent'
   | 'rappeler'
   | 'interesse'
   | 'rdv_pris'

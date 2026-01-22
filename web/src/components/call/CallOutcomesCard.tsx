@@ -20,9 +20,9 @@ import type { CallOutcome } from '@/types';
 
 const OUTCOME_ICONS: Record<CallOutcome, typeof PhoneOff> = {
   injoignable: PhoneOff,
-  messagerie: PhoneMissed,
   mauvais_numero: Phone,
   accueil: Building2,
+  decideur_absent: PhoneCall,
   rappeler: Calendar,
   interesse: CheckCircle2,
   rdv_pris: CalendarPlus,
@@ -108,10 +108,10 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
 
   // Group outcomes by category
   const noContact = CALL_OUTCOMES.filter((o) =>
-    ['injoignable', 'messagerie', 'mauvais_numero'].includes(o.id)
+    ['injoignable', 'mauvais_numero'].includes(o.id)
   );
   const partialContact = CALL_OUTCOMES.filter((o) =>
-    ['accueil', 'rappeler'].includes(o.id)
+    ['accueil', 'decideur_absent', 'rappeler'].includes(o.id)
   );
   const positiveContact = CALL_OUTCOMES.filter((o) =>
     ['interesse', 'rdv_pris', 'devis_envoye'].includes(o.id)

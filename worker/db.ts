@@ -509,7 +509,7 @@ export function getStats(): LeadStats {
   // Par call_status
   const callRows = database.prepare('SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status').all() as { call_status: CallStatus; count: number }[];
   const by_call_status: Record<CallStatus, number> = {
-    non_appele: 0, appele: 0, messagerie: 0, rappeler: 0, injoignable: 0
+    non_appele: 0, appele: 0, rappeler: 0, injoignable: 0
   };
   for (const row of callRows) {
     by_call_status[row.call_status] = row.count;

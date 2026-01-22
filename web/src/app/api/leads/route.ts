@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     
     const filters = {
       status: searchParams.get('status') as 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | 'converti' | 'perdu' | undefined,
-      call_status: searchParams.get('call_status') as 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable' | undefined,
+      call_status: searchParams.get('call_status') as 'non_appele' | 'appele' | 'rappeler' | 'injoignable' | undefined,
       city: searchParams.get('city') || undefined,
       niche: searchParams.get('niche') || undefined,
       priority: searchParams.get('priority') as 'high' | 'medium' | 'low' | undefined,

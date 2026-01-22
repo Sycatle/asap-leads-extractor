@@ -375,7 +375,7 @@ export function getStats(): LeadStats {
   
   const callRows = database.prepare('SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status').all() as { call_status: CallStatus; count: number }[];
   const by_call_status: Record<CallStatus, number> = {
-    non_appele: 0, appele: 0, messagerie: 0, rappeler: 0, injoignable: 0
+    non_appele: 0, appele: 0, rappeler: 0, injoignable: 0
   };
   for (const row of callRows) {
     by_call_status[row.call_status] = row.count;
@@ -781,25 +781,8 @@ export function logCallWithHistory(
   let nextFollowup = lead.next_followup_at;
   let newStatus = lead.status;
   
-  // Auto-schedule followup if messagerie
-  if (autoScheduleFollowup && callStatus === 'messagerie') {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-    nextFollowup = tomorrow.toISOString().slice(0, 19).replace('T', ' ');
-    
-    addHistory({
-      lead_id: id,
-      type: 'followup_set',
-      old_value: lead.next_followup_at,
-      new_value: nextFollowup,
-      note: 'Auto-relance après messagerie',
-      duration_seconds: null,
-    });
-  }
-  
   // Auto-update status to 'contacte' if first real contact
-  if (lead.status === 'nouveau' && ['appele', 'messagerie'].includes(callStatus)) {
+  if (lead.status === 'nouveau' && callStatus === 'appele') {
     newStatus = 'contacte';
     addHistory({
       lead_id: id,

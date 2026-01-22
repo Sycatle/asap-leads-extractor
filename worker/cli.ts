@@ -136,7 +136,6 @@ program
     console.log('\n📞 Par appel:');
     console.log(`  Non appelé:   ${stats.by_call_status.non_appele}`);
     console.log(`  Appelé:       ${stats.by_call_status.appele}`);
-    console.log(`  Messagerie:   ${stats.by_call_status.messagerie}`);
     console.log(`  À rappeler:   ${stats.by_call_status.rappeler}`);
     console.log(`  Injoignable:  ${stats.by_call_status.injoignable}`);
     

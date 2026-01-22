@@ -35,14 +35,7 @@ export function LeadActionsCard({
             color="green"
           />
           <ActionButton
-            icon={<PhoneMissed className="w-4 h-4" />}
-            label="Messagerie"
-            onClick={() => onLogCall('messagerie')}
-            loading={actionLoading === 'messagerie'}
-            color="yellow"
-          />
-          <ActionButton
-            icon={<Calendar className="w-4 h-4" />}
+            icon={<Calendar className="w-4 h-4" />}}
             label="Rappeler"
             onClick={() => onLogCall('rappeler')}
             loading={actionLoading === 'rappeler'}

@@ -477,9 +477,9 @@ function getContextualTip(lead: Lead, history: HistoryEntry[]): string | null {
   
   // Si beaucoup de tentatives sans réponse
   if (recentCalls.length >= 2) {
-    const messageries = recentCalls.filter(h => h.new_value?.includes('messagerie'));
-    if (messageries.length >= 2) {
-      return "💡 2+ messageries cette semaine. Essayez un SMS ou un autre créneau.";
+    const injoignables = recentCalls.filter(h => h.new_value?.includes('injoignable'));
+    if (injoignables.length >= 2) {
+      return "💡 2+ tentatives sans réponse cette semaine. Essayez un autre créneau.";
     }
   }
   
@@ -526,16 +526,10 @@ function getHistorySummary(history: HistoryEntry[]): { text: string; type: 'warn
     return daysAgo <= 7;
   });
   
-  const messageries = recentCalls.filter(h => 
-    h.new_value?.toLowerCase().includes('messagerie')
-  ).length;
   const injoignables = recentCalls.filter(h => 
     h.new_value?.toLowerCase().includes('injoignable')
   ).length;
   
-  if (messageries >= 2) {
-    return { text: `📞 ${messageries}x messagerie en 7j`, type: 'warning' };
-  }
   if (injoignables >= 2) {
     return { text: `📞 ${injoignables}x injoignable en 7j`, type: 'warning' };
   }
