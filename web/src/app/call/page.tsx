@@ -142,6 +142,7 @@ export default function CallSessionPage() {
           {/* Right column: Call outcomes (1/3 width, sticky) */}
           <div className="lg:sticky lg:top-4 lg:self-start">
             <CallOutcomesCard
+              key={currentLead.id}
               onOutcome={handleOutcome}
               loading={actionLoading}
             />

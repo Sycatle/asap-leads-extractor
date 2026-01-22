@@ -89,19 +89,19 @@ export const URGENCY_CONFIG: Record<FollowupUrgency, {
 
 export const CALL_OUTCOMES: CallOutcomeOption[] = [
   // Pas de contact
-  { id: 'injoignable', label: 'Injoignable', color: 'red', key: 'i', requiresNextStep: true },
-  { id: 'messagerie', label: 'Messagerie', color: 'yellow', key: 'm', requiresNextStep: true },
-  { id: 'mauvais_numero', label: 'Mauvais n°', color: 'zinc', key: 'n', requiresNextStep: false },
+  { id: 'injoignable', label: 'Pas décroché', color: 'red', key: 'i', requiresNextStep: true },
+  { id: 'messagerie', label: 'Répondeur', color: 'yellow', key: 'm', requiresNextStep: true },
+  { id: 'mauvais_numero', label: 'Faux numéro', color: 'zinc', key: 'n', requiresNextStep: false },
   // Contact partiel
-  { id: 'accueil', label: 'Accueil/Standard', color: 'orange', key: 'a', requiresNextStep: true },
-  { id: 'rappeler', label: 'À rappeler', color: 'blue', key: 'r', requiresNextStep: true },
+  { id: 'accueil', label: 'Standard', color: 'orange', key: 'a', requiresNextStep: true },
+  { id: 'rappeler', label: 'Rappeler', color: 'blue', key: 'r', requiresNextStep: true },
   // Contact positif
   { id: 'interesse', label: 'Intéressé', color: 'green', key: 't', requiresNextStep: true },
-  { id: 'rdv_pris', label: 'RDV pris', color: 'green', key: 'v', requiresNextStep: true },
+  { id: 'rdv_pris', label: 'RDV obtenu', color: 'green', key: 'v', requiresNextStep: true },
   { id: 'devis_envoye', label: 'Devis envoyé', color: 'purple', key: 'd', requiresNextStep: true },
   // Clôture
-  { id: 'perdu', label: 'Perdu', color: 'zinc', key: 'p', requiresNextStep: false },
-  { id: 'opt_out', label: 'Opt-out', color: 'red', key: 'o', requiresNextStep: false },
+  { id: 'perdu', label: 'Pas intéressé', color: 'zinc', key: 'p', requiresNextStep: false },
+  { id: 'opt_out', label: 'Ne plus appeler', color: 'red', key: 'o', requiresNextStep: false },
 ];
 
 // Workflows par statut (next steps suggérés)

@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import {
   Loader2,
   PhoneOff,
@@ -10,6 +11,8 @@ import {
   FileText,
   Ban,
   Building2,
+  PhoneCall,
+  Timer,
 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { CALL_OUTCOMES } from '@/lib/constants';
@@ -38,12 +41,71 @@ const OUTCOME_COLORS = {
   orange: 'bg-orange-100 hover:bg-orange-200 text-orange-700 dark:bg-orange-900 dark:hover:bg-orange-800 dark:text-orange-300',
 };
 
+// Format call duration
+function formatCallDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 interface CallOutcomesCardProps {
   onOutcome: (outcome: CallOutcome) => void;
   loading: boolean;
+  leadId?: number; // Used as key in parent to reset state
 }
 
 export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) {
+  const [callStarted, setCallStarted] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  // Call timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (callStarted) {
+      interval = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [callStarted]);
+
+  // Handle outcome selection (stops timer)
+  const handleOutcome = useCallback((outcome: CallOutcome) => {
+    onOutcome(outcome);
+  }, [onOutcome]);
+
+  // Start call handler
+  const handleStartCall = useCallback(() => {
+    setCallStarted(true);
+    setCallDuration(0);
+  }, []);
+
+  // Keyboard shortcut for starting call
+  useEffect(() => {
+    if (callStarted) return; // Only listen when not yet started
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+      
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleStartCall();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [callStarted, handleStartCall]);
+
   // Group outcomes by category
   const noContact = CALL_OUTCOMES.filter((o) =>
     ['injoignable', 'messagerie', 'mauvais_numero'].includes(o.id)
@@ -63,7 +125,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
     return (
       <button
         key={outcome.id}
-        onClick={() => onOutcome(outcome.id)}
+        onClick={() => handleOutcome(outcome.id)}
         disabled={loading}
         className={`flex flex-col items-center gap-1 p-2.5 rounded-xl font-medium transition-all disabled:opacity-50 ${
           OUTCOME_COLORS[outcome.color]
@@ -82,8 +144,49 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
     );
   };
 
+  // Pre-call state: Show "Start Call" button
+  if (!callStarted) {
+    return (
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center gap-4 py-8">
+          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+            <PhoneCall className="w-8 h-8 text-green-600 dark:text-green-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-1">Prêt à appeler ?</p>
+            <p className="text-xs text-zinc-400">Le timer démarrera au lancement</p>
+          </div>
+          <button
+            onClick={handleStartCall}
+            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-green-600/25"
+          >
+            <Phone className="w-5 h-5" />
+            Lancer l&apos;appel
+          </button>
+          <kbd className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+            Entrée pour lancer
+          </kbd>
+        </div>
+      </Card>
+    );
+  }
+
+  // Active call state: Show timer + outcomes
   return (
     <Card className="p-4">
+      {/* Call Timer */}
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+          Appel en cours
+        </p>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">
+          <Timer className="w-4 h-4 text-green-600 dark:text-green-400 animate-pulse" />
+          <span className="font-mono font-bold text-green-700 dark:text-green-300">
+            {formatCallDuration(callDuration)}
+          </span>
+        </div>
+      </div>
+
       <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
         Résultat de l&apos;appel
       </p>
