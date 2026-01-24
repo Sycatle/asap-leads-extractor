@@ -259,10 +259,11 @@ export function countLeads(filters: Omit<LeadFilters, 'limit' | 'offset' | 'orde
   return result.count;
 }
 
-export function findById(id: number): DbLead | null {
+export function findById(id: number): Lead | null {
   const database = getDb();
   const stmt = database.prepare('SELECT * FROM leads WHERE id = ?');
-  return (stmt.get(id) as DbLead) ?? null;
+  const row = stmt.get(id) as DbLead | undefined;
+  return row ? transformDbLead(row) : null;
 }
 
 export function updateLead(id: number, data: Partial<DbLead>): boolean {

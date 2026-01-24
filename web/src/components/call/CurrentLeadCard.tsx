@@ -317,7 +317,11 @@ function getWebsiteInfo(lead: Lead): WebsiteInfo {
 // ===== COMPOSANT ARGUMENTS DE VENTE =====
 function SalesArgumentsSection({ lead }: { lead: Lead }) {
   const websiteInfo = getWebsiteInfo(lead);
-  const hasPainPoints = lead.pain_points && lead.pain_points.length > 0;
+  // Ensure pain_points is always an array (handle string from DB edge case)
+  const painPoints = Array.isArray(lead.pain_points) 
+    ? lead.pain_points 
+    : (typeof lead.pain_points === 'string' ? JSON.parse(lead.pain_points) : []);
+  const hasPainPoints = painPoints.length > 0;
   const hasTechIssues = websiteInfo.issues.length > 0;
   const hasOpportunity = websiteInfo.type === 'none' || websiteInfo.type === 'old' || websiteInfo.type === 'platform';
   
@@ -404,7 +408,7 @@ function SalesArgumentsSection({ lead }: { lead: Lead }) {
               Points de douleur identifiés
             </p>
             <div className="grid gap-1.5">
-              {lead.pain_points!.map((point, idx) => (
+              {painPoints.map((point, idx) => (
                 <div
                   key={idx}
                   className="flex items-start gap-2 p-2 rounded-lg bg-card border border-warning/20"
