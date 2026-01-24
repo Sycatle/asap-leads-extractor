@@ -2,6 +2,9 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
+// Import shared migration system
+import { runMigrations } from '../../../shared/migrations.js';
+
 // Re-export les types depuis shared
 export type { 
   LeadStatus, 
@@ -70,86 +73,10 @@ export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    migrateSchema(db);
+    // Use shared migration system - single source of truth
+    runMigrations(db);
   }
   return db;
-}
-
-/**
- * Migration du schéma - ajoute les tables et colonnes manquantes
- * Le worker crée le schéma initial, le web le complète si nécessaire
- */
-function migrateSchema(database: Database.Database): void {
-  // Vérifier les colonnes existantes
-  const columns = database.prepare("PRAGMA table_info(leads)").all() as { name: string }[];
-  const columnNames = new Set(columns.map(c => c.name));
-  
-  // Migrations des colonnes (le worker les crée, mais on s'assure qu'elles existent)
-  const migrations: [string, string][] = [
-    ['phone_type', "ALTER TABLE leads ADD COLUMN phone_type TEXT CHECK(phone_type IN ('pro', 'perso', 'unknown')) DEFAULT 'unknown'"],
-    ['website_status', "ALTER TABLE leads ADD COLUMN website_status TEXT CHECK(website_status IN ('none', 'old', 'platform', 'modern'))"],
-    ['score', "ALTER TABLE leads ADD COLUMN score INTEGER DEFAULT 50"],
-    ['opening_hours', "ALTER TABLE leads ADD COLUMN opening_hours TEXT"],
-    ['best_call_time', "ALTER TABLE leads ADD COLUMN best_call_time TEXT"],
-    ['has_booking', "ALTER TABLE leads ADD COLUMN has_booking INTEGER DEFAULT 0"],
-    ['has_seo', "ALTER TABLE leads ADD COLUMN has_seo INTEGER DEFAULT 0"],
-    ['last_gmb_update', "ALTER TABLE leads ADD COLUMN last_gmb_update TEXT"],
-    ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
-    ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
-    ['image_url', "ALTER TABLE leads ADD COLUMN image_url TEXT"],
-  ];
-  
-  for (const [column, sql] of migrations) {
-    if (!columnNames.has(column)) {
-      try {
-        database.exec(sql);
-        console.log(`[DB] Migration: ajout colonne ${column}`);
-      } catch {
-        // Ignore si déjà existe
-      }
-    }
-  }
-  
-  // Tables additionnelles pour le web
-  database.exec(`
-    -- Table historique des interactions
-    CREATE TABLE IF NOT EXISTS lead_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      lead_id INTEGER NOT NULL,
-      type TEXT CHECK(type IN ('call', 'email', 'note', 'status_change', 'followup_set')) NOT NULL,
-      old_value TEXT,
-      new_value TEXT,
-      note TEXT,
-      duration_seconds INTEGER,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_history_lead ON lead_history(lead_id);
-    CREATE INDEX IF NOT EXISTS idx_history_date ON lead_history(created_at);
-    
-    -- Table sessions de prospection
-    CREATE TABLE IF NOT EXISTS call_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      started_at TEXT NOT NULL DEFAULT (datetime('now')),
-      ended_at TEXT,
-      total_calls INTEGER DEFAULT 0,
-      total_reached INTEGER DEFAULT 0,
-      total_voicemail INTEGER DEFAULT 0,
-      total_scheduled INTEGER DEFAULT 0,
-      notes TEXT
-    );
-    
-    -- Table scripts d'appel
-    CREATE TABLE IF NOT EXISTS call_scripts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      niche TEXT,
-      type TEXT CHECK(type IN ('intro', 'objection', 'closing')) NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      is_active INTEGER DEFAULT 1
-    );
-  `);
 }
 
 // ===== SQL SECURITY =====
