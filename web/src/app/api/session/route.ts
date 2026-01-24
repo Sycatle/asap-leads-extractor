@@ -6,6 +6,7 @@ import {
   getSessionById,
   updateSessionStats 
 } from '@/lib/db';
+import { UpdateSessionSchema, validateInput, ValidationError } from '@/lib/validation';
 
 // GET - Get active session or specific session
 export async function GET(request: NextRequest) {
@@ -62,14 +63,10 @@ export async function POST() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, action, stats } = body;
     
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Session ID required' },
-        { status: 400 }
-      );
-    }
+    // Validate input with Zod
+    const validatedData = validateInput(UpdateSessionSchema, body);
+    const { id, action, stats } = validatedData;
     
     if (action === 'end') {
       const session = endSession(id);
@@ -99,6 +96,12 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.message },
+        { status: 400 }
+      );
+    }
     console.error('Error updating session:', error);
     return NextResponse.json(
       { error: 'Failed to update session' },

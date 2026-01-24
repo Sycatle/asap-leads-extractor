@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateStatusWithHistory, findById, type LeadStatus } from '@/lib/db';
+import { updateStatusWithHistory, findById } from '@/lib/db';
+import { UpdateStatusSchema, validateInput, ValidationError } from '@/lib/validation';
 
 export async function PATCH(
   request: NextRequest,
@@ -7,19 +8,21 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    const leadId = parseInt(id);
     
-    const status = body.status as LeadStatus;
-    const note = body.note as string | undefined;
-    
-    if (!status) {
+    if (isNaN(leadId) || leadId <= 0) {
       return NextResponse.json(
-        { error: 'status is required' },
+        { error: 'Invalid lead ID' },
         { status: 400 }
       );
     }
     
-    const success = updateStatusWithHistory(parseInt(id), status, note);
+    const body = await request.json();
+    
+    // Validate input with Zod
+    const validatedData = validateInput(UpdateStatusSchema, body);
+    
+    const success = updateStatusWithHistory(leadId, validatedData.status, validatedData.note);
     
     if (!success) {
       return NextResponse.json(
@@ -28,9 +31,15 @@ export async function PATCH(
       );
     }
     
-    const updated = findById(parseInt(id));
+    const updated = findById(leadId);
     return NextResponse.json(updated);
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.message },
+        { status: 400 }
+      );
+    }
     console.error('Error updating status:', error);
     return NextResponse.json(
       { error: 'Failed to update status' },

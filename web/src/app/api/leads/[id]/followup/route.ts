@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scheduleFollowupWithHistory, findById } from '@/lib/db';
+import { ScheduleFollowupSchema, validateInput, ValidationError } from '@/lib/validation';
 
 export async function PATCH(
   request: NextRequest,
@@ -7,19 +8,21 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    const leadId = parseInt(id);
     
-    const date = body.date as string;
-    const note = body.note as string | undefined;
-    
-    if (!date) {
+    if (isNaN(leadId) || leadId <= 0) {
       return NextResponse.json(
-        { error: 'date is required' },
+        { error: 'Invalid lead ID' },
         { status: 400 }
       );
     }
     
-    const success = scheduleFollowupWithHistory(parseInt(id), date, note);
+    const body = await request.json();
+    
+    // Validate input with Zod
+    const validatedData = validateInput(ScheduleFollowupSchema, body);
+    
+    const success = scheduleFollowupWithHistory(leadId, validatedData.date);
     
     if (!success) {
       return NextResponse.json(
@@ -28,9 +31,15 @@ export async function PATCH(
       );
     }
     
-    const updated = findById(parseInt(id));
+    const updated = findById(leadId);
     return NextResponse.json(updated);
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.message },
+        { status: 400 }
+      );
+    }
     console.error('Error scheduling followup:', error);
     return NextResponse.json(
       { error: 'Failed to schedule followup' },
