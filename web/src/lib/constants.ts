@@ -186,15 +186,23 @@ export const LEAD_SELECTION_CONFIG = {
   maxAttempts: 5,                    // Max tentatives avant abandon
   coolingOffHours: 4,                // Délai minimum entre 2 appels (heures)
   
-  // Score dynamique - bonus
+  // Score dynamique - bonus contexte
   bonusBestCallTime: 20,             // Si l'heure actuelle match best_call_time
   bonusNoWebsite: 15,                // Pas de site web = plus besoin
   bonusPriorityHigh: 30,             // Priorité haute
   bonusPriorityMedium: 15,           // Priorité moyenne
+  bonusPhonePerso: 25,               // Numéro personnel = plus de chances de joindre le dirigeant
+  
+  // Score dynamique - bonus informations enrichies
+  bonusDirigeant: 30,                // Nom du dirigeant = personnalisation de l'appel
+  bonusSiren: 10,                    // SIREN connu = entreprise vérifiée
+  bonusPainPoints: 15,               // Points de douleur identifiés = argumentation facile
+  bonusWebsiteAnalyzed: 10,          // Site analysé = on connaît leurs faiblesses
+  bonusGoodRating: 5,                // Bonne note Google = entreprise sérieuse
+  bonusHasReviews: 5,                // A des avis = présence GMB active
   
   // Score dynamique - malus
   malusPerAttempt: 5,                // Pénalité par tentative
-  malusPhonePerso: 20,               // Numéro personnel
   
   // Rotation des niches
   maxConsecutiveSameNiche: 3,        // Max leads consécutifs de la même niche

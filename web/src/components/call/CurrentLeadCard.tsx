@@ -654,11 +654,11 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
 
   return (
     <Card className={`p-0 overflow-hidden ${priorityBorderClass}`}>
-      {/* ===== ALERTE B2C ===== */}
+      {/* ===== INDICATEUR NUMÉRO DIRIGEANT ===== */}
       {isPersoPhone && (
-        <div className="px-4 py-2.5 bg-warning/20 dark:bg-warning/15 border-b border-warning/30 flex items-center gap-2 text-sm font-medium text-warning">
-          <AlertTriangle className="w-4 h-4" />
-          <span>NUMÉRO PERSONNEL - Risque B2C, adaptez votre approche</span>
+        <div className="px-4 py-2.5 bg-success/20 dark:bg-success/15 border-b border-success/30 flex items-center gap-2 text-sm font-medium text-success">
+          <Smartphone className="w-4 h-4" />
+          <span>NUMÉRO DIRECT - Forte probabilité de joindre le dirigeant</span>
         </div>
       )}
 

@@ -1,117 +1,22 @@
-import { request } from 'undici';
-import pLimit from 'p-limit';
-import { PappersResult } from '../shared/types.js';
+/**
+ * Lead Enrichment - Societe.com (gratuit) avec fallback Pappers (payant)
+ * 
+ * Récupère SIREN, dirigeant et forme juridique depuis societe.com
+ */
+
 import { getDb, enrichLead } from './db.js';
 import type { DbLead } from '../shared/types.js';
-import { sleep, retryWithBackoff } from './utils.js';
+import { searchAndExtract, closeBrowser, type SocieteResult } from './enrichSociete.js';
 import 'dotenv/config';
 
-const PAPPERS_API_KEY = process.env.PAPPERS_API_KEY;
-const PAPPERS_BASE_URL = 'https://api.pappers.fr/v2';
-const MAX_RETRIES = 3;
-
-// Rate limit: 2 requêtes/seconde (laissons p-limit gérer le rythme)
-const limit = pLimit(2);
-
-// Warn once about missing API key
-if (!PAPPERS_API_KEY) {
-  console.warn('\n⚠ PAPPERS_API_KEY non définie - enrichissement désactivé');
-  console.warn('  Définissez PAPPERS_API_KEY dans .env pour activer l\'enrichissement\n');
-}
-
-// Recherche entreprise par nom + ville avec retry automatique
-async function searchPappers(name: string, city: string, retryCount = 0): Promise<PappersResult | null> {
-  if (!PAPPERS_API_KEY) {
-    return null;
-  }
-
-  const query = encodeURIComponent(`${name} ${city}`);
-  const url = `${PAPPERS_BASE_URL}/recherche?api_token=${PAPPERS_API_KEY}&q=${query}&par_page=1`;
-
-  try {
-    const { statusCode, body } = await request(url);
-
-    if (statusCode === 429) {
-      // Rate limited, attendre et retry avec backoff exponentiel
-      if (retryCount >= MAX_RETRIES) {
-        console.log('  ⚠ Rate limit dépassé après plusieurs tentatives');
-        return null;
-      }
-      const backoffDelay = Math.min(2000 * Math.pow(2, retryCount), 10000);
-      console.log(`  ⚠ Rate limited, attente ${backoffDelay}ms... (tentative ${retryCount + 1}/${MAX_RETRIES})`);
-      await sleep(backoffDelay);
-      return searchPappers(name, city, retryCount + 1);
-    }
-
-    if (statusCode === 401) {
-      console.log('  ⚠ Clé API Pappers invalide');
-      return null;
-    }
-
-    if (statusCode !== 200) {
-      return null;
-    }
-
-    const data = await body.json() as { resultats?: PappersResult[] };
-    return data.resultats?.[0] || null;
-  } catch (error) {
-    console.error(`  ✗ Erreur Pappers pour ${name}:`, (error as Error).message);
-    return null;
-  }
-}
-
-// Récupérer dirigeant principal
-function extractDirigeant(result: PappersResult): string | undefined {
-  const rep = result.representants?.find(r =>
-    r.qualite?.toLowerCase().includes('gérant') ||
-    r.qualite?.toLowerCase().includes('président') ||
-    r.qualite?.toLowerCase().includes('directeur')
-  ) || result.representants?.[0];
-
-  if (rep) {
-    return `${rep.prenom} ${rep.nom}`.trim();
-  }
-  return undefined;
-}
-
-
-
-/**
- * Enrichir un seul lead immédiatement (utilisé par le scraper)
- * Retourne true si enrichi avec succès
- */
-export async function enrichSingleLead(lead: DbLead): Promise<boolean> {
-  if (!PAPPERS_API_KEY) {
-    return false;
-  }
-  
-  if (lead.siren) {
-    // Déjà enrichi
-    return true;
-  }
-  
-  const result = await searchPappers(lead.name, lead.city);
-  
-  if (result) {
-    const dirigeant = extractDirigeant(result);
-    
-    const updated = enrichLead(lead.id, {
-      siren: result.siren,
-      siret: result.siret,
-      legal_name: result.nom_entreprise,
-      dirigeant,
-    });
-    
-    return updated !== null;
-  }
-  
-  return false;
-}
+// ===== CONFIGURATION =====
+const DEFAULT_BATCH_SIZE = 50;  // Leads par batch (moins agressif que Pappers)
+const PROGRESS_INTERVAL = 1;    // Afficher progression tous les X leads
 
 /**
  * Récupérer les leads à enrichir (pas encore de SIREN)
  */
-function getLeadsToEnrich(maxLeads: number = 100): DbLead[] {
+function getLeadsToEnrich(maxLeads: number = DEFAULT_BATCH_SIZE): DbLead[] {
   const database = getDb();
   const stmt = database.prepare(`
     SELECT * FROM leads 
@@ -123,56 +28,137 @@ function getLeadsToEnrich(maxLeads: number = 100): DbLead[] {
   return stmt.all(maxLeads) as DbLead[];
 }
 
-// Main
-export async function enrich(): Promise<DbLead[]> {
-  const leadsToEnrich = getLeadsToEnrich(100);
+/**
+ * Enrichir un seul lead avec Societe.com
+ */
+export async function enrichSingleLead(lead: DbLead): Promise<boolean> {
+  if (lead.siren) {
+    return true; // Déjà enrichi
+  }
+  
+  const result = await searchAndExtract(lead.name, lead.city);
+  
+  if (result) {
+    const updated = enrichLead(lead.id, {
+      siren: result.siren.replace(/\s/g, ''), // Remove spaces for storage
+      legal_name: result.legal_name,
+      dirigeant: result.dirigeant,
+    });
+    
+    return updated !== null;
+  }
+  
+  return false;
+}
+
+/**
+ * Stats d'enrichissement
+ */
+export interface EnrichmentStats {
+  total: number;
+  enriched: number;
+  withDirigeant: number;
+  failed: number;
+  duration: number;
+}
+
+/**
+ * Main enrichment function - processes leads sequentially
+ * (Societe.com requires slower pace than API)
+ */
+export async function enrich(maxLeads?: number): Promise<EnrichmentStats> {
+  const batchSize = maxLeads || DEFAULT_BATCH_SIZE;
+  const leadsToEnrich = getLeadsToEnrich(batchSize);
+  
+  const stats: EnrichmentStats = {
+    total: leadsToEnrich.length,
+    enriched: 0,
+    withDirigeant: 0,
+    failed: 0,
+    duration: 0,
+  };
   
   if (leadsToEnrich.length === 0) {
     console.log('✓ Aucun lead à enrichir');
-    return [];
+    return stats;
   }
 
-  let enrichedCount = 0;
-  let current = 0;
-
-  console.log(`🔍 Enrichissement de ${leadsToEnrich.length} leads...`);
-
-  // Retirer le sleep explicite - laissons p-limit gérer le rythme naturellement
-  const tasks = leadsToEnrich.map(lead => limit(async () => {
-    current++;
-    process.stdout.write(`\r🔍 Enrichissement: ${current}/${leadsToEnrich.length}`);
-
-    const result = await searchPappers(lead.name, lead.city);
-
-    if (result) {
-      const dirigeant = extractDirigeant(result);
+  console.log(`\n🔍 Enrichissement Societe.com de ${leadsToEnrich.length} leads...`);
+  console.log(`   ⏱  Temps estimé: ~${Math.ceil(leadsToEnrich.length * 5 / 60)} minutes\n`);
+  
+  const startTime = Date.now();
+  
+  try {
+    for (let i = 0; i < leadsToEnrich.length; i++) {
+      const lead = leadsToEnrich[i];
       
-      const updated = enrichLead(lead.id, {
-        siren: result.siren,
-        siret: result.siret,
-        legal_name: result.nom_entreprise,
-        dirigeant,
-      });
+      // Progress
+      if ((i + 1) % PROGRESS_INTERVAL === 0 || i === 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rate = elapsed > 0 ? (i / elapsed).toFixed(1) : '0';
+        process.stdout.write(`\r🔍 ${i + 1}/${leadsToEnrich.length} | ✓ ${stats.enriched} enrichis | ${rate} leads/s`);
+      }
       
-      if (updated) {
-        enrichedCount++;
+      try {
+        const result = await searchAndExtract(lead.name, lead.city);
+        
+        if (result) {
+          const updated = enrichLead(lead.id, {
+            siren: result.siren.replace(/\s/g, ''),
+            legal_name: result.legal_name,
+            dirigeant: result.dirigeant,
+          });
+          
+          if (updated) {
+            stats.enriched++;
+            if (result.dirigeant) {
+              stats.withDirigeant++;
+            }
+          }
+        } else {
+          stats.failed++;
+        }
+        
+      } catch (error) {
+        console.error(`\n  ✗ Erreur pour ${lead.name}:`, (error as Error).message);
+        stats.failed++;
       }
     }
-  }));
-
-  await Promise.all(tasks);
-
-  console.log(`\n✓ Enrichis SIREN: ${enrichedCount}/${leadsToEnrich.length}`);
+  } finally {
+    // Always close browser
+    await closeBrowser();
+  }
   
-  return leadsToEnrich;
+  stats.duration = (Date.now() - startTime) / 1000;
+  
+  // Final summary
+  console.log(`\n\n✅ Enrichissement terminé!`);
+  console.log(`   📊 Total: ${stats.total} leads`);
+  console.log(`   ✓ Enrichis: ${stats.enriched} (${Math.round(stats.enriched / stats.total * 100)}%)`);
+  console.log(`   👤 Avec dirigeant: ${stats.withDirigeant}`);
+  console.log(`   ✗ Échecs: ${stats.failed}`);
+  console.log(`   ⏱  Durée: ${Math.round(stats.duration)}s`);
+  
+  return stats;
 }
 
 // Run standalone
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
-  enrich()
+  // Parse command line args
+  const args = process.argv.slice(2);
+  let maxLeads: number | undefined;
+  
+  for (const arg of args) {
+    if (arg.startsWith('--max=')) {
+      maxLeads = parseInt(arg.split('=')[1], 10);
+    } else if (arg === '--all') {
+      maxLeads = 10000; // Practical limit
+    }
+  }
+  
+  enrich(maxLeads)
     .then(() => {
-      console.log('✓ Enrichissement terminé');
       process.exit(0);
     })
     .catch((err) => {

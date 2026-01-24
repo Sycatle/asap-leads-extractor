@@ -43,10 +43,10 @@ async function runScrapeJob(): Promise<number> {
   return leads.length;
 }
 
-async function runEnrichJob(): Promise<number> {
-  console.log('\n🔍 JOB: Enrichissement Pappers...');
-  const enriched = await enrich();
-  return enriched.length;
+async function runEnrichJob(maxLeads?: number): Promise<number> {
+  console.log('\n🔍 JOB: Enrichissement Societe.com...');
+  const stats = await enrich(maxLeads);
+  return stats.enriched;
 }
 
 async function runCollectJob(): Promise<number> {
@@ -167,6 +167,14 @@ async function runWorker(): Promise<void> {
 const args = process.argv.slice(2);
 const command = args[0] || 'once';
 
+// Parse --max=N option
+let maxLeads: number | undefined;
+for (const arg of args) {
+  if (arg.startsWith('--max=')) {
+    maxLeads = parseInt(arg.split('=')[1], 10);
+  }
+}
+
 async function main() {
   // Init DB
   getDb();
@@ -183,7 +191,7 @@ async function main() {
       break;
       
     case 'enrich':
-      await runEnrichJob();
+      await runEnrichJob(maxLeads);
       closeDb();
       break;
       

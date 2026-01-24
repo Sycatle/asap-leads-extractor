@@ -586,17 +586,20 @@ function matchesBestCallTime(bestCallTime: string | null): boolean {
 
 /**
  * Calcule le score ajusté pour un lead selon l'algorithme intelligent
+ * Priorise les leads avec le plus d'informations exploitables pour le cold call
  */
 function calculateAdjustedScore(lead: DbLead): number {
   const config = LEAD_SELECTION_CONFIG;
   let adjustedScore = lead.score || 50;
+  
+  // ===== BONUS CONTEXTE D'APPEL =====
   
   // Bonus heure optimale
   if (matchesBestCallTime(lead.best_call_time)) {
     adjustedScore += config.bonusBestCallTime;
   }
   
-  // Bonus pas de site web
+  // Bonus pas de site web (opportunité commerciale)
   if (!lead.website) {
     adjustedScore += config.bonusNoWebsite;
   }
@@ -608,13 +611,55 @@ function calculateAdjustedScore(lead: DbLead): number {
     adjustedScore += config.bonusPriorityMedium;
   }
   
-  // Malus tentatives
-  adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
-  
-  // Malus numéro perso
+  // Bonus numéro perso (plus de chances de joindre le dirigeant)
   if (lead.phone_type === 'perso') {
-    adjustedScore -= config.malusPhonePerso;
+    adjustedScore += config.bonusPhonePerso;
   }
+  
+  // ===== BONUS INFORMATIONS ENRICHIES =====
+  // Plus on a d'infos, mieux on peut préparer l'appel
+  
+  // Nom du dirigeant = personnalisation de l'appel ("Bonjour M. Dupont")
+  if (lead.dirigeant) {
+    adjustedScore += config.bonusDirigeant;
+  }
+  
+  // SIREN connu = entreprise vérifiée, on peut parler de leur structure
+  if (lead.siren) {
+    adjustedScore += config.bonusSiren;
+  }
+  
+  // Points de douleur identifiés = argumentation ciblée
+  if (lead.pain_points) {
+    try {
+      const painPoints = JSON.parse(lead.pain_points);
+      if (Array.isArray(painPoints) && painPoints.length > 0) {
+        adjustedScore += config.bonusPainPoints;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  
+  // Site analysé (on connaît leur CMS, leur vitesse, etc.)
+  if (lead.cms_type || lead.page_load_time) {
+    adjustedScore += config.bonusWebsiteAnalyzed;
+  }
+  
+  // Bonne note Google = entreprise sérieuse, plus réceptive
+  if (lead.rating && lead.rating >= 4.0) {
+    adjustedScore += config.bonusGoodRating;
+  }
+  
+  // A des avis = présence GMB active, entreprise visible
+  if (lead.reviews_count && lead.reviews_count > 0) {
+    adjustedScore += config.bonusHasReviews;
+  }
+  
+  // ===== MALUS =====
+  
+  // Malus tentatives (éviter de harceler)
+  adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
   
   return adjustedScore;
 }
