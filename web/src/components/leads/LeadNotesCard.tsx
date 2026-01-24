@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { Card, CardHeader, Button, Input } from '@/components/ui';
+import { Loader2, FileText, Send } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface LeadNotesCardProps {
   notes: string | null;
@@ -21,32 +23,57 @@ export function LeadNotesCard({ notes, onAddNote, loading }: LeadNotesCardProps)
 
   return (
     <Card>
-      <CardHeader title="Notes" />
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-base font-semibold">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+          Notes
+        </CardTitle>
+      </CardHeader>
 
-      <div className="flex gap-2 mb-4">
-        <Input
-          type="text"
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="Ajouter une note..."
-        />
-        <Button
-          onClick={handleAdd}
-          disabled={!newNote.trim() || loading}
-        >
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Ajouter
-        </Button>
-      </div>
+      <CardContent className="space-y-4">
+        {/* Input form */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            type="text"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            placeholder="Ajouter une note..."
+            className="flex-1 h-10"
+          />
+          <Button
+            onClick={handleAdd}
+            disabled={!newNote.trim() || loading}
+            className="h-10 px-4 shrink-0"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span className="ml-2 sm:inline hidden">Ajouter</span>
+          </Button>
+        </div>
 
-      {notes ? (
-        <pre className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted rounded-lg p-4">
-          {notes}
-        </pre>
-      ) : (
-        <p className="text-sm text-zinc-400 italic">Aucune note</p>
-      )}
+        {/* Notes display */}
+        {notes ? (
+          <div className="bg-muted/50 rounded-xl p-4 border border-border">
+            <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+              {notes}
+            </pre>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
+              <FileText className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">Aucune note</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Ajoutez une note pour garder un suivi
+            </p>
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }
