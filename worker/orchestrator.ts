@@ -256,15 +256,9 @@ export class WorkerOrchestrator extends EventEmitter {
       
       log.info(`Pipelines prêts: ${tasksToRun.join(', ')}`);
       
-      if (this.orchConfig.enableParallelPipelines) {
-        // Exécution parallèle intelligente
-        await this.runParallelPipelines(tasksToRun);
-      } else {
-        // Exécution séquentielle
-        for (const task of tasksToRun) {
-          await this.runPipeline(task);
-        }
-      }
+      // Exécution séquentielle avec priorisation intelligente
+      // (le parallélisme cause des conflits de sortie terminal)
+      await this.runParallelPipelines(tasksToRun);
       
       const cycleDuration = Date.now() - cycleStart;
       log.success(`Cycle terminé en ${formatDuration(cycleDuration)}`);
@@ -318,36 +312,37 @@ export class WorkerOrchestrator extends EventEmitter {
   }
   
   private async runParallelPipelines(tasks: string[]): Promise<void> {
-    // Groupes compatibles pour exécution parallèle:
-    // - scrape utilise Playwright (GMaps) → ne peut pas tourner avec enrichSociete
-    // - enrichSociete utilise Playwright (societe.com) → ne peut pas tourner avec scrape
-    // - enrichWebsite utilise fetch/axios → peut tourner en parallèle avec tout
-    // - collect utilise juste le FS → peut tourner en parallèle avec tout
+    // IMPORTANT: Exécution séquentielle pour éviter les conflits de sortie terminal
+    // Toutes les tâches Playwright (scrape, enrichSociete, enrichWebsite) doivent tourner une par une
+    // collect peut théoriquement tourner en parallèle mais on garde séquentiel pour la lisibilité
     
-    const playwrightTasks = tasks.filter(t => t === 'scrape' || t === 'enrichSociete');
-    const otherTasks = tasks.filter(t => t !== 'scrape' && t !== 'enrichSociete');
+    // Ordre de priorité intelligent
+    const orderedTasks = this.prioritizeTasks(tasks);
     
-    // Exécuter les tâches non-Playwright en parallèle avec UNE tâche Playwright
-    const promises: Promise<void>[] = [];
-    
-    // Décider quelle tâche Playwright prioriser
-    const playwrightTask = this.selectPlaywrightTask(playwrightTasks);
-    if (playwrightTask) {
-      promises.push(this.runPipeline(playwrightTask));
+    for (const task of orderedTasks) {
+      await this.runPipeline(task);
     }
+  }
+  
+  /**
+   * Priorise les tâches selon l'état de la DB
+   */
+  private prioritizeTasks(tasks: string[]): string[] {
+    const db = getDb();
+    const needsEnrich = (db.prepare(`
+      SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
+    `).get() as { c: number }).c;
     
-    // Les autres en parallèle
-    for (const task of otherTasks) {
-      promises.push(this.runPipeline(task));
-    }
+    // Collect d'abord (rapide, ajoute des leads)
+    // Puis enrichissement si beaucoup en attente, sinon scrape
+    const priority: Record<string, number> = {
+      collect: 1,
+      enrichSociete: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 2 : 4,
+      scrape: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 4 : 2,
+      enrichWebsite: 3,
+    };
     
-    await Promise.allSettled(promises);
-    
-    // Si l'autre tâche Playwright était prévue, l'exécuter maintenant
-    const otherPlaywrightTask = playwrightTasks.find(t => t !== playwrightTask);
-    if (otherPlaywrightTask) {
-      await this.runPipeline(otherPlaywrightTask);
-    }
+    return [...tasks].sort((a, b) => (priority[a] || 99) - (priority[b] || 99));
   }
   
   /**
@@ -481,13 +476,8 @@ export class WorkerOrchestrator extends EventEmitter {
   }
   
   private async runEnrichWebsitePipeline(): Promise<number> {
-    // enrichWebsiteAnalysis ne retourne pas de count, on wrap
-    try {
-      await enrichWebsiteAnalysis();
-      return this.orchConfig.maxWebsitePerCycle; // Approximation
-    } catch {
-      return 0;
-    }
+    const stats = await enrichWebsiteAnalysis();
+    return stats.analyzed;
   }
   
   private async runCollectPipeline(): Promise<number> {

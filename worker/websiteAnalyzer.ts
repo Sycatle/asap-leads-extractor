@@ -10,6 +10,7 @@
 
 import { chromium, Browser, Page, Response } from 'playwright';
 import type { CMSType } from '../shared/types.js';
+import { websiteLogger as log } from './logger.js';
 
 export interface WebsiteAnalysis {
   cms_type: CMSType;
@@ -442,15 +443,14 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`  ✗ Erreur analyse site ${url}: ${errorMessage}`);
+    log.debug(`Erreur analyse ${url}: ${errorMessage.slice(0, 80)}`);
     
     // Ensure browser is closed
     if (browser) {
       try {
         await browser.close();
-      } catch (closeError) {
-        // Ignore close errors
-        console.error(`  ⚠️ Erreur fermeture browser: ${closeError instanceof Error ? closeError.message : String(closeError)}`);
+      } catch (_closeError) {
+        // Ignore close errors silently
       }
     }
     

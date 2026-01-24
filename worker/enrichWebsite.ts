@@ -11,6 +11,7 @@ import pLimit from 'p-limit';
 import { getDb, enrichLeadWebsiteAnalysis } from './db.js';
 import type { DbLead } from '../shared/types.js';
 import { analyzeWebsite, generateNoWebsitePainPoints, generatePlatformPainPoints } from './websiteAnalyzer.js';
+import { websiteLogger as log, ProgressBar } from './logger.js';
 import 'dotenv/config';
 
 // Configuration constants
@@ -76,23 +77,27 @@ function getLeadsToAnalyze(maxLeads: number = MAX_LEADS_PER_RUN): DbLead[] {
 /**
  * Main enrichment function
  */
-export async function enrichWebsiteAnalysis(): Promise<void> {
+export async function enrichWebsiteAnalysis(): Promise<{ analyzed: number; errors: number }> {
   const leadsToAnalyze = getLeadsToAnalyze(MAX_LEADS_PER_RUN);
   
   if (leadsToAnalyze.length === 0) {
-    console.log('✓ Aucun lead à analyser (déjà tous enrichis)');
-    return;
+    log.success('Aucun lead à analyser (déjà tous enrichis)');
+    return { analyzed: 0, errors: 0 };
   }
 
   let analyzedCount = 0;
   let errorCount = 0;
   let current = 0;
 
-  console.log(`\n🔍 Analyse de ${leadsToAnalyze.length} sites web...`);
+  log.header('ANALYSE SITES WEB');
+  log.kv('Leads à traiter', leadsToAnalyze.length);
+  log.blank();
+  
+  const progress = new ProgressBar({ total: leadsToAnalyze.length, label: 'Analyse', logger: log });
 
   const tasks = leadsToAnalyze.map(lead => limit(async () => {
     current++;
-    process.stdout.write(`\r🔍 Analyse: ${current}/${leadsToAnalyze.length} (✓ ${analyzedCount} | ✗ ${errorCount})`);
+    progress.update(current, `✓ ${analyzedCount} | ✗ ${errorCount}`);
 
     try {
       // Cas 1: Pas de site web - générer pain points génériques
@@ -143,39 +148,37 @@ export async function enrichWebsiteAnalysis(): Promise<void> {
       } else {
         // Analysis failed but didn't throw - count as error
         errorCount++;
-        console.error(`\n  ✗ Analyse échouée pour lead ${lead.id} (${lead.website})`);
+        log.debug(`Analyse échouée pour lead ${lead.id} (${lead.website})`);
       }
     } catch (error) {
       errorCount++;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`\n  ✗ Erreur lead ${lead.id} (${lead.website}): ${errorMessage}`);
-      
-      // Log stack trace in debug mode
-      if (process.env.DEBUG) {
-        console.error(error);
-      }
+      log.debug(`Erreur lead ${lead.id}: ${errorMessage}`);
     }
   }));
 
   await Promise.all(tasks);
 
-  console.log(`\n✓ Analysés: ${analyzedCount}/${leadsToAnalyze.length} (${errorCount} erreurs)`);
-  console.log(`\n💡 Conseils:`);
-  console.log(`  - Les pain points sont maintenant visibles sur la page de call`);
-  console.log(`  - Utilisez ces informations pour personnaliser votre approche`);
-  console.log(`  - Ré-exécutez cette commande pour analyser plus de leads\n`);
+  progress.complete();
+  log.blank();
+  log.section('RÉSULTAT ANALYSE');
+  log.kv('Analysés', `${analyzedCount}/${leadsToAnalyze.length}`);
+  log.kv('Erreurs', errorCount);
+  log.kv('Taux succès', `${Math.round((analyzedCount / leadsToAnalyze.length) * 100)}%`);
+  
+  return { analyzed: analyzedCount, errors: errorCount };
 }
 
 // Run standalone
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   enrichWebsiteAnalysis()
-    .then(() => {
-      console.log('✓ Enrichissement terminé');
+    .then((stats) => {
+      log.success(`Terminé: ${stats.analyzed} analysés`);
       process.exit(0);
     })
     .catch((err) => {
-      console.error('❌ Erreur:', err);
+      log.error(`Erreur: ${(err as Error).message}`);
       process.exit(1);
     });
 }
