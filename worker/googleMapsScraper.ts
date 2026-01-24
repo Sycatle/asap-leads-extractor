@@ -67,13 +67,21 @@ interface ScrapeQueryOptions {
   saveImmediately?: boolean;
   enrichImmediately?: boolean;
   existingPhones?: Set<string>; // Pré-chargé pour skip doublons
+  searchNiche?: string;  // Niche de recherche (pour normalisation)
+  searchCity?: string;   // Ville de recherche (pour normalisation)
 }
 
 // Scraper avec extraction depuis le panneau latéral (plus rapide)
 // Insère chaque lead en DB dès qu'il est extrait pour éviter les pertes
 async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOptions = {}): Promise<RawLead[]> {
   const leads: RawLead[] = [];
-  const { saveImmediately = true, enrichImmediately = false, existingPhones = new Set() } = options;
+  const { 
+    saveImmediately = true, 
+    enrichImmediately = false, 
+    existingPhones = new Set(),
+    searchNiche,
+    searchCity,
+  } = options;
   let skippedDuplicates = 0;
   
   log.info(`Recherche: "${query}"`);
@@ -517,18 +525,22 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
         debug('Erreur extraction image:', e);
       }
       
-      const niche = query.split(' ')[0];
+      // NORMALISATION: utiliser la niche et ville de recherche
+      // au lieu d'extraire des données fragmentées
+      const niche = searchNiche || query.split(' ')[0];
+      const city = searchCity || extractCity(address) || query.split(' ').pop() || '';
+      
       const lead: RawLead & { niche: string; website_status?: string } = {
         name: cleanName(name, niche),
         phone,
         address: address.replace(/^[^a-zA-Z0-9]+/, '').trim(),
-        city: extractCity(address) || query.split(' ').pop() || '',
+        city,  // Ville normalisée
         postal_code: extractPostalCode(address),
         website,
         maps_url: page.url(),
         rating,
         reviews_count,
-        niche,
+        niche,  // Niche normalisée
         opening_hours,
         has_booking,
         website_status,
@@ -671,7 +683,13 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
       debug(`▶ Traitement requête: "${query}"`);
       debug(`${'─'.repeat(50)}`);
       
-      const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately, existingPhones });
+      const leads = await scrapeQuery(page, query, { 
+        saveImmediately, 
+        enrichImmediately, 
+        existingPhones,
+        searchNiche: niche,   // Passer la niche exacte
+        searchCity: city,     // Passer la ville exacte
+      });
       
       debug(`✓ Requête terminée: ${leads.length} leads trouvés`);
       debugData('Leads de cette requête', leads.map(l => ({ name: l.name, phone: l.phone, hasWebsite: !!l.website })));

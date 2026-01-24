@@ -3,7 +3,7 @@ import { parse } from 'csv-parse';
 import { loadConfig } from './config.js';
 import { RawLead, Config } from '../shared/types.js';
 import { upsertLeads, type InsertLead } from './db.js';
-import { normalizePhone, extractPostalCode } from './utils.js';
+import { normalizePhone, extractPostalCode, normalizeCity } from './utils.js';
 import { collectLogger as log } from './logger.js';
 
 // Mapping colonnes CSV scraper → RawLead
@@ -11,11 +11,15 @@ function mapRow(row: Record<string, string>): RawLead | null {
   const phone = normalizePhone(row.phone || row.telephone || row.Phone || row.Telephone || '');
   if (!phone) return null; // Skip si pas de téléphone
 
+  // Normaliser la ville (enlever tirets, majuscules, arrondissements)
+  const rawCity = row.city || row.ville || row.City || '';
+  const city = normalizeCity(rawCity);
+
   return {
     name: row.name || row.title || row.nom || row.Name || row.Title || '',
     phone,
     address: row.address || row.adresse || row.Address || '',
-    city: row.city || row.ville || row.City || '',
+    city,
     postal_code: extractPostalCode(row.postal_code || row.postalCode || row.address || row.Address || ''),
     website: row.website || row.site || row.Website || undefined,
     maps_url: row.url || row.maps_url || row.link || row.Url || row.Link || '',
