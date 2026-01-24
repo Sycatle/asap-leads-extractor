@@ -34,7 +34,7 @@ function LeadAvatar({ lead }: { lead: LeadSummary }) {
 
 // ===== TABLE HEADER =====
 
-const TABLE_HEADERS = [
+const TABLE_HEADERS: Array<{ key: string; label: string; className?: string }> = [
   { key: 'name', label: 'Établissement', className: 'min-w-[200px]' },
   { key: 'city', label: 'Ville' },
   { key: 'niche', label: 'Secteur' },
@@ -42,7 +42,7 @@ const TABLE_HEADERS = [
   { key: 'rating', label: 'Note' },
   { key: 'status', label: 'Statut' },
   { key: 'actions', label: '', className: 'w-[100px]' },
-] as const;
+];
 
 function TableHeader() {
   return (

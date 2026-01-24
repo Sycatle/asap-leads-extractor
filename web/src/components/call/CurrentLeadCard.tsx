@@ -408,7 +408,7 @@ function SalesArgumentsSection({ lead }: { lead: Lead }) {
               Points de douleur identifiés
             </p>
             <div className="grid gap-1.5">
-              {painPoints.map((point, idx) => (
+              {painPoints.map((point: string, idx: number) => (
                 <div
                   key={idx}
                   className="flex items-start gap-2 p-2 rounded-lg bg-card border border-warning/20"

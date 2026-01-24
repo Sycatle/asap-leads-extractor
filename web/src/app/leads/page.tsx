@@ -1,19 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useLeads, useStats } from '@/hooks';
-import { LeadsStats, LeadsFilters, LeadsTable } from '@/components/leads';
+import { LeadsStats, LeadsTable, AdvancedSearch, DEFAULT_FILTERS, type AdvancedFilters } from '@/components/leads';
 import { PageHeader } from '@/components/layout';
 import { LinkButton } from '@/components/ui';
 import { Download, Settings } from 'lucide-react';
-import type { LeadStatus } from '@/types';
 
 export default function LeadsPage() {
-  // Local filter state for controlled inputs
-  const [status, setStatus] = useState('');
-  const [city, setCity] = useState('');
-  const [niche, setNiche] = useState('');
-  const [search, setSearch] = useState('');
+  // State for advanced filters
+  const [filters, setFilters] = useState<AdvancedFilters>(DEFAULT_FILTERS);
 
   // Fetch stats
   const { stats } = useStats();
@@ -28,41 +24,60 @@ export default function LeadsPage() {
     niches,
     loading,
     setPage,
-    updateFilter,
+    setFilters: setHookFilters,
   } = useLeads({
-    status: status as LeadStatus | undefined,
-    city: city || undefined,
-    niche: niche || undefined,
-    search: search || undefined,
+    status: filters.status || undefined,
+    call_status: filters.call_status || undefined,
+    city: filters.city || undefined,
+    niche: filters.niche || undefined,
+    priority: filters.priority || undefined,
+    search: filters.search || undefined,
+    hasWebsite: filters.hasWebsite,
+    hasDirigeant: filters.hasDirigeant,
+    hasSiren: filters.hasSiren,
+    hasPhone: filters.hasPhone,
+    scoreMin: filters.scoreMin,
+    scoreMax: filters.scoreMax,
+    ratingMin: filters.ratingMin,
+    ratingMax: filters.ratingMax,
+    createdAfter: filters.createdAfter,
+    createdBefore: filters.createdBefore,
+    orderBy: filters.orderBy,
+    orderDir: filters.orderDir,
   });
 
-  // Filter change handlers that also update the hook
-  const handleStatusChange = (value: string) => {
-    setStatus(value);
-    updateFilter('status', value as LeadStatus | undefined);
-  };
-
-  const handleCityChange = (value: string) => {
-    setCity(value);
-    updateFilter('city', value || undefined);
-  };
-
-  const handleNicheChange = (value: string) => {
-    setNiche(value);
-    updateFilter('niche', value || undefined);
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    updateFilter('search', value || undefined);
-  };
+  // Handle filter changes
+  const handleFiltersChange = useCallback((newFilters: AdvancedFilters) => {
+    setFilters(newFilters);
+    // Trigger a refresh via the hook
+    setHookFilters({
+      status: newFilters.status || undefined,
+      call_status: newFilters.call_status || undefined,
+      city: newFilters.city || undefined,
+      niche: newFilters.niche || undefined,
+      priority: newFilters.priority || undefined,
+      search: newFilters.search || undefined,
+      hasWebsite: newFilters.hasWebsite,
+      hasDirigeant: newFilters.hasDirigeant,
+      hasSiren: newFilters.hasSiren,
+      hasPhone: newFilters.hasPhone,
+      scoreMin: newFilters.scoreMin,
+      scoreMax: newFilters.scoreMax,
+      ratingMin: newFilters.ratingMin,
+      ratingMax: newFilters.ratingMax,
+      createdAfter: newFilters.createdAfter,
+      createdBefore: newFilters.createdBefore,
+      orderBy: newFilters.orderBy,
+      orderDir: newFilters.orderDir,
+    });
+  }, [setHookFilters]);
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <PageHeader 
         title="Leads"
-        description={`${total} leads dans votre base`}
+        description={`${total.toLocaleString('fr-FR')} leads dans votre base`}
         action={
           <div className="flex items-center gap-2">
             <LinkButton href="/config" variant="outline" size="sm" icon={<Settings className="w-4 h-4" />}>
@@ -78,18 +93,14 @@ export default function LeadsPage() {
       {/* Stats cards */}
       <LeadsStats stats={stats} />
 
-      {/* Filters */}
-      <LeadsFilters
-        status={status}
-        city={city}
-        niche={niche}
-        search={search}
+      {/* Advanced Search */}
+      <AdvancedSearch
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
         cities={cities}
         niches={niches}
-        onStatusChange={handleStatusChange}
-        onCityChange={handleCityChange}
-        onNicheChange={handleNicheChange}
-        onSearchChange={handleSearchChange}
+        total={total}
+        loading={loading}
       />
 
       {/* Table */}

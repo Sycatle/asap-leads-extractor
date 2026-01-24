@@ -11,7 +11,6 @@ export async function POST(
     
     const callStatus = body.call_status as CallStatus;
     const note = body.note as string | undefined;
-    const autoSchedule = body.auto_schedule !== false; // default true
     
     if (!callStatus) {
       return NextResponse.json(
@@ -20,7 +19,7 @@ export async function POST(
       );
     }
     
-    const success = logCallWithHistory(parseInt(id), callStatus, note, autoSchedule);
+    const success = logCallWithHistory(parseInt(id), callStatus, note);
     
     if (!success) {
       return NextResponse.json(

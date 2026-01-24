@@ -222,6 +222,185 @@ export function findLeads(filters: LeadFilters = {}): DbLead[] {
   return stmt.all(params) as DbLead[];
 }
 
+// ===== ADVANCED SEARCH =====
+
+export interface AdvancedLeadFilters {
+  // Basic filters
+  status?: LeadStatus;
+  call_status?: CallStatus;
+  city?: string;
+  niche?: string;
+  priority?: 'high' | 'medium' | 'low';
+  search?: string;
+  
+  // Boolean filters
+  hasWebsite?: 'all' | 'yes' | 'no';
+  hasDirigeant?: 'all' | 'yes' | 'no';
+  hasSiren?: 'all' | 'yes' | 'no';
+  hasPhone?: 'all' | 'yes' | 'no';
+  
+  // Range filters
+  scoreMin?: number;
+  scoreMax?: number;
+  ratingMin?: number;
+  ratingMax?: number;
+  
+  // Date filters
+  createdAfter?: string;
+  createdBefore?: string;
+  
+  // Pagination & sorting
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDir?: 'asc' | 'desc';
+}
+
+function buildAdvancedConditions(filters: AdvancedLeadFilters): { conditions: string[]; params: Record<string, unknown> } {
+  const conditions: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  // Basic filters
+  if (filters.status) {
+    conditions.push('status = @status');
+    params.status = filters.status;
+  }
+  
+  if (filters.call_status) {
+    conditions.push('call_status = @call_status');
+    params.call_status = filters.call_status;
+  }
+  
+  if (filters.city) {
+    conditions.push('city LIKE @city');
+    params.city = `%${filters.city}%`;
+  }
+  
+  if (filters.niche) {
+    conditions.push('niche = @niche');
+    params.niche = filters.niche;
+  }
+  
+  if (filters.priority) {
+    conditions.push('priority = @priority');
+    params.priority = filters.priority;
+  }
+  
+  // Enhanced search - searches across more fields
+  if (filters.search) {
+    conditions.push(`(
+      name LIKE @search 
+      OR phone LIKE @search 
+      OR city LIKE @search 
+      OR address LIKE @search
+      OR legal_name LIKE @search
+      OR dirigeant LIKE @search
+      OR siren LIKE @search
+      OR siret LIKE @search
+      OR niche LIKE @search
+      OR postal_code LIKE @search
+    )`);
+    params.search = `%${filters.search}%`;
+  }
+  
+  // Boolean filters
+  if (filters.hasWebsite === 'yes') {
+    conditions.push("website IS NOT NULL AND website != ''");
+  } else if (filters.hasWebsite === 'no') {
+    conditions.push("(website IS NULL OR website = '')");
+  }
+  
+  if (filters.hasDirigeant === 'yes') {
+    conditions.push("dirigeant IS NOT NULL AND dirigeant != ''");
+  } else if (filters.hasDirigeant === 'no') {
+    conditions.push("(dirigeant IS NULL OR dirigeant = '')");
+  }
+  
+  if (filters.hasSiren === 'yes') {
+    conditions.push("siren IS NOT NULL AND siren != ''");
+  } else if (filters.hasSiren === 'no') {
+    conditions.push("(siren IS NULL OR siren = '')");
+  }
+  
+  if (filters.hasPhone === 'yes') {
+    conditions.push("phone IS NOT NULL AND phone != ''");
+  } else if (filters.hasPhone === 'no') {
+    conditions.push("(phone IS NULL OR phone = '')");
+  }
+  
+  // Range filters
+  if (filters.scoreMin !== undefined) {
+    conditions.push('score >= @scoreMin');
+    params.scoreMin = filters.scoreMin;
+  }
+  
+  if (filters.scoreMax !== undefined) {
+    conditions.push('score <= @scoreMax');
+    params.scoreMax = filters.scoreMax;
+  }
+  
+  if (filters.ratingMin !== undefined) {
+    conditions.push('rating >= @ratingMin');
+    params.ratingMin = filters.ratingMin;
+  }
+  
+  if (filters.ratingMax !== undefined) {
+    conditions.push('rating <= @ratingMax');
+    params.ratingMax = filters.ratingMax;
+  }
+  
+  // Date filters
+  if (filters.createdAfter) {
+    conditions.push("created_at >= @createdAfter");
+    params.createdAfter = filters.createdAfter;
+  }
+  
+  if (filters.createdBefore) {
+    conditions.push("created_at <= @createdBefore");
+    params.createdBefore = filters.createdBefore + ' 23:59:59';
+  }
+
+  return { conditions, params };
+}
+
+export function findLeadsAdvanced(filters: AdvancedLeadFilters = {}): DbLead[] {
+  const database = getDb();
+  const { conditions, params } = buildAdvancedConditions(filters);
+  
+  let sql = 'SELECT * FROM leads';
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  // Order - validate column name to prevent SQL injection
+  const validOrderColumns = ['created_at', 'updated_at', 'score', 'rating', 'name', 'city', 'next_followup_at', 'priority', 'status'];
+  const orderBy = validOrderColumns.includes(filters.orderBy || '') ? filters.orderBy : 'created_at';
+  const orderDir = filters.orderDir === 'asc' ? 'ASC' : 'DESC';
+  sql += ` ORDER BY ${orderBy} ${orderDir}`;
+  
+  // Pagination
+  const limit = filters.limit || 25;
+  const offset = filters.offset || 0;
+  sql += ` LIMIT ${limit} OFFSET ${offset}`;
+  
+  const stmt = database.prepare(sql);
+  return stmt.all(params) as DbLead[];
+}
+
+export function countLeadsAdvanced(filters: Omit<AdvancedLeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
+  const database = getDb();
+  const { conditions, params } = buildAdvancedConditions(filters);
+  
+  let sql = 'SELECT COUNT(*) as count FROM leads';
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  const stmt = database.prepare(sql);
+  const result = stmt.get(params) as { count: number };
+  return result.count;
+}
+
 export function countLeads(filters: Omit<LeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
   const database = getDb();
   
