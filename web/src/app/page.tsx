@@ -135,7 +135,35 @@ export default function DashboardPage() {
       {/* Active session banner */}
       {session && <SessionBanner session={session} />}
 
-      {/* Quick Stats Row */}
+      {/* CTA Session - Prominent when no active session */}
+      {!session && (stats?.to_call ?? 0) > 0 && (
+        <Card className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-primary/10 to-transparent border-primary/20">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <Rocket className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Prêt à prospecter ?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {stats?.to_call} leads à appeler
+                    {followupCounts?.overdue ? ` • ${followupCounts.overdue} relances en retard` : ''}
+                  </p>
+                </div>
+              </div>
+              <Link href="/call">
+                <Button size="lg" className="w-full sm:w-auto gap-2">
+                  <Phone className="h-4 w-4" />
+                  Démarrer une session
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main metrics row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Phone}
@@ -166,67 +194,36 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Streak + Daily Goal Row */}
+      {/* Progress section: Streak + Daily Goal */}
       {gamifiedStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-1">
-            <StreakCard streak={gamifiedStats.streak} />
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <StreakCard streak={gamifiedStats.streak} />
           <div className="lg:col-span-2">
             <DailyGoalCard today={gamifiedStats.today} />
           </div>
         </div>
       )}
 
-      {/* CTA Session */}
-      {!session && (stats?.to_call ?? 0) > 0 && (
-        <Card className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-primary/10 to-transparent border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <Rocket className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Prêt à prospecter?</h3>
-                  <p className="text-muted-foreground">
-                    {stats?.to_call} leads à appeler
-                    {followupCounts?.overdue ? ` • ${followupCounts.overdue} relances en retard` : ''}
-                  </p>
-                </div>
-              </div>
-              <Link href="/call">
-                <Button size="lg" className="w-full md:w-auto gap-2">
-                  <Phone className="h-4 w-4" />
-                  Démarrer une session
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Top Leads */}
-      {gamifiedStats && (
-        <TopLeadsCard leads={gamifiedStats.top_leads} />
-      )}
-
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Weekly Chart */}
+      {/* Analytics section: Chart + Pipeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {gamifiedStats && (
           <WeeklyChartCard 
             data={gamifiedStats.weekly_performance} 
             conversionRate={gamifiedStats.conversion_rate} 
           />
         )}
-
-        {/* Pipeline */}
         {stats && <PipelineCard stats={stats} />}
       </div>
 
+      {/* Priority leads table */}
+      {gamifiedStats && gamifiedStats.top_leads.length > 0 && (
+        <TopLeadsCard leads={gamifiedStats.top_leads} />
+      )}
+
       {/* Urgent followups */}
-      <UrgentFollowupsCard followups={followups} />
+      {followups.length > 0 && (
+        <UrgentFollowupsCard followups={followups} />
+      )}
     </div>
   );
 }
