@@ -47,12 +47,12 @@ const TABLE_HEADERS = [
 function TableHeader() {
   return (
     <thead>
-      <tr className="border-b border-border">
+      <tr className="border-b border-border bg-muted/50">
         {TABLE_HEADERS.map((header) => (
           <th
             key={header.key}
             className={cn(
-              'px-4 py-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30',
+              'px-4 py-3.5 text-left text-xs font-semibold text-foreground/70 uppercase tracking-wider',
               header.className
             )}
           >
@@ -72,15 +72,18 @@ interface LeadRowProps {
 
 function LeadRow({ lead }: LeadRowProps) {
   return (
-    <tr className="table-row border-b border-border last:border-0 group">
+    <tr className="border-b border-border last:border-0 group hover:bg-accent/50 transition-colors">
       {/* Name & Priority with Avatar */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5">
         <div className="flex items-center gap-3">
           <LeadAvatar lead={lead} />
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground truncate max-w-[180px]">
+            <Link 
+              href={`/leads/${lead.id}`}
+              className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate block max-w-[200px]"
+            >
               {lead.name}
-            </p>
+            </Link>
             {lead.priority && (
               <div className="mt-0.5">
                 <PriorityBadge priority={lead.priority} />
@@ -91,64 +94,64 @@ function LeadRow({ lead }: LeadRowProps) {
       </td>
 
       {/* City */}
-      <td className="px-4 py-3 text-[13px] text-muted-foreground">
-        {lead.city || '-'}
+      <td className="px-4 py-3.5 text-sm text-muted-foreground">
+        {lead.city || <span className="text-muted-foreground/50">-</span>}
       </td>
 
       {/* Niche */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5">
         {lead.niche ? (
-          <span className="text-[13px] text-muted-foreground">
+          <span className="text-sm text-foreground/80">
             {lead.niche}
           </span>
         ) : (
-          <span className="text-[13px] text-muted-foreground/50">-</span>
+          <span className="text-sm text-muted-foreground/50">-</span>
         )}
       </td>
 
       {/* Phone */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5">
         {lead.phone ? (
           <a
             href={`tel:${lead.phone}`}
-            className="text-[13px] font-mono text-primary hover:text-primary/80 transition-colors"
+            className="text-sm font-mono text-primary hover:text-primary/80 transition-colors font-medium"
           >
             {lead.phone}
           </a>
         ) : (
-          <span className="text-[13px] text-muted-foreground/50">-</span>
+          <span className="text-sm text-muted-foreground/50">-</span>
         )}
       </td>
 
       {/* Rating */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5">
         {lead.rating ? (
-          <div className="flex items-center gap-1">
-            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span className="text-[13px] font-medium text-foreground">{lead.rating}</span>
+          <div className="flex items-center gap-1.5">
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span className="text-sm font-semibold text-foreground">{lead.rating}</span>
             {lead.reviews_count && (
-              <span className="text-[11px] text-muted-foreground">({lead.reviews_count})</span>
+              <span className="text-xs text-muted-foreground">({lead.reviews_count})</span>
             )}
           </div>
         ) : (
-          <span className="text-[13px] text-muted-foreground/50">-</span>
+          <span className="text-sm text-muted-foreground/50">-</span>
         )}
       </td>
 
       {/* Status */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5">
         <StatusBadge status={lead.status} />
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           {lead.website && (
             <a
               href={lead.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
               title="Voir le site"
             >
               <ExternalLink className="w-4 h-4" />
@@ -157,7 +160,7 @@ function LeadRow({ lead }: LeadRowProps) {
           {lead.phone && (
             <a
               href={`tel:${lead.phone}`}
-              className="p-1.5 rounded-md hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
+              className="p-2 rounded-lg hover:bg-success/15 text-muted-foreground hover:text-success transition-all"
               title="Appeler"
             >
               <Phone className="w-4 h-4" />
@@ -165,7 +168,7 @@ function LeadRow({ lead }: LeadRowProps) {
           )}
           <Link
             href={`/leads/${lead.id}`}
-            className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            className="p-2 rounded-lg hover:bg-primary/15 text-muted-foreground hover:text-primary transition-all"
             title="Voir la fiche"
           >
             <Eye className="w-4 h-4" />
@@ -226,24 +229,26 @@ function Pagination({ page, totalPages, total, limit, onPageChange }: Pagination
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
-      <p className="text-xs text-muted-foreground">
-        {start}-{end} sur {total}
+      <p className="text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">{start}-{end}</span> sur {total}
       </p>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page === 1}
-          className="p-1.5 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-muted-foreground hover:text-foreground"
+          aria-label="Page précédente"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-xs text-muted-foreground px-2">
+        <span className="text-sm text-foreground font-medium px-2 min-w-[60px] text-center">
           {page} / {totalPages}
         </span>
         <button
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page === totalPages}
-          className="p-1.5 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-muted-foreground hover:text-foreground"
+          aria-label="Page suivante"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -274,11 +279,11 @@ export function LeadsTable({
   onPageChange,
 }: LeadsTableProps) {
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full">
           <TableHeader />
-          <tbody>
+          <tbody className="divide-y divide-border">
             {loading ? (
               <TableLoading />
             ) : leads.length === 0 ? (

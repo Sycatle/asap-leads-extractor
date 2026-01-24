@@ -656,48 +656,48 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
     <Card className={`p-0 overflow-hidden ${priorityBorderClass}`}>
       {/* ===== ALERTE B2C ===== */}
       {isPersoPhone && (
-        <div className="px-4 py-2 bg-warning text-warning-foreground flex items-center gap-2 text-xs font-medium">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>⚠️ NUMÉRO PERSONNEL - Risque B2C, adaptez votre approche</span>
+        <div className="px-4 py-2.5 bg-warning/20 dark:bg-warning/15 border-b border-warning/30 flex items-center gap-2 text-sm font-medium text-warning">
+          <AlertTriangle className="w-4 h-4" />
+          <span>NUMÉRO PERSONNEL - Risque B2C, adaptez votre approche</span>
         </div>
       )}
 
       {/* ===== BLOC 1: ESSENTIEL ===== */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-start gap-3 mb-3">
+      <div className="p-5 border-b border-border">
+        <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
           {/* Lead Image */}
           <LeadImage lead={lead} />
 
           <div className="flex-1 min-w-0">
             {/* Name + Priority */}
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h2 className="text-lg font-semibold text-foreground truncate">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h2 className="text-xl font-bold text-foreground truncate">
                 {lead.name}
               </h2>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                   PRIORITY_BADGE_COLORS[lead.priority]
                 }`}
               >
                 {lead.priority.toUpperCase()}
               </span>
               {lead.score && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
-                  <TrendingUp className="w-2.5 h-2.5" />
+                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/15 text-primary border border-primary/30">
+                  <TrendingUp className="w-3 h-3" />
                   {lead.score}
                 </span>
               )}
             </div>
 
             {/* Activity + City */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              {lead.niche && <span className="font-medium text-foreground">{lead.niche}</span>}
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {lead.niche && <span className="font-semibold text-foreground">{lead.niche}</span>}
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
                 {lead.city}
               </span>
               {lead.source && (
-                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-md font-medium">
                   {SOURCE_LABELS[lead.source] || lead.source}
                 </span>
               )}
@@ -705,16 +705,16 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
           </div>
 
           {/* Quick links */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {lead.website && (
               <a
                 href={lead.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                 title="Site web"
               >
-                <Globe className="w-4 h-4" />
+                <Globe className="w-5 h-5" />
               </a>
             )}
             {lead.maps_url && (
@@ -722,87 +722,87 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
                 href={lead.maps_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                 title="Google Maps"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-5 h-5" />
               </a>
             )}
             {!hideViewButton && (
               <Link
                 href={`/leads/${lead.id}`}
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                 title="Voir la fiche"
               >
-                <Eye className="w-4 h-4" />
+                <Eye className="w-5 h-5" />
               </Link>
             )}
           </div>
         </div>
 
         {/* Phone number - Main CTA */}
-        <div className="flex flex-col items-center gap-2 py-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="flex items-center gap-3">
             <a
               href={`tel:${lead.phone}`}
-              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xl font-bold transition-colors tracking-wide ${
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-2xl font-bold transition-all tracking-wide hover:scale-[1.02] active:scale-[0.98] shadow-lg ${
                 isPersoPhone
-                  ? 'bg-warning hover:bg-warning/90 text-warning-foreground'
-                  : 'bg-success hover:bg-success/90 text-white'
+                  ? 'bg-warning hover:bg-warning/90 text-black shadow-warning/25'
+                  : 'bg-success hover:bg-success/90 text-white shadow-success/25'
               }`}
             >
-              <Phone className="w-5 h-5" />
+              <Phone className="w-6 h-6" />
               {formattedPhone}
             </a>
             <button
               onClick={copyPhone}
-              className="p-2.5 rounded-lg bg-muted hover:bg-accent transition-colors"
+              className="p-3 rounded-xl bg-muted hover:bg-accent transition-all border border-border"
               title="Copier le numéro"
             >
               {copied ? (
-                <Check className="w-4 h-4 text-success" />
+                <Check className="w-5 h-5 text-success" />
               ) : (
-                <Copy className="w-4 h-4 text-muted-foreground" />
+                <Copy className="w-5 h-5 text-muted-foreground" />
               )}
             </button>
           </div>
           {phoneTypeLabel && (
             <span
-              className={`flex items-center gap-1 text-[10px] font-medium ${
+              className={`flex items-center gap-1.5 text-xs font-semibold ${
                 isPersoPhone ? 'text-warning' : 'text-success'
               }`}
             >
-              {isPersoPhone ? <Smartphone className="w-2.5 h-2.5" /> : <Building2 className="w-2.5 h-2.5" />}
+              {isPersoPhone ? <Smartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
               {phoneTypeLabel}
             </span>
           )}
         </div>
 
         {/* ===== TAGS CRITIQUES SOUS LE TÉLÉPHONE ===== */}
-        <div className="flex flex-wrap justify-center gap-1.5 py-2">
+        <div className="flex flex-wrap justify-center gap-2 py-3">
           {/* Website status - compact version */}
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
             websiteInfo.type === 'none' 
-              ? 'bg-danger/10 text-danger' 
+              ? 'bg-danger/15 text-danger border-danger/30' 
               : websiteInfo.type === 'modern'
-                ? 'bg-success/10 text-success'
+                ? 'bg-success/15 text-success border-success/30'
                 : websiteInfo.type === 'platform' || websiteInfo.type === 'old'
-                  ? 'bg-warning/10 text-warning'
-                  : 'bg-primary/10 text-primary'
+                  ? 'bg-warning/15 text-warning border-warning/30'
+                  : 'bg-primary/15 text-primary border-primary/30'
           }`}>
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-4 h-4" />
             {websiteInfo.label}
             {websiteInfo.sublabel && <span className="opacity-75">• {websiteInfo.sublabel}</span>}
           </span>
           
           {/* Créneau optimal */}
           {lead.best_call_time && (
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
               callTimeStatus === 'optimal'
-                ? 'bg-success/10 text-success'
-                : 'bg-primary/10 text-primary'
+                ? 'bg-success/15 text-success border-success/30'
+                : 'bg-primary/15 text-primary border-primary/30'
             }`}>
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-4 h-4" />
               {callTimeStatus === 'optimal' 
                 ? `✓ Bon moment (${lead.best_call_time})`
                 : `Appeler ${lead.best_call_time}`
@@ -812,10 +812,10 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
           
           {/* Ouvert/Fermé */}
           {openStatus && (
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
               openStatus === 'open'
-                ? 'bg-success/10 text-success'
-                : 'bg-danger/10 text-danger'
+                ? 'bg-success/15 text-success border-success/30'
+                : 'bg-danger/15 text-danger border-danger/30'
             }`}>
               {openStatus === 'open' ? '🟢 Ouvert' : '🔴 Fermé'}
             </span>
@@ -823,28 +823,28 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
         </div>
 
         {/* Meta info row */}
-        <div className="flex items-center justify-center gap-3 text-xs pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-sm pt-3">
           {/* Last contact */}
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Clock className="w-3 h-3" />
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
             <span>Dernier contact: <strong className="text-foreground">{formatLastContact(lead.last_contact_at)}</strong></span>
           </div>
 
           {/* Attempts counter */}
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <span>
               Tentatives: <strong className="text-foreground">{lead.attempts_30d ?? lead.attempts_count ?? 0}/4</strong>
             </span>
             {(lead.attempts_30d ?? 0) >= 3 && (
-              <AlertTriangle className="w-3 h-3 text-warning" />
+              <AlertTriangle className="w-3.5 h-3.5 text-warning" />
             )}
           </div>
 
           {/* Rating - compact */}
           {lead.rating && (
-            <div className="flex items-center gap-1 text-warning">
-              <Star className="w-3 h-3 fill-current" />
-              <span>{lead.rating}</span>
+            <div className="flex items-center gap-1.5 text-warning">
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span className="font-semibold">{lead.rating}</span>
               <span className="text-muted-foreground">({lead.reviews_count})</span>
             </div>
           )}
@@ -853,9 +853,9 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
 
       {/* ===== BLOC 2: DIRIGEANT ===== */}
       {lead.dirigeant && (
-        <div className="px-4 py-2 bg-primary/5 border-b border-border">
-          <p className="text-xs text-primary">
-            👤 Demander <strong>{lead.dirigeant}</strong>
+        <div className="px-5 py-3 bg-primary/10 dark:bg-primary/15 border-b border-border">
+          <p className="text-sm text-primary font-medium">
+            👤 Demander <strong className="font-bold">{lead.dirigeant}</strong>
             {lead.legal_name && lead.legal_name !== lead.name && (
               <span className="opacity-75"> ({lead.legal_name})</span>
             )}
@@ -867,22 +867,22 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
       <div className="border-b border-border">
         <button
           onClick={() => setShowScript(!showScript)}
-          className="w-full flex items-center justify-between gap-2 px-4 py-2 hover:bg-accent transition-colors text-left"
+          className="w-full flex items-center justify-between gap-2 px-5 py-3 hover:bg-accent transition-colors text-left"
         >
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <FileText className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2.5 text-sm font-semibold text-muted-foreground">
+            <FileText className="w-4 h-4" />
             <span>Script d&apos;appel</span>
-            <kbd className="kbd">S</kbd>
+            <kbd className="text-[10px] px-1.5 py-0.5 bg-muted rounded-md border border-border font-mono">S</kbd>
           </div>
           {showScript ? (
-            <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
         {showScript && (
-          <div className="px-4 pb-3">
-            <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-3 rounded-lg">
+          <div className="px-5 pb-4">
+            <pre className="text-sm text-foreground whitespace-pre-wrap bg-muted p-4 rounded-xl border border-border leading-relaxed">
               {script}
             </pre>
           </div>
@@ -891,9 +891,9 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
 
       {/* ===== BLOC 4: TIP CONTEXTUEL ===== */}
       {contextualTip && (
-        <div className="px-4 py-2 bg-info/5 border-b border-border">
-          <div className="flex items-center gap-2 text-xs text-info">
-            <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+        <div className="px-5 py-3 bg-info/10 dark:bg-info/15 border-b border-border">
+          <div className="flex items-center gap-2.5 text-sm text-info font-medium">
+            <Lightbulb className="w-4 h-4 shrink-0" />
             <span>{contextualTip}</span>
           </div>
         </div>
@@ -904,23 +904,23 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
 
       {/* ===== BLOC 5: HISTORIQUE AVEC RÉSUMÉ ===== */}
       {(history.length > 0 || loadingHistory) && (
-        <div className="p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="p-4">
+          <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <History className="w-3.5 h-3.5 text-muted-foreground" />
-              <h3 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              <History className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Historique récent
               </h3>
             </div>
             
             {/* Résumé intelligent */}
             {historySummary && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+              <span className={`text-xs px-2.5 py-1 rounded-lg font-semibold border ${
                 historySummary.type === 'warning'
-                  ? 'bg-warning/10 text-warning'
+                  ? 'bg-warning/15 text-warning border-warning/30'
                   : historySummary.type === 'success'
-                    ? 'bg-success/10 text-success'
-                    : 'bg-muted text-muted-foreground'
+                    ? 'bg-success/15 text-success border-success/30'
+                    : 'bg-muted text-muted-foreground border-border'
               }`}>
                 {historySummary.text}
               </span>

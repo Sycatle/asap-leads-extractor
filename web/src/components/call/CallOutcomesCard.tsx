@@ -33,13 +33,13 @@ const OUTCOME_ICONS: Record<CallOutcome, typeof PhoneOff> = {
 };
 
 const OUTCOME_COLORS: Record<string, string> = {
-  red: 'bg-danger/10 hover:bg-danger/20 text-danger border-danger/20',
-  yellow: 'bg-warning/10 hover:bg-warning/20 text-warning border-warning/20',
-  blue: 'bg-primary/10 hover:bg-primary/20 text-primary border-primary/20',
-  green: 'bg-success/10 hover:bg-success/20 text-success border-success/20',
-  zinc: 'bg-muted hover:bg-muted/80 text-muted-foreground border-border',
-  purple: 'bg-info/10 hover:bg-info/20 text-info border-info/20',
-  orange: 'bg-warning/10 hover:bg-warning/20 text-warning border-warning/20',
+  red: 'bg-danger/15 hover:bg-danger/25 text-danger border-danger/30 hover:border-danger/50',
+  yellow: 'bg-warning/15 hover:bg-warning/25 text-warning border-warning/30 hover:border-warning/50',
+  blue: 'bg-primary/15 hover:bg-primary/25 text-primary border-primary/30 hover:border-primary/50',
+  green: 'bg-success/15 hover:bg-success/25 text-success border-success/30 hover:border-success/50',
+  zinc: 'bg-muted hover:bg-muted/80 text-foreground border-border hover:border-border',
+  purple: 'bg-info/15 hover:bg-info/25 text-info border-info/30 hover:border-info/50',
+  orange: 'bg-warning/15 hover:bg-warning/25 text-warning border-warning/30 hover:border-warning/50',
 };
 
 // Format call duration
@@ -129,17 +129,17 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         onClick={() => handleOutcome(outcome.id)}
         disabled={loading}
         className={cn(
-          'flex flex-col items-center gap-1.5 p-2.5 rounded-lg border font-medium transition-all disabled:opacity-50',
+          'flex flex-col items-center gap-2 p-3 rounded-xl border-2 font-medium transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]',
           OUTCOME_COLORS[outcome.color]
         )}
       >
         {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-5 h-5 animate-spin" />
         ) : (
-          <Icon className="w-4 h-4" />
+          <Icon className="w-5 h-5" />
         )}
-        <span className="text-[11px] leading-tight text-center">{outcome.label}</span>
-        <kbd className="text-[10px] font-mono font-semibold bg-background/50 px-1.5 py-0.5 rounded uppercase">
+        <span className="text-xs leading-tight text-center font-semibold">{outcome.label}</span>
+        <kbd className="text-[10px] font-mono font-bold bg-background/60 px-2 py-0.5 rounded-md uppercase border border-current/20">
           {outcome.key}
         </kbd>
       </button>
@@ -149,24 +149,24 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
   // Pre-call state
   if (!callStarted) {
     return (
-      <Card className="p-5">
-        <div className="flex flex-col items-center justify-center gap-4 py-6">
-          <div className="w-14 h-14 rounded-2xl bg-success/10 flex items-center justify-center">
-            <Play className="w-7 h-7 text-success ml-0.5" />
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center gap-5 py-8">
+          <div className="w-16 h-16 rounded-2xl bg-success/15 flex items-center justify-center">
+            <Play className="w-8 h-8 text-success ml-0.5" />
           </div>
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">Prêt à appeler ?</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Le timer démarrera au clic</p>
+          <div className="text-center space-y-1">
+            <p className="text-base font-semibold text-foreground">Prêt à appeler ?</p>
+            <p className="text-sm text-muted-foreground">Le timer démarrera automatiquement</p>
           </div>
           <button
             onClick={handleStartCall}
-            className="flex items-center gap-2 px-5 py-2.5 bg-success hover:bg-success/90 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-2.5 px-6 py-3 bg-success hover:bg-success/90 text-white text-sm font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-success/25"
           >
-            <Phone className="w-4 h-4" />
+            <Phone className="w-5 h-5" />
             Lancer l&apos;appel
           </button>
-          <p className="text-[10px] text-muted-foreground">
-            Appuyez sur <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Entrée</kbd>
+          <p className="text-xs text-muted-foreground">
+            ou appuyez sur <kbd className="px-1.5 py-0.5 bg-muted rounded-md text-xs font-mono font-semibold border border-border">Entrée</kbd>
           </p>
         </div>
       </Card>
@@ -175,53 +175,53 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
 
   // Active call state
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       {/* Call Timer */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-border">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
           Appel en cours
         </p>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-success/10 rounded-full">
-          <Timer className="w-3.5 h-3.5 text-success animate-pulse-soft" />
-          <span className="font-mono text-sm font-semibold text-success tabular-nums">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-success/15 rounded-full border border-success/30">
+          <Timer className="w-4 h-4 text-success animate-pulse-soft" />
+          <span className="font-mono text-sm font-bold text-success tabular-nums">
             {formatCallDuration(callDuration)}
           </span>
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-3">
-        Résultat
+      <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-4">
+        Résultat de l&apos;appel
       </p>
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* Pas de contact */}
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Pas de contact</p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <p className="text-[11px] text-muted-foreground uppercase mb-2 font-semibold tracking-wide">Pas de contact</p>
+          <div className="grid grid-cols-2 gap-2">
             {noContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Contact partiel */}
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Contact partiel</p>
-          <div className="grid grid-cols-3 gap-1.5">
+          <p className="text-[11px] text-muted-foreground uppercase mb-2 font-semibold tracking-wide">Contact partiel</p>
+          <div className="grid grid-cols-3 gap-2">
             {partialContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Contact positif */}
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Contact positif</p>
-          <div className="grid grid-cols-3 gap-1.5">
+          <p className="text-[11px] text-muted-foreground uppercase mb-2 font-semibold tracking-wide">Contact positif</p>
+          <div className="grid grid-cols-3 gap-2">
             {positiveContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Clôture */}
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Clôture</p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <p className="text-[11px] text-muted-foreground uppercase mb-2 font-semibold tracking-wide">Clôture</p>
+          <div className="grid grid-cols-2 gap-2">
             {closure.map(renderOutcomeButton)}
           </div>
         </div>

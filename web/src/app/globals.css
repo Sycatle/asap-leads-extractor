@@ -31,7 +31,7 @@
   
   /* Muted */
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
   
   /* Accent */
   --accent: #f1f5f9;
@@ -124,8 +124,8 @@
   --secondary-foreground: #f8fafc;
   
   /* Muted */
-  --muted: #18181b;
-  --muted-foreground: #71717a;
+  --muted: #1a1a1e;
+  --muted-foreground: #a1a1aa;
   
   /* Accent */
   --accent: #18181b;
@@ -135,24 +135,24 @@
   --destructive: #f87171;
   --destructive-foreground: #0f0f0f;
   
-  /* Status Colors - Luminous for dark */
-  --success: #34d399;
-  --success-light: rgba(52, 211, 153, 0.12);
-  --success-foreground: #6ee7b7;
-  --warning: #fbbf24;
-  --warning-light: rgba(251, 191, 36, 0.12);
-  --warning-foreground: #fcd34d;
-  --danger: #f87171;
-  --danger-light: rgba(248, 113, 113, 0.12);
-  --danger-foreground: #fca5a5;
-  --info: #a78bfa;
-  --info-light: rgba(167, 139, 250, 0.12);
-  --info-foreground: #c4b5fd;
+  /* Status Colors - High contrast for dark mode */
+  --success: #4ade80;
+  --success-light: rgba(74, 222, 128, 0.15);
+  --success-foreground: #86efac;
+  --warning: #fcd34d;
+  --warning-light: rgba(252, 211, 77, 0.15);
+  --warning-foreground: #fde68a;
+  --danger: #fb7185;
+  --danger-light: rgba(251, 113, 133, 0.15);
+  --danger-foreground: #fda4af;
+  --info: #c4b5fd;
+  --info-light: rgba(196, 181, 253, 0.15);
+  --info-foreground: #ddd6fe;
   
   /* Borders & Inputs */
-  --border: #27272a;
-  --border-hover: #3f3f46;
-  --input: #27272a;
+  --border: #2e2e33;
+  --border-hover: #52525b;
+  --input: #2e2e33;
   --ring: #818cf8;
   
   /* Sidebar */

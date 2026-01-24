@@ -31,16 +31,17 @@ export function LeadsFilters({
   onSearchChange,
 }: LeadsFiltersProps) {
   return (
-    <div className="bg-card rounded-xl border border-border p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-muted-foreground">
+    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Filter label - mobile only */}
+        <div className="flex items-center gap-2 text-muted-foreground sm:hidden col-span-full">
           <Filter className="w-4 h-4" />
           <span className="text-xs font-medium">Filtres</span>
         </div>
 
         {/* Status filter */}
         <Select value={status || 'all'} onValueChange={(v) => onStatusChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[140px] h-9 text-[13px]">
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
@@ -55,7 +56,7 @@ export function LeadsFilters({
 
         {/* City filter */}
         <Select value={city || 'all'} onValueChange={(v) => onCityChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[140px] h-9 text-[13px]">
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
             <SelectValue placeholder="Ville" />
           </SelectTrigger>
           <SelectContent>
@@ -70,7 +71,7 @@ export function LeadsFilters({
 
         {/* Niche filter */}
         <Select value={niche || 'all'} onValueChange={(v) => onNicheChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px] h-9 text-[13px]">
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
             <SelectValue placeholder="Secteur" />
           </SelectTrigger>
           <SelectContent>
@@ -83,15 +84,15 @@ export function LeadsFilters({
           </SelectContent>
         </Select>
 
-        {/* Search */}
-        <div className="relative flex-1 min-w-[180px]">
+        {/* Search - spans 2 cols on lg */}
+        <div className="relative lg:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Rechercher..."
-            className="pl-9 h-9 text-[13px]"
+            placeholder="Rechercher un lead..."
+            className="pl-9 h-10 text-[13px] bg-background"
           />
         </div>
       </div>
