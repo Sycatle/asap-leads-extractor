@@ -152,6 +152,46 @@ function migrateSchema(database: Database.Database): void {
   `);
 }
 
+// ===== SQL SECURITY =====
+
+/**
+ * Colonnes autorisées pour ORDER BY (prévention injection SQL)
+ * IMPORTANT: Ne jamais interpoler directement des valeurs utilisateur dans ORDER BY
+ */
+const VALID_ORDER_COLUMNS = [
+  'created_at',
+  'updated_at',
+  'score',
+  'rating',
+  'name',
+  'city',
+  'next_followup_at',
+  'priority',
+  'status',
+  'call_status',
+  'niche',
+  'reviews_count',
+] as const;
+
+type ValidOrderColumn = typeof VALID_ORDER_COLUMNS[number];
+
+/**
+ * Valide et retourne une colonne ORDER BY sécurisée
+ */
+function sanitizeOrderBy(column: string | undefined, defaultColumn: ValidOrderColumn = 'created_at'): ValidOrderColumn {
+  if (!column) return defaultColumn;
+  return VALID_ORDER_COLUMNS.includes(column as ValidOrderColumn) 
+    ? (column as ValidOrderColumn) 
+    : defaultColumn;
+}
+
+/**
+ * Valide et retourne une direction ORDER BY sécurisée
+ */
+function sanitizeOrderDir(dir: string | undefined): 'ASC' | 'DESC' {
+  return dir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+}
+
 // ===== QUERIES =====
 
 export interface LeadFilters {
@@ -208,10 +248,10 @@ export function findLeads(filters: LeadFilters = {}): DbLead[] {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
   
-  // Order
-  const orderBy = filters.orderBy || 'created_at';
-  const orderDir = filters.orderDir || 'desc';
-  sql += ` ORDER BY ${orderBy} ${orderDir.toUpperCase()}`;
+  // Order - sécurisé contre injection SQL
+  const orderBy = sanitizeOrderBy(filters.orderBy);
+  const orderDir = sanitizeOrderDir(filters.orderDir);
+  sql += ` ORDER BY ${orderBy} ${orderDir}`;
   
   // Pagination
   const limit = filters.limit || 25;
@@ -372,10 +412,9 @@ export function findLeadsAdvanced(filters: AdvancedLeadFilters = {}): DbLead[] {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
   
-  // Order - validate column name to prevent SQL injection
-  const validOrderColumns = ['created_at', 'updated_at', 'score', 'rating', 'name', 'city', 'next_followup_at', 'priority', 'status'];
-  const orderBy = validOrderColumns.includes(filters.orderBy || '') ? filters.orderBy : 'created_at';
-  const orderDir = filters.orderDir === 'asc' ? 'ASC' : 'DESC';
+  // Order - sécurisé contre injection SQL
+  const orderBy = sanitizeOrderBy(filters.orderBy);
+  const orderDir = sanitizeOrderDir(filters.orderDir);
   sql += ` ORDER BY ${orderBy} ${orderDir}`;
   
   // Pagination
