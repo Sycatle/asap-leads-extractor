@@ -33,13 +33,13 @@ const OUTCOME_ICONS: Record<CallOutcome, typeof PhoneOff> = {
 };
 
 const OUTCOME_COLORS: Record<string, string> = {
-  red: 'bg-danger/15 hover:bg-danger/25 text-danger border-danger/30 hover:border-danger/50',
-  yellow: 'bg-warning/15 hover:bg-warning/25 text-warning border-warning/30 hover:border-warning/50',
-  blue: 'bg-primary/15 hover:bg-primary/25 text-primary border-primary/30 hover:border-primary/50',
-  green: 'bg-success/15 hover:bg-success/25 text-success border-success/30 hover:border-success/50',
-  zinc: 'bg-muted hover:bg-muted/80 text-foreground border-border hover:border-border',
-  purple: 'bg-info/15 hover:bg-info/25 text-info border-info/30 hover:border-info/50',
-  orange: 'bg-warning/15 hover:bg-warning/25 text-warning border-warning/30 hover:border-warning/50',
+  red: 'bg-danger/10 hover:bg-danger/20 text-danger',
+  yellow: 'bg-warning/10 hover:bg-warning/20 text-warning',
+  blue: 'bg-primary/10 hover:bg-primary/20 text-primary',
+  green: 'bg-success/10 hover:bg-success/20 text-success',
+  zinc: 'bg-muted hover:bg-accent text-muted-foreground',
+  purple: 'bg-info/10 hover:bg-info/20 text-info',
+  orange: 'bg-warning/10 hover:bg-warning/20 text-warning',
 };
 
 // Format call duration
@@ -129,7 +129,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         onClick={() => handleOutcome(outcome.id)}
         disabled={loading}
         className={cn(
-          'flex flex-col items-center gap-2 p-3 rounded-xl border-2 font-medium transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]',
+          'flex flex-col items-center gap-2 p-3 rounded-lg font-medium transition-colors disabled:opacity-50',
           OUTCOME_COLORS[outcome.color]
         )}
       >
@@ -138,8 +138,8 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         ) : (
           <Icon className="w-5 h-5" />
         )}
-        <span className="text-xs leading-tight text-center font-semibold">{outcome.label}</span>
-        <kbd className="text-[10px] font-mono font-bold bg-background/60 px-2 py-0.5 rounded-md uppercase border border-current/20">
+        <span className="text-xs leading-tight text-center font-medium">{outcome.label}</span>
+        <kbd className="text-[10px] font-mono bg-background/50 px-1.5 py-0.5 rounded">
           {outcome.key}
         </kbd>
       </button>
@@ -160,9 +160,9 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
           </div>
           <button
             onClick={handleStartCall}
-            className="flex items-center gap-2.5 px-6 py-3 bg-success hover:bg-success/90 text-white text-sm font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-success/25"
+            className="flex items-center gap-2 px-5 py-2.5 bg-success hover:bg-success/90 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
             Lancer l&apos;appel
           </button>
           <p className="text-xs text-muted-foreground">
@@ -181,9 +181,9 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
           Appel en cours
         </p>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-success/15 rounded-full border border-success/30">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 rounded-full">
           <Timer className="w-4 h-4 text-success animate-pulse-soft" />
-          <span className="font-mono text-sm font-bold text-success tabular-nums">
+          <span className="font-mono text-sm font-medium text-success tabular-nums">
             {formatCallDuration(callDuration)}
           </span>
         </div>

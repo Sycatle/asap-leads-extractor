@@ -745,18 +745,18 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
           <div className="flex items-center gap-3">
             <a
               href={`tel:${lead.phone}`}
-              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-2xl font-bold transition-all tracking-wide hover:scale-[1.02] active:scale-[0.98] shadow-lg ${
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg text-xl font-bold transition-colors tracking-wide ${
                 isPersoPhone
-                  ? 'bg-warning hover:bg-warning/90 text-black shadow-warning/25'
-                  : 'bg-success hover:bg-success/90 text-white shadow-success/25'
+                  ? 'bg-warning hover:bg-warning/90 text-black'
+                  : 'bg-success hover:bg-success/90 text-white'
               }`}
             >
-              <Phone className="w-6 h-6" />
+              <Phone className="w-5 h-5" />
               {formattedPhone}
             </a>
             <button
               onClick={copyPhone}
-              className="p-3 rounded-xl bg-muted hover:bg-accent transition-all border border-border"
+              className="p-2.5 rounded-lg bg-muted hover:bg-accent transition-colors"
               title="Copier le numéro"
             >
               {copied ? (
@@ -781,14 +781,14 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
         {/* ===== TAGS CRITIQUES SOUS LE TÉLÉPHONE ===== */}
         <div className="flex flex-wrap justify-center gap-2 py-3">
           {/* Website status - compact version */}
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
             websiteInfo.type === 'none' 
-              ? 'bg-danger/15 text-danger border-danger/30' 
+              ? 'bg-danger/10 text-danger' 
               : websiteInfo.type === 'modern'
-                ? 'bg-success/15 text-success border-success/30'
+                ? 'bg-success/10 text-success'
                 : websiteInfo.type === 'platform' || websiteInfo.type === 'old'
-                  ? 'bg-warning/15 text-warning border-warning/30'
-                  : 'bg-primary/15 text-primary border-primary/30'
+                  ? 'bg-warning/10 text-warning'
+                  : 'bg-primary/10 text-primary'
           }`}>
             <Globe className="w-4 h-4" />
             {websiteInfo.label}
@@ -797,12 +797,12 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
           
           {/* Créneau optimal */}
           {lead.best_call_time && (
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
               callTimeStatus === 'optimal'
-                ? 'bg-success/15 text-success border-success/30'
-                : 'bg-primary/15 text-primary border-primary/30'
+                ? 'bg-success/10 text-success'
+                : 'bg-primary/10 text-primary'
             }`}>
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
               {callTimeStatus === 'optimal' 
                 ? `✓ Bon moment (${lead.best_call_time})`
                 : `Appeler ${lead.best_call_time}`
@@ -812,10 +812,10 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
           
           {/* Ouvert/Fermé */}
           {openStatus && (
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
               openStatus === 'open'
-                ? 'bg-success/15 text-success border-success/30'
-                : 'bg-danger/15 text-danger border-danger/30'
+                ? 'bg-success/10 text-success'
+                : 'bg-danger/10 text-danger'
             }`}>
               {openStatus === 'open' ? '🟢 Ouvert' : '🔴 Fermé'}
             </span>
@@ -915,12 +915,12 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
             
             {/* Résumé intelligent */}
             {historySummary && (
-              <span className={`text-xs px-2.5 py-1 rounded-lg font-semibold border ${
+              <span className={`text-xs px-2 py-1 rounded-lg font-medium ${
                 historySummary.type === 'warning'
-                  ? 'bg-warning/15 text-warning border-warning/30'
+                  ? 'bg-warning/10 text-warning'
                   : historySummary.type === 'success'
-                    ? 'bg-success/15 text-success border-success/30'
-                    : 'bg-muted text-muted-foreground border-border'
+                    ? 'bg-success/10 text-success'
+                    : 'bg-muted text-muted-foreground'
               }`}>
                 {historySummary.text}
               </span>

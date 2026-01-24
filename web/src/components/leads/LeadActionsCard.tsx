@@ -15,12 +15,12 @@ interface LeadActionsCardProps {
 
 // Action button styles using CSS variables
 const actionStyles = {
-  green: 'bg-success/15 text-success hover:bg-success/25 border-success/30',
-  blue: 'bg-primary/15 text-primary hover:bg-primary/25 border-primary/30',
-  red: 'bg-danger/15 text-danger hover:bg-danger/25 border-danger/30',
-  purple: 'bg-info/15 text-info hover:bg-info/25 border-info/30',
-  orange: 'bg-warning/15 text-warning hover:bg-warning/25 border-warning/30',
-  zinc: 'bg-muted text-foreground hover:bg-accent border-border',
+  green: 'bg-success/10 text-success hover:bg-success/20',
+  blue: 'bg-primary/10 text-primary hover:bg-primary/20',
+  red: 'bg-danger/10 text-danger hover:bg-danger/20',
+  purple: 'bg-info/10 text-info hover:bg-info/20',
+  orange: 'bg-warning/10 text-warning hover:bg-warning/20',
+  zinc: 'bg-muted text-muted-foreground hover:bg-accent',
 };
 
 interface ActionBtnProps {
@@ -38,8 +38,8 @@ function ActionBtn({ icon, label, onClick, loading, color, small }: ActionBtnPro
       onClick={onClick}
       disabled={loading}
       className={`
-        inline-flex items-center justify-center gap-1.5 rounded-xl border font-medium 
-        transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]
+        inline-flex items-center justify-center gap-1.5 rounded-lg font-medium 
+        transition-colors disabled:opacity-50
         ${small ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
         ${actionStyles[color]}
       `}
@@ -137,11 +137,11 @@ export function LeadActionsCard({
         </div>
 
         {/* Main actions */}
-        <div className="pt-2 border-t border-border">
+        <div className="pt-4 border-t border-border">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Button
               asChild
-              className="h-10 bg-success hover:bg-success/90 text-white shadow-sm"
+              className="h-10 bg-success hover:bg-success/90 text-white"
             >
               <a href={`tel:${lead.phone}`}>
                 <Phone className="w-4 h-4 mr-2" />

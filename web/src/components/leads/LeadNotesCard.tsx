@@ -44,33 +44,29 @@ export function LeadNotesCard({ notes, onAddNote, loading }: LeadNotesCardProps)
           <Button
             onClick={handleAdd}
             disabled={!newNote.trim() || loading}
-            className="h-10 px-4 shrink-0"
+            size="sm"
+            className="shrink-0"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
             )}
-            <span className="ml-2 sm:inline hidden">Ajouter</span>
+            <span className="ml-2">Ajouter</span>
           </Button>
         </div>
 
         {/* Notes display */}
         {notes ? (
-          <div className="bg-muted/50 rounded-xl p-4 border border-border">
+          <div className="bg-muted/50 rounded-lg p-4">
             <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
               {notes}
             </pre>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
-              <FileText className="w-5 h-5 text-muted-foreground" />
-            </div>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <FileText className="w-8 h-8 text-muted-foreground/50 mb-2" />
             <p className="text-sm text-muted-foreground">Aucune note</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              Ajoutez une note pour garder un suivi
-            </p>
           </div>
         )}
       </CardContent>
