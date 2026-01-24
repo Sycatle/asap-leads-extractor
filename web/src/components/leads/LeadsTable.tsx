@@ -2,32 +2,32 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, Phone, ExternalLink, Eye, ChevronLeft, ChevronRight, Loader2, Building2 } from 'lucide-react';
+import { Users, Phone, ExternalLink, Eye, ChevronLeft, ChevronRight, Loader2, Building2, Star } from 'lucide-react';
 import type { LeadSummary } from '@/types';
-import { StatusBadge, PriorityBadge, RatingBadge } from '@/components/ui';
+import { StatusBadge, PriorityBadge } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 // ===== LEAD AVATAR =====
 
 function LeadAvatar({ lead }: { lead: LeadSummary }) {
   if (lead.image_url) {
     return (
-      <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800">
+      <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-muted">
         <Image
           src={lead.image_url}
           alt={lead.name}
           fill
           className="object-cover"
-          sizes="40px"
-          unoptimized // Google Maps images are external
+          sizes="36px"
+          unoptimized
         />
       </div>
     );
   }
 
-  // Fallback: icon placeholder
   return (
-    <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-      <Building2 className="w-5 h-5 text-zinc-400" />
+    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+      <Building2 className="w-4 h-4 text-muted-foreground" />
     </div>
   );
 }
@@ -35,23 +35,26 @@ function LeadAvatar({ lead }: { lead: LeadSummary }) {
 // ===== TABLE HEADER =====
 
 const TABLE_HEADERS = [
-  { key: 'name', label: 'Établissement' },
+  { key: 'name', label: 'Établissement', className: 'min-w-[200px]' },
   { key: 'city', label: 'Ville' },
-  { key: 'niche', label: 'Niche' },
+  { key: 'niche', label: 'Secteur' },
   { key: 'phone', label: 'Téléphone' },
   { key: 'rating', label: 'Note' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Actions' },
+  { key: 'status', label: 'Statut' },
+  { key: 'actions', label: '', className: 'w-[100px]' },
 ] as const;
 
 function TableHeader() {
   return (
-    <thead className="bg-zinc-50 dark:bg-zinc-800">
-      <tr>
+    <thead>
+      <tr className="border-b border-border">
         {TABLE_HEADERS.map((header) => (
           <th
             key={header.key}
-            className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"
+            className={cn(
+              'px-4 py-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30',
+              header.className
+            )}
           >
             {header.label}
           </th>
@@ -69,13 +72,15 @@ interface LeadRowProps {
 
 function LeadRow({ lead }: LeadRowProps) {
   return (
-    <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+    <tr className="table-row border-b border-border last:border-0 group">
       {/* Name & Priority with Avatar */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <LeadAvatar lead={lead} />
           <div className="min-w-0">
-            <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">{lead.name}</p>
+            <p className="text-[13px] font-medium text-foreground truncate max-w-[180px]">
+              {lead.name}
+            </p>
             {lead.priority && (
               <div className="mt-0.5">
                 <PriorityBadge priority={lead.priority} />
@@ -86,13 +91,19 @@ function LeadRow({ lead }: LeadRowProps) {
       </td>
 
       {/* City */}
-      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+      <td className="px-4 py-3 text-[13px] text-muted-foreground">
         {lead.city || '-'}
       </td>
 
       {/* Niche */}
-      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-        {lead.niche || '-'}
+      <td className="px-4 py-3">
+        {lead.niche ? (
+          <span className="text-[13px] text-muted-foreground">
+            {lead.niche}
+          </span>
+        ) : (
+          <span className="text-[13px] text-muted-foreground/50">-</span>
+        )}
       </td>
 
       {/* Phone */}
@@ -100,21 +111,27 @@ function LeadRow({ lead }: LeadRowProps) {
         {lead.phone ? (
           <a
             href={`tel:${lead.phone}`}
-            className="text-sm font-mono text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-[13px] font-mono text-primary hover:text-primary/80 transition-colors"
           >
             {lead.phone}
           </a>
         ) : (
-          <span className="text-sm text-zinc-400">-</span>
+          <span className="text-[13px] text-muted-foreground/50">-</span>
         )}
       </td>
 
       {/* Rating */}
-      <td className="px-4 py-3 text-sm">
+      <td className="px-4 py-3">
         {lead.rating ? (
-          <RatingBadge rating={lead.rating} reviewsCount={lead.reviews_count ?? undefined} />
+          <div className="flex items-center gap-1">
+            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span className="text-[13px] font-medium text-foreground">{lead.rating}</span>
+            {lead.reviews_count && (
+              <span className="text-[11px] text-muted-foreground">({lead.reviews_count})</span>
+            )}
+          </div>
         ) : (
-          <span className="text-zinc-400">-</span>
+          <span className="text-[13px] text-muted-foreground/50">-</span>
         )}
       </td>
 
@@ -125,45 +142,37 @@ function LeadRow({ lead }: LeadRowProps) {
 
       {/* Actions */}
       <td className="px-4 py-3">
-        <LeadRowActions lead={lead} />
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {lead.website && (
+            <a
+              href={lead.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title="Voir le site"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+          {lead.phone && (
+            <a
+              href={`tel:${lead.phone}`}
+              className="p-1.5 rounded-md hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
+              title="Appeler"
+            >
+              <Phone className="w-4 h-4" />
+            </a>
+          )}
+          <Link
+            href={`/leads/${lead.id}`}
+            className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            title="Voir la fiche"
+          >
+            <Eye className="w-4 h-4" />
+          </Link>
+        </div>
       </td>
     </tr>
-  );
-}
-
-// ===== LEAD ROW ACTIONS =====
-
-function LeadRowActions({ lead }: { lead: LeadSummary }) {
-  return (
-    <div className="flex items-center gap-2">
-      {lead.website && (
-        <a
-          href={lead.website}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          title="Voir le site"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </a>
-      )}
-      {lead.phone && (
-        <a
-          href={`tel:${lead.phone}`}
-          className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-green-600 dark:hover:text-green-400"
-          title="Appeler"
-        >
-          <Phone className="w-4 h-4" />
-        </a>
-      )}
-      <Link
-        href={`/leads/${lead.id}`}
-        className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400"
-        title="Voir la fiche"
-      >
-        <Eye className="w-4 h-4" />
-      </Link>
-    </div>
   );
 }
 
@@ -173,7 +182,7 @@ function TableLoading() {
   return (
     <tr>
       <td colSpan={7} className="px-4 py-12 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-400 mx-auto" />
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
       </td>
     </tr>
   );
@@ -184,11 +193,15 @@ function TableLoading() {
 function TableEmpty() {
   return (
     <tr>
-      <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
-        <div className="flex flex-col items-center gap-2">
-          <Users className="w-12 h-12 text-zinc-300 dark:text-zinc-700" />
-          <p>Aucun lead trouvé</p>
-          <p className="text-sm">Lancez un scrape depuis l&apos;onglet Config</p>
+      <td colSpan={7} className="px-4 py-16 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+            <Users className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">Aucun lead trouvé</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Lancez un scrape depuis Configuration</p>
+          </div>
         </div>
       </td>
     </tr>
@@ -212,27 +225,27 @@ function Pagination({ page, totalPages, total, limit, onPageChange }: Pagination
   const end = Math.min(page * limit, total);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800">
-      <p className="text-sm text-zinc-500">
-        {start} - {end} sur {total}
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
+      <p className="text-xs text-muted-foreground">
+        {start}-{end} sur {total}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page === 1}
-          className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-1.5 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm text-zinc-600 dark:text-zinc-400">
-          Page {page} / {totalPages}
+        <span className="text-xs text-muted-foreground px-2">
+          {page} / {totalPages}
         </span>
         <button
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page === totalPages}
-          className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-1.5 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -261,11 +274,11 @@ export function LeadsTable({
   onPageChange,
 }: LeadsTableProps) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <TableHeader />
-          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <tbody>
             {loading ? (
               <TableLoading />
             ) : leads.length === 0 ? (

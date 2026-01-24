@@ -5,14 +5,14 @@ import type { LeadStatus, Priority, FollowupUrgency } from '@/types';
 import { STATUS_LABELS } from '@/lib/constants';
 import { CheckCircle, XCircle, AlertCircle, Sparkles, Star } from 'lucide-react';
 
-// Modern status colors with subtle backgrounds
+// Modern status colors using CSS variables
 const statusStyles: Record<LeadStatus, { bg: string; text: string; icon: typeof CheckCircle }> = {
-  nouveau: { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-600 dark:text-blue-400', icon: Sparkles },
-  contacte: { bg: 'bg-cyan-50 dark:bg-cyan-950', text: 'text-cyan-600 dark:text-cyan-400', icon: CheckCircle },
-  qualifie: { bg: 'bg-violet-50 dark:bg-violet-950', text: 'text-violet-600 dark:text-violet-400', icon: Star },
-  proposition: { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-600 dark:text-indigo-400', icon: AlertCircle },
-  converti: { bg: 'bg-emerald-50 dark:bg-emerald-950', text: 'text-emerald-600 dark:text-emerald-400', icon: CheckCircle },
-  perdu: { bg: 'bg-zinc-100 dark:bg-zinc-800', text: 'text-zinc-500 dark:text-zinc-400', icon: XCircle },
+  nouveau: { bg: 'bg-primary/10', text: 'text-primary', icon: Sparkles },
+  contacte: { bg: 'bg-info/10', text: 'text-info', icon: CheckCircle },
+  qualifie: { bg: 'bg-info/10', text: 'text-info', icon: Star },
+  proposition: { bg: 'bg-primary/10', text: 'text-primary', icon: AlertCircle },
+  converti: { bg: 'bg-success/10', text: 'text-success', icon: CheckCircle },
+  perdu: { bg: 'bg-muted', text: 'text-muted-foreground', icon: XCircle },
 };
 
 // ===== STATUS BADGE =====
@@ -25,8 +25,8 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, size = 'md', showIcon = false }: StatusBadgeProps) {
   const sizes = {
-    sm: 'px-2 py-0.5 text-xs gap-1',
-    md: 'px-3 py-1.5 text-sm gap-1.5',
+    sm: 'px-2 py-0.5 text-[10px] gap-1',
+    md: 'px-2.5 py-1 text-xs gap-1.5',
   };
   
   const style = statusStyles[status] || statusStyles.nouveau;
@@ -41,7 +41,7 @@ export function StatusBadge({ status, size = 'md', showIcon = false }: StatusBad
         style.text
       )}
     >
-      {showIcon && <IconComponent className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />}
+      {showIcon && <IconComponent className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} />}
       {STATUS_LABELS[status] || status}
     </span>
   );
@@ -50,9 +50,9 @@ export function StatusBadge({ status, size = 'md', showIcon = false }: StatusBad
 // ===== PRIORITY BADGE =====
 
 const priorityStyles: Record<Priority, { dot: string; text: string; bg: string }> = {
-  high: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950' },
-  medium: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950' },
-  low: { dot: 'bg-zinc-400', text: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
+  high: { dot: 'bg-danger', text: 'text-danger', bg: 'bg-danger/10' },
+  medium: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning/10' },
+  low: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', bg: 'bg-muted' },
 };
 
 const priorityLabels: Record<Priority, string> = {
@@ -74,7 +74,7 @@ export function PriorityBadge({ priority, variant = 'dot' }: PriorityBadgeProps)
     return (
       <span
         className={cn(
-          'px-2.5 py-1 rounded-full text-xs font-medium',
+          'px-2 py-0.5 rounded-full text-[10px] font-medium',
           style.bg,
           style.text
         )}
@@ -87,8 +87,8 @@ export function PriorityBadge({ priority, variant = 'dot' }: PriorityBadgeProps)
   if (variant === 'dot') {
     return (
       <span className="flex items-center gap-1.5">
-        <span className={cn('w-2 h-2 rounded-full', style.dot)} />
-        <span className={cn('text-xs font-medium', style.text)}>
+        <span className={cn('w-1.5 h-1.5 rounded-full', style.dot)} />
+        <span className={cn('text-[10px] font-medium', style.text)}>
           {label}
         </span>
       </span>
@@ -96,7 +96,7 @@ export function PriorityBadge({ priority, variant = 'dot' }: PriorityBadgeProps)
   }
 
   return (
-    <span className={cn('text-xs font-medium', style.text)}>
+    <span className={cn('text-[10px] font-medium', style.text)}>
       {label.toUpperCase()}
     </span>
   );
@@ -111,10 +111,10 @@ interface UrgencyBadgeProps {
 }
 
 const urgencyStyles: Record<FollowupUrgency, { bg: string; text: string; pulse?: boolean }> = {
-  overdue: { bg: 'bg-red-100 dark:bg-red-900/50', text: 'text-red-700 dark:text-red-300', pulse: true },
-  today: { bg: 'bg-orange-100 dark:bg-orange-900/50', text: 'text-orange-700 dark:text-orange-300' },
-  tomorrow: { bg: 'bg-blue-100 dark:bg-blue-900/50', text: 'text-blue-700 dark:text-blue-300' },
-  week: { bg: 'bg-zinc-100 dark:bg-zinc-800', text: 'text-zinc-700 dark:text-zinc-300' },
+  overdue: { bg: 'bg-danger/10', text: 'text-danger', pulse: true },
+  today: { bg: 'bg-warning/10', text: 'text-warning' },
+  tomorrow: { bg: 'bg-primary/10', text: 'text-primary' },
+  week: { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
 const urgencyLabels: Record<FollowupUrgency, string> = {
@@ -130,14 +130,14 @@ export function UrgencyBadge({ urgency, count, icon }: UrgencyBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all',
         style.bg,
         style.text,
-        style.pulse && 'animate-pulse'
+        style.pulse && 'animate-pulse-soft'
       )}
     >
       {icon}
-      {count !== undefined && <span className="font-bold">{count}</span>}
+      {count !== undefined && <span className="font-semibold">{count}</span>}
       {urgencyLabels[urgency]}
     </span>
   );
@@ -153,19 +153,19 @@ interface RatingBadgeProps {
 
 export function RatingBadge({ rating, reviewsCount, size = 'md' }: RatingBadgeProps) {
   const sizeClasses = {
-    sm: 'text-xs gap-1',
-    md: 'text-sm gap-1.5',
+    sm: 'text-[10px] gap-0.5',
+    md: 'text-xs gap-1',
   };
   
   return (
     <span className={cn(
-      'inline-flex items-center font-medium text-amber-600 dark:text-amber-400',
+      'inline-flex items-center font-medium text-warning',
       sizeClasses[size]
     )}>
-      <Star className={cn('fill-current', size === 'sm' ? 'w-3 h-3' : 'w-4 h-4')} />
+      <Star className={cn('fill-current', size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3')} />
       <span>{rating.toFixed(1)}</span>
       {reviewsCount !== undefined && reviewsCount !== null && (
-        <span className="text-zinc-400 dark:text-zinc-500 font-normal">
+        <span className="text-muted-foreground font-normal">
           ({reviewsCount})
         </span>
       )}

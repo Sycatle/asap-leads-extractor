@@ -4,7 +4,7 @@ import { Users, Phone, Calendar, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import { LoadingState, StatCard } from '@/components/ui';
-import { PipelineCard, UrgentFollowupsCard, SessionBanner, CallCTA, PerformanceCard } from '@/components/dashboard';
+import { PipelineCard, UrgentFollowupsCard, SessionBanner, CallCTA } from '@/components/dashboard';
 import { PageHeader } from '@/components/layout';
 import { fetchStats, fetchSession, fetchFollowups } from '@/lib/api';
 import type { Stats, Session, FollowupLead } from '@/types';
@@ -72,29 +72,29 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <PageHeader 
         title={`${greeting} 👋`}
-        description="Voici un aperçu de votre activité de prospection"
+        description="Voici un aperçu de votre activité"
       />
 
       {/* Active session banner */}
       {session && <SessionBanner session={session} />}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Users}
           label="Total leads"
           value={stats?.total ?? 0}
-          color="blue"
+          color="primary"
         />
         <StatCard
           icon={Phone}
           label="À appeler"
           value={stats?.to_call ?? 0}
-          color="orange"
+          color="warning"
           href="/call"
         />
         <StatCard
@@ -102,7 +102,7 @@ export default function DashboardPage() {
           label="Relances"
           value={followupCounts?.overdue ?? 0}
           subValue={followupCounts?.today ? `+${followupCounts.today} auj.` : undefined}
-          color="purple"
+          color="info"
           href="/followups"
           alert={followupCounts?.overdue ? followupCounts.overdue > 0 : false}
         />
@@ -110,7 +110,7 @@ export default function DashboardPage() {
           icon={TrendingUp}
           label="Taux contact"
           value={`${contactRate}%`}
-          color="green"
+          color="success"
         />
       </div>
 
@@ -123,16 +123,13 @@ export default function DashboardPage() {
       )}
 
       {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Pipeline */}
         {stats && <PipelineCard stats={stats} />}
 
         {/* Urgent followups */}
         <UrgentFollowupsCard followups={followups} />
       </div>
-
-      {/* Performance */}
-      {stats && stats.total > 0 && <PerformanceCard stats={stats} />}
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Loader2,
   PhoneOff,
-  PhoneMissed,
   Calendar,
   CheckCircle2,
   XCircle,
@@ -13,9 +12,11 @@ import {
   Building2,
   PhoneCall,
   Timer,
+  Play,
 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { CALL_OUTCOMES } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import type { CallOutcome } from '@/types';
 
 const OUTCOME_ICONS: Record<CallOutcome, typeof PhoneOff> = {
@@ -31,14 +32,14 @@ const OUTCOME_ICONS: Record<CallOutcome, typeof PhoneOff> = {
   opt_out: Ban,
 };
 
-const OUTCOME_COLORS = {
-  red: 'bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-300',
-  yellow: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900 dark:hover:bg-yellow-800 dark:text-yellow-300',
-  blue: 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900 dark:hover:bg-blue-800 dark:text-blue-300',
-  green: 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900 dark:hover:bg-green-800 dark:text-green-300',
-  zinc: 'bg-muted hover:bg-accent text-muted-foreground',
-  purple: 'bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900 dark:hover:bg-purple-800 dark:text-purple-300',
-  orange: 'bg-orange-100 hover:bg-orange-200 text-orange-700 dark:bg-orange-900 dark:hover:bg-orange-800 dark:text-orange-300',
+const OUTCOME_COLORS: Record<string, string> = {
+  red: 'bg-danger/10 hover:bg-danger/20 text-danger border-danger/20',
+  yellow: 'bg-warning/10 hover:bg-warning/20 text-warning border-warning/20',
+  blue: 'bg-primary/10 hover:bg-primary/20 text-primary border-primary/20',
+  green: 'bg-success/10 hover:bg-success/20 text-success border-success/20',
+  zinc: 'bg-muted hover:bg-muted/80 text-muted-foreground border-border',
+  purple: 'bg-info/10 hover:bg-info/20 text-info border-info/20',
+  orange: 'bg-warning/10 hover:bg-warning/20 text-warning border-warning/20',
 };
 
 // Format call duration
@@ -51,7 +52,7 @@ function formatCallDuration(seconds: number): string {
 interface CallOutcomesCardProps {
   onOutcome: (outcome: CallOutcome) => void;
   loading: boolean;
-  leadId?: number; // Used as key in parent to reset state
+  leadId?: number;
 }
 
 export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) {
@@ -73,7 +74,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
     };
   }, [callStarted]);
 
-  // Handle outcome selection (stops timer)
+  // Handle outcome selection
   const handleOutcome = useCallback((outcome: CallOutcome) => {
     onOutcome(outcome);
   }, [onOutcome]);
@@ -86,7 +87,7 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
 
   // Keyboard shortcut for starting call
   useEffect(() => {
-    if (callStarted) return; // Only listen when not yet started
+    if (callStarted) return;
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -127,99 +128,100 @@ export function CallOutcomesCard({ onOutcome, loading }: CallOutcomesCardProps) 
         key={outcome.id}
         onClick={() => handleOutcome(outcome.id)}
         disabled={loading}
-        className={`flex flex-col items-center gap-1 p-2.5 rounded-xl font-medium transition-all disabled:opacity-50 ${
+        className={cn(
+          'flex flex-col items-center gap-1.5 p-2.5 rounded-lg border font-medium transition-all disabled:opacity-50',
           OUTCOME_COLORS[outcome.color]
-        }`}
+        )}
       >
         {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
-          <Icon className="w-5 h-5" />
+          <Icon className="w-4 h-4" />
         )}
-        <span className="text-xs">{outcome.label}</span>
-        <kbd className="text-xs font-mono font-bold bg-white/60 dark:bg-black/30 px-2 py-0.5 rounded uppercase">
+        <span className="text-[11px] leading-tight text-center">{outcome.label}</span>
+        <kbd className="text-[10px] font-mono font-semibold bg-background/50 px-1.5 py-0.5 rounded uppercase">
           {outcome.key}
         </kbd>
       </button>
     );
   };
 
-  // Pre-call state: Show "Start Call" button
+  // Pre-call state
   if (!callStarted) {
     return (
-      <Card className="p-6">
-        <div className="flex flex-col items-center justify-center gap-4 py-8">
-          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-            <PhoneCall className="w-8 h-8 text-green-600 dark:text-green-400" />
+      <Card className="p-5">
+        <div className="flex flex-col items-center justify-center gap-4 py-6">
+          <div className="w-14 h-14 rounded-2xl bg-success/10 flex items-center justify-center">
+            <Play className="w-7 h-7 text-success ml-0.5" />
           </div>
           <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-1">Prêt à appeler ?</p>
-            <p className="text-xs text-zinc-400">Le timer démarrera au lancement</p>
+            <p className="text-sm font-medium text-foreground">Prêt à appeler ?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Le timer démarrera au clic</p>
           </div>
           <button
             onClick={handleStartCall}
-            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-green-600/25"
+            className="flex items-center gap-2 px-5 py-2.5 bg-success hover:bg-success/90 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
             Lancer l&apos;appel
           </button>
-          <kbd className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
-            Entrée pour lancer
-          </kbd>
+          <p className="text-[10px] text-muted-foreground">
+            Appuyez sur <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Entrée</kbd>
+          </p>
         </div>
       </Card>
     );
   }
 
-  // Active call state: Show timer + outcomes
+  // Active call state
   return (
     <Card className="p-4">
       {/* Call Timer */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
           Appel en cours
         </p>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">
-          <Timer className="w-4 h-4 text-green-600 dark:text-green-400 animate-pulse" />
-          <span className="font-mono font-bold text-green-700 dark:text-green-300">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-success/10 rounded-full">
+          <Timer className="w-3.5 h-3.5 text-success animate-pulse-soft" />
+          <span className="font-mono text-sm font-semibold text-success tabular-nums">
             {formatCallDuration(callDuration)}
           </span>
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-        Résultat de l&apos;appel
+      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-3">
+        Résultat
       </p>
       
       <div className="space-y-3">
         {/* Pas de contact */}
         <div>
-          <p className="text-[10px] text-zinc-400 uppercase mb-1.5">Pas de contact</p>
-          <div className="grid grid-cols-3 gap-2">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Pas de contact</p>
+          <div className="grid grid-cols-2 gap-1.5">
             {noContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Contact partiel */}
         <div>
-          <p className="text-[10px] text-zinc-400 uppercase mb-1.5">Contact partiel</p>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Contact partiel</p>
+          <div className="grid grid-cols-3 gap-1.5">
             {partialContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Contact positif */}
         <div>
-          <p className="text-[10px] text-zinc-400 uppercase mb-1.5">Contact positif</p>
-          <div className="grid grid-cols-3 gap-2">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Contact positif</p>
+          <div className="grid grid-cols-3 gap-1.5">
             {positiveContact.map(renderOutcomeButton)}
           </div>
         </div>
 
         {/* Clôture */}
         <div>
-          <p className="text-[10px] text-zinc-400 uppercase mb-1.5">Clôture</p>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1.5 font-medium">Clôture</p>
+          <div className="grid grid-cols-2 gap-1.5">
             {closure.map(renderOutcomeButton)}
           </div>
         </div>

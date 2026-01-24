@@ -21,33 +21,33 @@ export const CALL_STATUS_LABELS: Record<CallStatus, string> = {
 // ===== STATUS COLORS =====
 
 export const STATUS_COLORS: Record<LeadStatus, string> = {
-  nouveau: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  contacte: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  qualifie: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-  proposition: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-  converti: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  perdu: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400',
+  nouveau: 'bg-primary/10 text-primary',
+  contacte: 'bg-warning/10 text-warning',
+  qualifie: 'bg-info/10 text-info',
+  proposition: 'bg-warning/10 text-warning',
+  converti: 'bg-success/10 text-success',
+  perdu: 'bg-muted text-muted-foreground',
 };
 
 export const STATUS_BAR_COLORS: Record<LeadStatus, string> = {
-  nouveau: 'bg-blue-500',
-  contacte: 'bg-yellow-500',
-  qualifie: 'bg-purple-500',
-  proposition: 'bg-orange-500',
-  converti: 'bg-green-500',
-  perdu: 'bg-zinc-400',
+  nouveau: 'bg-primary',
+  contacte: 'bg-warning',
+  qualifie: 'bg-info',
+  proposition: 'bg-warning',
+  converti: 'bg-success',
+  perdu: 'bg-muted-foreground',
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {
-  high: 'text-red-600 dark:text-red-400',
-  medium: 'text-yellow-600 dark:text-yellow-400',
-  low: 'text-zinc-500',
+  high: 'text-danger',
+  medium: 'text-warning',
+  low: 'text-muted-foreground',
 };
 
 export const PRIORITY_BADGE_COLORS: Record<Priority, string> = {
-  high: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  low: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+  high: 'bg-danger/10 text-danger',
+  medium: 'bg-warning/10 text-warning',
+  low: 'bg-muted text-muted-foreground',
 };
 
 // ===== URGENCY CONFIG =====
@@ -60,27 +60,27 @@ export const URGENCY_CONFIG: Record<FollowupUrgency, {
 }> = {
   overdue: {
     label: 'En retard',
-    color: 'text-red-600 dark:text-red-400',
-    bg: 'bg-red-50 dark:bg-red-950',
-    border: 'border-red-200 dark:border-red-800',
+    color: 'text-danger',
+    bg: 'bg-danger/5',
+    border: 'border-danger/20',
   },
   today: {
     label: "Aujourd'hui",
-    color: 'text-orange-600 dark:text-orange-400',
-    bg: 'bg-orange-50 dark:bg-orange-950',
-    border: 'border-orange-200 dark:border-orange-800',
+    color: 'text-warning',
+    bg: 'bg-warning/5',
+    border: 'border-warning/20',
   },
   tomorrow: {
     label: 'Demain',
-    color: 'text-blue-600 dark:text-blue-400',
-    bg: 'bg-blue-50 dark:bg-blue-950',
-    border: 'border-blue-200 dark:border-blue-800',
+    color: 'text-primary',
+    bg: 'bg-primary/5',
+    border: 'border-primary/20',
   },
   week: {
     label: 'Cette semaine',
-    color: 'text-zinc-600 dark:text-zinc-400',
-    bg: 'bg-zinc-50 dark:bg-zinc-900',
-    border: 'border-zinc-200 dark:border-zinc-800',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted/50',
+    border: 'border-border',
   },
 };
 

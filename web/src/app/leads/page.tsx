@@ -5,7 +5,7 @@ import { useLeads, useStats } from '@/hooks';
 import { LeadsStats, LeadsFilters, LeadsTable } from '@/components/leads';
 import { PageHeader } from '@/components/layout';
 import { LinkButton } from '@/components/ui';
-import { Download, Plus } from 'lucide-react';
+import { Download, Settings } from 'lucide-react';
 import type { LeadStatus } from '@/types';
 
 export default function LeadsPage() {
@@ -58,17 +58,17 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <PageHeader 
         title="Leads"
-        description={`${total} leads dans votre base de données`}
+        description={`${total} leads dans votre base`}
         action={
-          <div className="flex items-center gap-3">
-            <LinkButton href="/config" variant="secondary" size="sm" icon={<Plus className="w-4 h-4" />}>
+          <div className="flex items-center gap-2">
+            <LinkButton href="/config" variant="outline" size="sm" icon={<Settings className="w-4 h-4" />}>
               Scraper
             </LinkButton>
-            <LinkButton href="/api/leads/export" variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>
+            <LinkButton href="/api/leads/export" variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
               Exporter
             </LinkButton>
           </div>

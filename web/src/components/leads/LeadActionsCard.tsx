@@ -35,7 +35,7 @@ export function LeadActionsCard({
             color="green"
           />
           <ActionButton
-            icon={<Calendar className="w-4 h-4" />}}
+            icon={<Calendar className="w-4 h-4" />}
             label="Rappeler"
             onClick={() => onLogCall('rappeler')}
             loading={actionLoading === 'rappeler'}

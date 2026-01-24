@@ -14,15 +14,15 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="text-center py-16">
-      <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 mb-6">
-        <Icon className="w-10 h-10 text-zinc-400 dark:text-zinc-500" />
+    <div className="text-center py-12 px-4">
+      <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-muted mb-5">
+        <Icon className="w-7 h-7 text-muted-foreground" />
       </div>
-      <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+      <h2 className="text-base font-semibold text-foreground mb-1.5">
         {title}
       </h2>
       {description && (
-        <p className="text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto mb-8">
+        <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
           {description}
         </p>
       )}
@@ -41,13 +41,13 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, description, action }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center justify-between mb-5">
       <div>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+        <h2 className="text-lg font-semibold text-foreground tracking-tight">
           {title}
         </h2>
         {description && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {description}
           </p>
         )}
@@ -66,24 +66,25 @@ interface CustomCardHeaderProps {
   icon?: LucideIcon;
   description?: string;
   action?: React.ReactNode;
+  className?: string;
 }
 
-export function CardHeader({ title, emoji, icon: Icon, description, action }: CustomCardHeaderProps) {
+export function CardHeader({ title, emoji, icon: Icon, description, action, className }: CustomCardHeaderProps) {
   return (
-    <div className="flex items-start justify-between mb-6">
-      <div className="flex items-center gap-3">
+    <div className={cn("flex items-start justify-between mb-5", className)}>
+      <div className="flex items-center gap-2.5">
         {Icon && (
-          <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-            <Icon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+          <div className="p-2 rounded-lg bg-muted">
+            <Icon className="w-4 h-4 text-muted-foreground" />
           </div>
         )}
         <div>
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
             {emoji && <span>{emoji}</span>}
             {title}
           </h3>
           {description && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {description}
             </p>
           )}
