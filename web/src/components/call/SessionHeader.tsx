@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Clock, Pause, Play, ArrowLeft, Phone, CheckCircle, Voicemail, X, TrendingUp } from 'lucide-react';
 import { formatTime, cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 import type { Session } from '@/types';
 
@@ -35,12 +36,10 @@ export function SessionHeader({
     <div className="card p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/leads"
-            onClick={onEnd}
-            className="p-2 rounded-lg hover:bg-accent transition-colors"
-          >
-            <ArrowLeft className="w-[18px] h-[18px] text-muted-foreground" />
+          <Link href="/leads" onClick={onEnd}>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="w-[18px] h-[18px] text-muted-foreground" />
+            </Button>
           </Link>
           <div>
             <div className="flex items-center gap-2">
@@ -107,25 +106,28 @@ export function SessionHeader({
           </div>
 
           {/* Pause/Play button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onTogglePause}
             className={cn(
-              'p-2.5 rounded-lg transition-all',
               isPaused
                 ? 'bg-success text-white hover:bg-success/90'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             )}
           >
             {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-          </button>
+          </Button>
 
           {/* End button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onEnd}
-            className="p-2.5 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-all"
+            className="bg-danger/10 text-danger hover:bg-danger/20"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

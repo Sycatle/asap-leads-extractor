@@ -24,42 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { fetchStats, fetchSession, fetchFollowups, fetchGamifiedStats } from '@/lib/api';
-import type { Stats, Session, FollowupLead } from '@/types';
-
-// Type for gamified stats from API (matches backend return structure)
-interface GamifiedStatsAPI {
-  today: {
-    calls_today: number;
-    calls_goal: number;
-    contacts_today: number;
-    rdv_today: number;
-    avg_call_duration: number;
-  };
-  streak: {
-    current_streak: number;
-    best_streak: number;
-    last_activity_date: string | null;
-  };
-  top_leads: Array<{
-    id: number;
-    name: string;
-    city: string;
-    niche: string | null;
-    phone: string;
-    score: number;
-    priority: 'high' | 'medium' | 'low';
-    website: string | null;
-    website_status: string | null;
-    pain_points: string[] | null;
-    reason: string;
-  }>;
-  weekly_performance: {
-    calls: number[];
-    contacts: number[];
-    labels: string[];
-  };
-  conversion_rate: number;
-}
+import type { Stats, Session, FollowupLead, GamifiedStats } from '@/types';
 
 type Period = '24h' | '7d' | '30d' | 'all';
 
@@ -72,7 +37,7 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [gamifiedStats, setGamifiedStats] = useState<GamifiedStatsAPI | null>(null);
+  const [gamifiedStats, setGamifiedStats] = useState<GamifiedStats | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [followups, setFollowups] = useState<FollowupLead[]>([]);
   const [followupCounts, setFollowupCounts] = useState<{ overdue: number; today: number; total: number } | null>(null);
@@ -82,7 +47,7 @@ export default function DashboardPage() {
   const loadGamifiedStats = useCallback(async (selectedPeriod: Period) => {
     try {
       const gamifiedData = await fetchGamifiedStats(selectedPeriod);
-      setGamifiedStats(gamifiedData as GamifiedStatsAPI);
+      setGamifiedStats(gamifiedData);
     } catch (error) {
       console.error('Failed to fetch gamified stats:', error);
     }
@@ -99,7 +64,7 @@ export default function DashboardPage() {
         ]);
 
         setStats(statsData);
-        setGamifiedStats(gamifiedData as GamifiedStatsAPI);
+        setGamifiedStats(gamifiedData);
         
         if (sessionData.active && sessionData.session) {
           setSession(sessionData.session);

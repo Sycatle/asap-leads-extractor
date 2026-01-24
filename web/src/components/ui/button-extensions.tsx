@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 
 interface LinkButtonProps {
   href: string;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   children: React.ReactNode;
@@ -17,9 +17,10 @@ interface LinkButtonProps {
 }
 
 const buttonVariants = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md',
-  secondary: 'border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600',
-  ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
+  primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+  ghost: 'hover:bg-accent hover:text-accent-foreground',
+  outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
 };
 
 const buttonSizes = {

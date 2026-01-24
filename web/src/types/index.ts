@@ -113,17 +113,19 @@ export interface Stats {
 
 // ===== GAMIFIED STATS TYPES =====
 
+// ===== GAMIFIED STATS =====
+
 export interface TodayStats {
-  calls: number;
-  contacts: number;
-  rdv: number;
-  avg_duration: number;
-  objective_calls: number;
+  calls_today: number;
+  calls_goal: number;
+  contacts_today: number;
+  rdv_today: number;
+  avg_call_duration: number;
 }
 
 export interface StreakInfo {
-  current: number;
-  best: number;
+  current_streak: number;
+  best_streak: number;
   last_activity_date: string | null;
 }
 
@@ -132,12 +134,13 @@ export interface TopLead {
   name: string;
   city: string;
   niche: string | null;
+  phone: string;
   score: number;
   priority: Priority;
-  has_website: boolean;
-  pain_points: string[];
-  phone: string;
-  reason?: string;
+  website: string | null;
+  website_status: string | null;
+  pain_points: string[] | null;
+  reason: string;
 }
 
 export interface WeeklyPerformance {
@@ -146,26 +149,12 @@ export interface WeeklyPerformance {
   labels: string[];
 }
 
-export interface LevelInfo {
-  name: string;
-  current_xp: number;
-  next_level_xp: number;
-  progress_percent: number;
-}
-
-export interface DailyPerformance {
-  date: string;
-  calls: number;
-  contacts: number;
-}
-
 export interface GamifiedStats {
   today: TodayStats;
   streak: StreakInfo;
   top_leads: TopLead[];
   weekly_performance: WeeklyPerformance;
   conversion_rate: number;
-  level: LevelInfo;
 }
 
 // ===== FOLLOWUP TYPES =====

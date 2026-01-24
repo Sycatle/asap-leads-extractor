@@ -2,12 +2,7 @@
 
 import { TrendingUp, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-
-interface StreakInfo {
-  current_streak: number;
-  best_streak: number;
-  last_activity_date: string | null;
-}
+import type { StreakInfo } from '@/types';
 
 interface StreakCardProps {
   streak: StreakInfo;

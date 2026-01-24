@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
 import { useLead } from '@/hooks';
-import { FollowupModal, StatusBadge } from '@/components/ui';
+import { FollowupModal, StatusBadge, LoadingState } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 import { CurrentLeadCard } from '@/components/call';
 import {
   LeadActionsCard,
@@ -38,35 +38,32 @@ export default function LeadDetailPage() {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-      </div>
-    );
+    return <LoadingState message="Chargement du lead..." />;
   }
 
   // Not found state
   if (!lead) {
     return (
-      <div className="text-center py-12">
-        <p className="text-zinc-500">Lead non trouvé</p>
-        <Link href="/leads" className="text-blue-600 hover:underline mt-2 inline-block">
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-muted-foreground">Lead non trouvé</p>
+        <Button variant="outline" onClick={() => router.push('/leads')}>
           Retour à la liste
-        </Link>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
       {/* Header with back button and status */}
       <div className="flex items-center gap-4">
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => router.back()}
-          className="p-2 rounded-lg hover:bg-accent"
         >
           <ArrowLeft className="w-5 h-5" />
-        </button>
+        </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">
             {lead.name}

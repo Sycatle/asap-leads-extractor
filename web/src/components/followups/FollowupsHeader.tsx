@@ -1,8 +1,9 @@
 'use client';
 
-import { Calendar, Phone, Sparkles } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import Link from 'next/link';
 import type { FollowupsData } from '@/types';
+import { Button } from '@/components/ui/button';
 
 interface FollowupsHeaderProps {
   counts: FollowupsData['counts'];
@@ -46,12 +47,10 @@ export function FollowupsEmpty() {
       <p className="text-sm text-muted-foreground mb-6">
         Lancez une session d&apos;appel pour planifier des relances
       </p>
-      <Link
-        href="/call"
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-info text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-      >
-        <Sparkles className="w-4 h-4" />
-        Lancer une session
+      <Link href="/call">
+        <Button>
+          Lancer une session
+        </Button>
       </Link>
     </div>
   );

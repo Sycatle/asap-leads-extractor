@@ -2,14 +2,7 @@
 
 import { Target } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-interface TodayStats {
-  calls_today: number;
-  calls_goal: number;
-  contacts_today: number;
-  rdv_today: number;
-  avg_call_duration: number;
-}
+import type { TodayStats } from '@/types';
 
 interface DailyGoalCardProps {
   today: TodayStats;

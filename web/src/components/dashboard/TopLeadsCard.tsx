@@ -5,20 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
-interface TopLead {
-  id: number;
-  name: string;
-  city: string;
-  niche: string | null;
-  phone: string;
-  score: number;
-  priority: 'high' | 'medium' | 'low';
-  website: string | null;
-  website_status: string | null;
-  pain_points: string[] | null;
-  reason: string;
-}
+import type { TopLead } from '@/types';
 
 interface TopLeadsCardProps {
   leads: TopLead[];

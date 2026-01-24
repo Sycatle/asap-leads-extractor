@@ -174,8 +174,6 @@ export function NextStepDrawer({
     switch (outcome) {
       case 'injoignable':
         return 'Planifier le rappel';
-      case 'occupe':
-        return 'Ligne occupée';
       case 'accueil':
         return 'Action suite accueil';
       case 'decideur_absent':
@@ -199,8 +197,6 @@ export function NextStepDrawer({
     switch (outcome) {
       case 'injoignable':
         return `${leadName} n'a pas décroché. Planifiez une nouvelle tentative.`;
-      case 'occupe':
-        return `${leadName} est en ligne. Rappelez dans quelques minutes.`;
       case 'accueil':
         return `Vous avez eu l'accueil. Quelle action pour joindre le décideur ?`;
       case 'decideur_absent':
