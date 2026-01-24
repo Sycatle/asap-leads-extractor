@@ -333,7 +333,7 @@ function SalesArgumentsSection({ lead }: { lead: Lead }) {
   return (
     <div className="border-b border-border">
       {/* Header avec titre accrocheur */}
-      <div className="px-4 py-2.5 bg-gradient-to-r from-warning/20 to-danger/20">
+      <div className="px-4 py-2.5 bg-linear-to-r from-warning/20 to-danger/20">
         <div className="flex items-center gap-2">
           <span className="text-base">🎯</span>
           <h3 className="text-sm font-semibold text-foreground">
@@ -347,7 +347,7 @@ function SalesArgumentsSection({ lead }: { lead: Lead }) {
         </div>
       </div>
       
-      <div className="p-4 bg-gradient-to-b from-warning/5 to-transparent space-y-3">
+      <div className="p-4 bg-linear-to-b from-warning/5 to-transparent space-y-3">
         {/* Situation site web */}
         <div className="flex items-start gap-3">
           <div className={`p-2 rounded-lg shrink-0 ${
@@ -937,8 +937,8 @@ export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCar
         </div>
       )}
 
-      {/* Previous notes (if any and no history) */}
-      {lead.notes && history.length === 0 && !loadingHistory && (
+      {/* Previous notes (if any and no history) - Hidden on detail page to avoid duplication */}
+      {lead.notes && history.length === 0 && !loadingHistory && !hideViewButton && (
         <div className="px-4 py-2 border-t border-border">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
           <pre className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-2">

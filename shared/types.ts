@@ -158,6 +158,22 @@ export interface Config {
     interval_minutes: number;
     max_leads_per_run: number;
   };
+  orchestrator?: {
+    // Intervalles entre cycles (en minutes)
+    scrape_interval?: number;
+    enrich_interval?: number;
+    website_interval?: number;
+    collect_interval?: number;
+    // Limites par cycle
+    max_scrape_per_cycle?: number;   // Nombre de requêtes GMaps par cycle (pas total leads)
+    max_enrich_per_cycle?: number;
+    max_website_per_cycle?: number;
+    // Comportement
+    parallel_pipelines?: boolean;
+    auto_throttle?: boolean;
+    metrics_interval?: number;
+    enrich_priority_threshold?: number;  // Si > N leads à enrichir, prioriser enrich
+  };
 }
 
 export interface PappersResult {

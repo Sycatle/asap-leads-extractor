@@ -1,24 +1,28 @@
 {
   "name": "leads-finder",
-  "version": "1.0.0",
-  "description": "Lead generation tool - 100 call-ready leads",
+  "version": "2.0.0",
+  "description": "Lead generation tool with intelligent multi-pipeline worker",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsx worker/index.ts once",
-    "worker": "tsx worker/index.ts worker",
+    "start": "tsx worker/index.ts orchestrator",
+    "worker": "tsx worker/index.ts orchestrator",
+    "brain": "tsx worker/index.ts orchestrator",
+    "full": "tsx worker/index.ts full",
+    "once": "tsx worker/index.ts once",
     "cli": "tsx worker/cli.ts",
     "scrape": "tsx worker/index.ts scrape",
     "collect": "tsx worker/cli.ts collect",
     "enrich": "tsx worker/index.ts enrich",
-    "enrich:website": "tsx worker/enrichWebsite.ts",
+    "enrich:website": "tsx worker/index.ts enrich:website",
     "stats": "tsx worker/cli.ts stats",
     "migrate": "tsx shared/migrate.ts",
     "migrate:status": "tsx shared/migrate.ts status",
     "migrate:up": "tsx shared/migrate.ts up",
     "migrate:rollback": "tsx shared/migrate.ts rollback",
     "web": "cd web && pnpm dev",
-    "web:build": "cd web && pnpm build"
+    "web:build": "cd web && pnpm build",
+    "help": "tsx worker/index.ts help"
   },
   "bin": {
     "leads-finder": "./dist/cli.js"

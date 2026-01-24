@@ -7,6 +7,7 @@
 import { getDb, enrichLead } from './db.js';
 import type { DbLead } from '../shared/types.js';
 import { searchAndExtract, closeBrowser, type SocieteResult } from './enrichSociete.js';
+import { enrichLogger as log, ProgressBar } from './logger.js';
 import 'dotenv/config';
 
 // ===== CONFIGURATION =====
@@ -79,25 +80,23 @@ export async function enrich(maxLeads?: number): Promise<EnrichmentStats> {
   };
   
   if (leadsToEnrich.length === 0) {
-    console.log('✓ Aucun lead à enrichir');
+    log.success('Aucun lead à enrichir');
     return stats;
   }
 
-  console.log(`\n🔍 Enrichissement Societe.com de ${leadsToEnrich.length} leads...`);
-  console.log(`   ⏱  Temps estimé: ~${Math.ceil(leadsToEnrich.length * 5 / 60)} minutes\n`);
+  log.header(`ENRICHISSEMENT SOCIETE.COM`);
+  log.kv('Leads à traiter', leadsToEnrich.length);
+  log.kv('Temps estimé', `~${Math.ceil(leadsToEnrich.length * 5 / 60)} min`);
+  log.blank();
   
   const startTime = Date.now();
+  const progress = new ProgressBar({ total: leadsToEnrich.length, label: 'Enrichissement', logger: log });
   
   try {
     for (let i = 0; i < leadsToEnrich.length; i++) {
       const lead = leadsToEnrich[i];
       
-      // Progress
-      if ((i + 1) % PROGRESS_INTERVAL === 0 || i === 0) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const rate = elapsed > 0 ? (i / elapsed).toFixed(1) : '0';
-        process.stdout.write(`\r🔍 ${i + 1}/${leadsToEnrich.length} | ✓ ${stats.enriched} enrichis | ${rate} leads/s`);
-      }
+      progress.update(i + 1, `✓ ${stats.enriched}`);
       
       try {
         const result = await searchAndExtract(lead.name, lead.city);
@@ -120,7 +119,7 @@ export async function enrich(maxLeads?: number): Promise<EnrichmentStats> {
         }
         
       } catch (error) {
-        console.error(`\n  ✗ Erreur pour ${lead.name}:`, (error as Error).message);
+        log.error(`Erreur pour ${lead.name}: ${(error as Error).message}`);
         stats.failed++;
       }
     }
@@ -132,12 +131,14 @@ export async function enrich(maxLeads?: number): Promise<EnrichmentStats> {
   stats.duration = (Date.now() - startTime) / 1000;
   
   // Final summary
-  console.log(`\n\n✅ Enrichissement terminé!`);
-  console.log(`   📊 Total: ${stats.total} leads`);
-  console.log(`   ✓ Enrichis: ${stats.enriched} (${Math.round(stats.enriched / stats.total * 100)}%)`);
-  console.log(`   👤 Avec dirigeant: ${stats.withDirigeant}`);
-  console.log(`   ✗ Échecs: ${stats.failed}`);
-  console.log(`   ⏱  Durée: ${Math.round(stats.duration)}s`);
+  progress.complete();
+  log.blank();
+  log.section('RÉSULTAT ENRICHISSEMENT');
+  log.kv('Total traités', stats.total);
+  log.kv('Enrichis', `${stats.enriched} (${Math.round(stats.enriched / stats.total * 100)}%)`);
+  log.kv('Avec dirigeant', stats.withDirigeant);
+  log.kv('Échecs', stats.failed);
+  log.kv('Durée', `${Math.round(stats.duration)}s`);
   
   return stats;
 }

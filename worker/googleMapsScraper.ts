@@ -4,16 +4,17 @@ import { upsertLead, closeDb, enrichLead, type InsertLead, getExistingPhones } f
 import { enrichSingleLead } from './enrich.js';
 import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils.js';
 import { classifyWebsiteStatus, computeBestCallTime } from './scoring.js';
+import { scrapeLogger as log, ProgressBar } from './logger.js';
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 
 function debug(...args: unknown[]): void {
-  if (DEBUG) console.log('[DEBUG]', ...args);
+  log.debug(...args);
 }
 
 function debugData(label: string, data: unknown): void {
-  if (DEBUG) console.log(`[DEBUG] ${label}:`, JSON.stringify(data, null, 2));
+  log.debugData(label, data);
 }
 
 const DELAY_BETWEEN_ACTIONS = 600;  // Optimisé: 1000 → 600
@@ -75,7 +76,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
   const { saveImmediately = true, enrichImmediately = false, existingPhones = new Set() } = options;
   let skippedDuplicates = 0;
   
-  console.log(`\n  🔍 Recherche: "${query}"`);
+  log.info(`Recherche: "${query}"`);
   
   const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
   debug('URL:', searchUrl);
@@ -102,7 +103,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
     await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
     debug('Feed de résultats trouvé');
   } catch {
-    console.log(`  ⚠ Pas de résultats pour "${query}"`);
+    log.warn(`Pas de résultats pour "${query}"`);
     debug('Sélecteur div[role="feed"] non trouvé');
     
     // Debug: afficher les éléments présents
@@ -151,7 +152,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
   // Récupérer tous les éléments de la liste
   const items = page.locator('div[role="feed"] > div > div > a[href*="/maps/place/"]');
   const count = await items.count();
-  console.log(`  📍 ${count} établissements trouvés`);
+  log.info(`${count} établissements trouvés`);
   debug('Nombre d\'items dans le feed:', count);
   
   if (count === 0) {
@@ -274,7 +275,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       
       // Valider le nom
       if (!name || !isValidName(name)) {
-        console.log(`  ⏭ Skip (nom invalide): "${name}"`);
+        log.debug(`Skip (nom invalide): "${name}"`);
         continue;
       }
       
@@ -334,7 +335,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       
       // Skip si pas de téléphone
       if (!phone) {
-        console.log(`  ⏭ Skip (pas de tel): "${name.substring(0, 30)}"`);
+        log.debug(`Skip (pas de tel): "${name.substring(0, 30)}"`);
         debug('Aucun téléphone trouvé pour cet établissement');
         continue;
       }
@@ -576,27 +577,28 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       leads.push(lead);
       
       const hasWebsite = website ? '🌐' : '📞';
-      const saved = saveImmediately ? '💾' : '';
-      process.stdout.write(`\r  ✓ ${leads.length}: ${cleanName(name, niche).substring(0, 30).padEnd(30)} ${hasWebsite} ${saved}   `);
+      log.progress(`${leads.length}/${count} │ ${cleanName(name, niche).substring(0, 35).padEnd(35)} ${hasWebsite}`);
       
     } catch (err) {
       // Continuer sur erreur mais logger pour debugging
       debug('Erreur traitement item:', err);
-      console.log(`  ⚠ Erreur extraction pour un établissement, skip...`);
+      log.debug('Erreur extraction pour un établissement, skip...');
       continue;
     }
   }
   
+  log.progressEnd();
   if (skippedDuplicates > 0) {
-    console.log(`  ⏩ ${skippedDuplicates} doublons évités (déjà en DB)`);
+    log.info(`${skippedDuplicates} doublons évités (déjà en DB)`);
   }
-  console.log('');
+  log.success(`${leads.length} leads extraits pour "${query}"`);
   return leads;
 }
 
 export interface ScrapeConfig {
   niches: string[];
   cities: string[];
+  queries?: Array<{ niche: string; city: string }>; // Requêtes explicites (override niches×cities)
   maxPerQuery?: number;
   saveToDb?: boolean; // Déprécié: la sauvegarde est maintenant immédiate par défaut
   enrichImmediately?: boolean; // Enrichir chaque lead immédiatement (Pappers API)
@@ -609,27 +611,39 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   const saveImmediately = config.saveToDb !== false;
   const enrichImmediately = config.enrichImmediately ?? false;
   
-  // Pré-charger les téléphones existants pour skip doublons
-  console.log('📂 Chargement des leads existants...');
-  const existingPhones = saveImmediately ? getExistingPhones() : new Set<string>();
-  console.log(`  ${existingPhones.size} leads déjà en base\n`);
+  // Construire la liste des requêtes
+  let queries: Array<{ niche: string; city: string }>;
+  if (config.queries && config.queries.length > 0) {
+    // Mode requêtes explicites
+    queries = config.queries;
+  } else {
+    // Mode produit cartésien (legacy)
+    queries = [];
+    for (const niche of config.niches) {
+      for (const city of config.cities) {
+        queries.push({ niche, city });
+      }
+    }
+  }
   
-  console.log('🌐 Démarrage du scraper Google Maps\n');
-  console.log(`  Niches: ${config.niches.join(', ')}`);
-  console.log(`  Villes: ${config.cities.join(', ')}`);
-  console.log(`  Requêtes totales: ${config.niches.length * config.cities.length}`);
-  console.log(`  Mode: ${saveImmediately ? '💾 Sauvegarde immédiate' : '📋 Collecte seule'}${enrichImmediately ? ' + 🔍 Enrichissement' : ''}\n`);
+  // Pré-charger les téléphones existants pour skip doublons
+  log.info('Chargement des leads existants...');
+  const existingPhones = saveImmediately ? getExistingPhones() : new Set<string>();
+  log.success(`${existingPhones.size} leads déjà en base`);
+  
+  log.header('SCRAPING GOOGLE MAPS');
+  log.kv('Niches', config.niches.join(', '));
+  log.kv('Villes', config.cities.join(', '));
+  log.kv('Requêtes', queries.length.toString());
+  log.kv('Mode', `${saveImmediately ? 'Sauvegarde immédiate' : 'Collecte seule'}${enrichImmediately ? ' + Enrichissement' : ''}`);
+  log.blank();
   
   if (DEBUG) {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔧 MODE DEBUG ACTIVÉ');
-    console.log('='.repeat(60));
-    console.log('Config complète:', JSON.stringify(config, null, 2));
-    console.log('Constantes:');
-    console.log(`  - DELAY_BETWEEN_ACTIONS: ${DELAY_BETWEEN_ACTIONS}ms`);
-    console.log(`  - SCROLL_PAUSE: ${SCROLL_PAUSE}ms`);
-    console.log(`  - MAX_RESULTS_PER_QUERY: ${MAX_RESULTS_PER_QUERY}`);
-    console.log('='.repeat(60) + '\n');
+    log.section('MODE DEBUG ACTIVÉ');
+    log.debugData('Config', config);
+    log.debug(`DELAY_BETWEEN_ACTIONS: ${DELAY_BETWEEN_ACTIONS}ms`);
+    log.debug(`SCROLL_PAUSE: ${SCROLL_PAUSE}ms`);
+    log.debug(`MAX_RESULTS_PER_QUERY: ${MAX_RESULTS_PER_QUERY}`);
   }
   
   debug('Lancement du navigateur Chromium (headless)...');
@@ -650,25 +664,24 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   debug('✓ Page créée');
   
   try {
-    for (const niche of config.niches) {
-      for (const city of config.cities) {
-        const query = `${niche} ${city}`;
-        debug(`\n${'─'.repeat(50)}`);
-        debug(`▶ Traitement requête: "${query}"`);
-        debug(`${'─'.repeat(50)}`);
-        
-        const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately, existingPhones });
-        
-        debug(`✓ Requête terminée: ${leads.length} leads trouvés`);
-        debugData('Leads de cette requête', leads.map(l => ({ name: l.name, phone: l.phone, hasWebsite: !!l.website })));
-        
-        allLeads.push(...leads);
-        debug(`Total cumulé: ${allLeads.length} leads`);
-        
-        // Pause entre les recherches (optimisée)
-        debug(`Pause de ${DELAY_BETWEEN_ACTIONS}ms avant la prochaine requête...`);
-        await sleep(DELAY_BETWEEN_ACTIONS);
-      }
+    // Utiliser la liste de requêtes pré-construite
+    for (const { niche, city } of queries) {
+      const query = `${niche} ${city}`;
+      debug(`\n${'─'.repeat(50)}`);
+      debug(`▶ Traitement requête: "${query}"`);
+      debug(`${'─'.repeat(50)}`);
+      
+      const leads = await scrapeQuery(page, query, { saveImmediately, enrichImmediately, existingPhones });
+      
+      debug(`✓ Requête terminée: ${leads.length} leads trouvés`);
+      debugData('Leads de cette requête', leads.map(l => ({ name: l.name, phone: l.phone, hasWebsite: !!l.website })));
+      
+      allLeads.push(...leads);
+      debug(`Total cumulé: ${allLeads.length} leads`);
+      
+      // Pause entre les recherches (optimisée)
+      debug(`Pause de ${DELAY_BETWEEN_ACTIONS}ms avant la prochaine requête...`);
+      await sleep(DELAY_BETWEEN_ACTIONS);
     }
   } finally {
     debug('Fermeture du navigateur...');
@@ -690,22 +703,19 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   });
   debug(`Après dédup: ${uniqueLeads.length} leads (${allLeads.length - uniqueLeads.length} doublons)`);
   
-  console.log(`\n✓ Total brut: ${allLeads.length}`);
-  console.log(`✓ Uniques (en mémoire): ${uniqueLeads.length}`);
+  log.blank();
+  log.success(`Total: ${uniqueLeads.length} leads uniques (${allLeads.length} bruts)`);
   
   if (saveImmediately) {
-    console.log(`💾 Tous les leads ont été sauvegardés en temps réel (pas de doublons grâce à l'upsert)`);
+    log.info('Tous les leads ont été sauvegardés en temps réel');
   }
   
   if (DEBUG) {
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 RÉSUMÉ DEBUG');
-    console.log('='.repeat(60));
-    console.log(`Requêtes exécutées: ${config.niches.length * config.cities.length}`);
-    console.log(`Leads bruts collectés: ${allLeads.length}`);
-    console.log(`Leads après dédup: ${uniqueLeads.length}`);
-    console.log(`Taux de doublons: ${((allLeads.length - uniqueLeads.length) / allLeads.length * 100).toFixed(1)}%`);
-    console.log('='.repeat(60) + '\n');
+    log.section('RÉSUMÉ DEBUG');
+    log.kv('Requêtes exécutées', queries.length);
+    log.kv('Leads bruts', allLeads.length);
+    log.kv('Leads uniques', uniqueLeads.length);
+    log.kv('Taux doublons', `${((allLeads.length - uniqueLeads.length) / Math.max(allLeads.length, 1) * 100).toFixed(1)}%`);
   }
   
   return uniqueLeads;

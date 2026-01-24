@@ -4,6 +4,7 @@ import { loadConfig } from './config.js';
 import { RawLead, Config } from '../shared/types.js';
 import { upsertLeads, type InsertLead } from './db.js';
 import { normalizePhone, extractPostalCode } from './utils.js';
+import { collectLogger as log } from './logger.js';
 
 // Mapping colonnes CSV scraper → RawLead
 function mapRow(row: Record<string, string>): RawLead | null {
@@ -71,7 +72,7 @@ export async function collect(): Promise<RawLead[]> {
     const stream = createReadStream(config.input_csv);
     
     stream.on('error', (error) => {
-      console.error(`❌ Erreur lecture fichier ${config.input_csv}:`, getErrorMessage(error));
+      log.error(`Erreur lecture fichier ${config.input_csv}: ${getErrorMessage(error)}`);
       reject(error);
     });
     
@@ -87,13 +88,12 @@ export async function collect(): Promise<RawLead[]> {
           }
         } catch (error) {
           // Skip invalid rows but log warning
-          console.warn('⚠ Ligne CSV invalide, ignorée:', error);
+          log.warn('Ligne CSV invalide, ignorée');
         }
       })
       .on('end', () => {
         const deduped = dedupeByPhone(leads);
-        console.log(`✓ Importés: ${leads.length}`);
-        console.log(`✓ Après dédup: ${deduped.length}`);
+        log.success(`Importés: ${leads.length} | Après dédup: ${deduped.length}`);
 
         // Sauvegarder en batch en SQLite (beaucoup plus efficace)
         const dbLeads: InsertLead[] = deduped.map(lead => ({
@@ -113,15 +113,15 @@ export async function collect(): Promise<RawLead[]> {
         
         try {
           const inserted = upsertLeads(dbLeads);
-          console.log(`✓ Sauvegardés en DB: ${inserted}/${deduped.length}`);
+          log.success(`Sauvegardés en DB: ${inserted}/${deduped.length}`);
         } catch (error) {
-          console.error('❌ Erreur sauvegarde DB:', getErrorMessage(error));
+          log.error(`Erreur sauvegarde DB: ${getErrorMessage(error)}`);
         }
         
         resolve(deduped);
       })
       .on('error', (error) => {
-        console.error('❌ Erreur parsing CSV:', getErrorMessage(error));
+        log.error(`Erreur parsing CSV: ${getErrorMessage(error)}`);
         reject(error);
       });
   });

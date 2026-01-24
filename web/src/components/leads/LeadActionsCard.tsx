@@ -72,7 +72,7 @@ export function LeadActionsCard({
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">
             Résultat d&apos;appel
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="flex flex-wrap gap-2">
             <ActionBtn
               icon={<PhoneCall className="w-4 h-4" />}
               label="Conversation"
@@ -102,7 +102,7 @@ export function LeadActionsCard({
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">
             Changer le statut
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-2">
             <ActionBtn
               label="Qualifié"
               onClick={() => onUpdateStatus('qualifie')}
@@ -138,7 +138,7 @@ export function LeadActionsCard({
 
         {/* Main actions */}
         <div className="pt-4 border-t border-border">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               asChild
               className="h-10 bg-success hover:bg-success/90 text-white"

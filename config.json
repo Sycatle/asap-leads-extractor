@@ -43,5 +43,18 @@
   "worker": {
     "interval_minutes": 30,
     "auto_export": true
+  },
+  "orchestrator": {
+    "scrape_interval": 5,
+    "enrich_interval": 1,
+    "website_interval": 5,
+    "collect_interval": 30,
+    "max_scrape_per_cycle": 3,
+    "max_enrich_per_cycle": 30,
+    "max_website_per_cycle": 20,
+    "enrich_priority_threshold": 50,
+    "parallel_pipelines": true,
+    "auto_throttle": true,
+    "metrics_interval": 30
   }
 }
