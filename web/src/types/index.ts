@@ -111,6 +111,63 @@ export interface Stats {
   to_call: number;
 }
 
+// ===== GAMIFIED STATS TYPES =====
+
+export interface TodayStats {
+  calls: number;
+  contacts: number;
+  rdv: number;
+  avg_duration: number;
+  objective_calls: number;
+}
+
+export interface StreakInfo {
+  current: number;
+  best: number;
+  last_activity_date: string | null;
+}
+
+export interface TopLead {
+  id: number;
+  name: string;
+  city: string;
+  niche: string | null;
+  score: number;
+  priority: Priority;
+  has_website: boolean;
+  pain_points: string[];
+  phone: string;
+  reason?: string;
+}
+
+export interface WeeklyPerformance {
+  calls: number[];
+  contacts: number[];
+  labels: string[];
+}
+
+export interface LevelInfo {
+  name: string;
+  current_xp: number;
+  next_level_xp: number;
+  progress_percent: number;
+}
+
+export interface DailyPerformance {
+  date: string;
+  calls: number;
+  contacts: number;
+}
+
+export interface GamifiedStats {
+  today: TodayStats;
+  streak: StreakInfo;
+  top_leads: TopLead[];
+  weekly_performance: WeeklyPerformance;
+  conversion_rate: number;
+  level: LevelInfo;
+}
+
 // ===== FOLLOWUP TYPES =====
 
 export type FollowupUrgency = 'overdue' | 'today' | 'tomorrow' | 'week';

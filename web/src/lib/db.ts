@@ -13,13 +13,17 @@ export type {
   DbLead 
 } from '../../../shared/types.js';
 
-import type { DbLead, LeadStatus, CallStatus, EmailStatus } from '../../../shared/types.js';
+import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types.js';
 import type { Lead } from '@/types';
+
+// Type alias for SQLite row results that contain full lead data
+type DbLeadRow = DbLead;
 
 /**
  * Transform DbLead to Lead (parse JSON fields)
+ * Uses DbLeadRow to handle SQLite result typing
  */
-export function transformDbLead(dbLead: DbLead): Lead {
+export function transformDbLead(dbLead: DbLeadRow): Lead {
   return {
     ...dbLead,
     has_booking: Boolean(dbLead.has_booking),
@@ -38,7 +42,6 @@ function findDbPath(): string {
     return process.env.DATABASE_PATH;
   }
   
-  const fs = require('fs');
   const cwd = process.cwd();
   
   // Cas 1: cwd = .../leads-finder/web → ../data/leads.db
@@ -621,7 +624,7 @@ export interface NextLeadOptions {
   recentNiches?: string[]; // Les niches des derniers leads appelés
 }
 
-export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): DbLead | null {
+export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): Lead | null {
   const database = getDb();
   const config = LEAD_SELECTION_CONFIG;
   
@@ -656,7 +659,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLead | undefined;
+  `).get() as DbLeadRow | undefined;
   if (overdue) return transformDbLead(overdue);
   
   // 2. Relances aujourd'hui (plus tôt d'abord)
@@ -669,7 +672,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLead | undefined;
+  `).get() as DbLeadRow | undefined;
   if (todayFollowup) return transformDbLead(todayFollowup);
   
   // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
@@ -682,7 +685,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY created_at ASC
     LIMIT 50
-  `).all() as DbLead[];
+  `).all() as DbLeadRow[];
   
   if (freshLeads.length > 0) {
     // Calculer le score ajusté pour chaque lead et trier
@@ -703,7 +706,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY last_contact_at ASC
     LIMIT 50
-  `).all() as DbLead[];
+  `).all() as DbLeadRow[];
   
   if (staleLeads.length > 0) {
     const scoredLeads = staleLeads
@@ -760,8 +763,7 @@ export function getFollowups(): FollowupLead[] {
 export function logCallWithHistory(
   id: number, 
   callStatus: CallStatus, 
-  note?: string,
-  autoScheduleFollowup = true
+  note?: string
 ): boolean {
   const database = getDb();
   const lead = findById(id);
@@ -778,7 +780,7 @@ export function logCallWithHistory(
   });
   
   // Prepare updates
-  let nextFollowup = lead.next_followup_at;
+  const nextFollowup = lead.next_followup_at;
   let newStatus = lead.status;
   
   // Auto-update status to 'contacte' if first real contact
@@ -873,4 +875,250 @@ export function scheduleFollowupWithHistory(id: number, date: string, note?: str
   `);
   const result = stmt.run(date, id);
   return result.changes > 0;
+}
+
+// ===== GAMIFIED STATS =====
+
+export interface TodayStats {
+  calls_today: number;
+  calls_goal: number;
+  contacts_today: number;
+  rdv_today: number;
+  avg_call_duration: number;
+}
+
+export interface StreakInfo {
+  current_streak: number;
+  best_streak: number;
+  last_activity_date: string | null;
+}
+
+export interface TopLead {
+  id: number;
+  name: string;
+  city: string;
+  niche: string | null;
+  phone: string;
+  score: number;
+  priority: string;
+  website: string | null;
+  website_status: string | null;
+  pain_points: string[] | null;
+  reason: string; // Why this lead is recommended
+}
+
+export interface GamifiedStats {
+  today: TodayStats;
+  streak: StreakInfo;
+  top_leads: TopLead[];
+  weekly_performance: {
+    calls: number[];
+    contacts: number[];
+    labels: string[];
+  };
+  conversion_rate: number;
+}
+
+export type StatsPeriod = '24h' | '7d' | '30d' | 'all';
+
+function getPeriodFilter(period: StatsPeriod): string {
+  switch (period) {
+    case '24h':
+      return "AND created_at >= datetime('now', '-1 day')";
+    case '7d':
+      return "AND created_at >= datetime('now', '-7 days')";
+    case '30d':
+      return "AND created_at >= datetime('now', '-30 days')";
+    case 'all':
+      return '';
+  }
+}
+
+function getPeriodDays(period: StatsPeriod): number {
+  switch (period) {
+    case '24h': return 1;
+    case '7d': return 7;
+    case '30d': return 30;
+    case 'all': return 365;
+  }
+}
+
+export function getGamifiedStats(period: StatsPeriod = '24h'): GamifiedStats {
+  const database = getDb();
+  const periodFilter = getPeriodFilter(period);
+  const periodDays = getPeriodDays(period);
+  
+  // === PERIOD STATS ===
+  const callsCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' ${periodFilter}
+  `).get() as { count: number }).count;
+  
+  const contactsCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler')
+  `).get() as { count: number }).count;
+  
+  const rdvCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND new_value = 'rdv_pris'
+  `).get() as { count: number }).count;
+  
+  const avgDuration = (database.prepare(`
+    SELECT AVG(duration_seconds) as avg FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND duration_seconds IS NOT NULL
+  `).get() as { avg: number | null }).avg ?? 0;
+
+  // Daily goal based on period
+  const callsGoal = period === '24h' ? 25 : period === '7d' ? 175 : period === '30d' ? 500 : 1000;
+  
+  // === STREAK CALCULATION ===
+  // Get days with activity in last 30 days
+  const activityDays = database.prepare(`
+    SELECT DISTINCT date(created_at) as day FROM lead_history 
+    WHERE type = 'call'
+    AND created_at >= datetime('now', '-30 days')
+    ORDER BY day DESC
+  `).all() as { day: string }[];
+  
+  let currentStreak = 0;
+  const checkDate = new Date();
+  checkDate.setHours(0, 0, 0, 0);
+  
+  // Check if there's activity today
+  const todayStr = checkDate.toISOString().split('T')[0];
+  const hasActivityToday = activityDays.some(d => d.day === todayStr);
+  
+  if (!hasActivityToday) {
+    // Check yesterday - if no activity, streak is broken
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  
+  // Clone to avoid mutating the check date
+  const streakDate = new Date(checkDate);
+  for (const activityDay of activityDays) {
+    const expectedDate = streakDate.toISOString().split('T')[0];
+    if (activityDay.day === expectedDate) {
+      currentStreak++;
+      streakDate.setDate(streakDate.getDate() - 1);
+    } else if (activityDay.day < expectedDate) {
+      break; // Streak broken
+    }
+  }
+  
+  // Best streak (simplified - would need historical tracking for accuracy)
+  const bestStreak = Math.max(currentStreak, 5); // Placeholder
+  
+  // === TOP LEADS ===
+  const topLeadsRows = database.prepare(`
+    SELECT 
+      id, name, city, niche, phone, score, priority, website, website_status, pain_points
+    FROM leads 
+    WHERE status = 'nouveau' 
+    AND call_status = 'non_appele'
+    AND (opt_out IS NULL OR opt_out = 0)
+    ORDER BY 
+      CASE WHEN website IS NULL OR website = '' THEN 0 ELSE 1 END,
+      score DESC,
+      priority = 'high' DESC
+    LIMIT 5
+  `).all() as DbLead[];
+  
+  const topLeads: TopLead[] = topLeadsRows.map(lead => {
+    let reason = '';
+    if (!lead.website) {
+      reason = '🚫 Pas de site web';
+    } else if (lead.website_status === 'old') {
+      reason = '⚠️ Site vieillot';
+    } else if (lead.website_status === 'platform') {
+      reason = '📦 Site plateforme limitant';
+    } else if (lead.score && lead.score >= 70) {
+      reason = '⭐ Score élevé';
+    } else {
+      reason = '📞 À contacter';
+    }
+    
+    return {
+      id: lead.id,
+      name: lead.name,
+      city: lead.city,
+      niche: lead.niche,
+      phone: lead.phone,
+      score: lead.score ?? 50,
+      priority: lead.priority,
+      website: lead.website,
+      website_status: lead.website_status,
+      pain_points: lead.pain_points ? JSON.parse(lead.pain_points) : null,
+      reason,
+    };
+  });
+  
+  // === PERFORMANCE BY PERIOD ===
+  const weeklyData = database.prepare(`
+    SELECT 
+      date(created_at) as day,
+      COUNT(*) as calls,
+      SUM(CASE WHEN new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler') THEN 1 ELSE 0 END) as contacts
+    FROM lead_history 
+    WHERE type = 'call'
+    AND created_at >= datetime('now', '-${periodDays} days')
+    GROUP BY date(created_at)
+    ORDER BY day
+  `).all() as { day: string; calls: number; contacts: number }[];
+  
+  // Fill in missing days based on period
+  const labels: string[] = [];
+  const calls: number[] = [];
+  const contacts: number[] = [];
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  
+  const displayDays = Math.min(periodDays, 30); // Max 30 days for chart
+  for (let i = displayDays - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dayStr = d.toISOString().split('T')[0];
+    const dayData = weeklyData.find(w => w.day === dayStr);
+    
+    // For longer periods, use date format
+    if (periodDays <= 7) {
+      labels.push(dayNames[d.getDay()]);
+    } else {
+      labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+    }
+    calls.push(dayData?.calls ?? 0);
+    contacts.push(dayData?.contacts ?? 0);
+  }
+  
+  // === CONVERSION RATE ===
+  const totalLeads = (database.prepare('SELECT COUNT(*) as count FROM leads').get() as { count: number }).count;
+  const convertedLeads = (database.prepare("SELECT COUNT(*) as count FROM leads WHERE status = 'converti'").get() as { count: number }).count;
+  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+  
+  return {
+    today: {
+      calls_today: callsCount,
+      calls_goal: callsGoal,
+      contacts_today: contactsCount,
+      rdv_today: rdvCount,
+      avg_call_duration: Math.round(avgDuration),
+    },
+    streak: {
+      current_streak: currentStreak,
+      best_streak: bestStreak,
+      last_activity_date: activityDays[0]?.day ?? null,
+    },
+    top_leads: topLeads,
+    weekly_performance: {
+      calls,
+      contacts,
+      labels,
+    },
+    conversion_rate: conversionRate,
+  };
 }

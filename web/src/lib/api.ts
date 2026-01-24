@@ -2,6 +2,7 @@ import type {
   Lead,
   LeadsResponse,
   Stats,
+  GamifiedStats,
   Session,
   SessionResponse,
   FollowupsData,
@@ -164,6 +165,10 @@ export async function addLeadNote(id: number | string, note: string): Promise<vo
 
 export async function fetchStats(): Promise<Stats> {
   return fetchApi<Stats>('/api/stats');
+}
+
+export async function fetchGamifiedStats(period: string = '24h'): Promise<GamifiedStats> {
+  return fetchApi<GamifiedStats>(`/api/stats/gamified?period=${period}`);
 }
 
 // ===== SESSION =====

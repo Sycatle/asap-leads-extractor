@@ -50,6 +50,18 @@ export const PRIORITY_BADGE_COLORS: Record<Priority, string> = {
   low: 'bg-muted text-muted-foreground',
 };
 
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  high: 'Urgent',
+  medium: 'Normal',
+  low: 'Basse',
+};
+
+export const PRIORITY_STYLES: Record<Priority, string> = {
+  high: 'border-danger/50 text-danger',
+  medium: 'border-warning/50 text-warning',
+  low: 'border-muted text-muted-foreground',
+};
+
 // ===== URGENCY CONFIG =====
 
 export const URGENCY_CONFIG: Record<FollowupUrgency, {
