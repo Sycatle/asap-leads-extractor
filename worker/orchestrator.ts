@@ -235,7 +235,7 @@ export class WorkerOrchestrator extends EventEmitter {
     log.header('LEADS FINDER - ORCHESTRATOR v2.0', 70);
     log.kv('Scraping', this.config.scrape?.niches?.join(', ') || 'N/A', 2);
     log.kv('Villes', this.config.scrape?.cities?.join(', ') || 'N/A', 2);
-    log.kv('Mode', this.orchConfig.enableParallelPipelines ? 'Parallèle' : 'Séquentiel', 2);
+    log.kv('Mode', 'Séquentiel intelligent', 2);
     log.divider('=', 70);
   }
   
@@ -539,7 +539,12 @@ export class WorkerOrchestrator extends EventEmitter {
   
   private startMetricsLoop(): void {
     this.metricsTimer = setInterval(() => {
-      this.printMetrics();
+      // N'afficher les métriques que si aucun pipeline n'est en cours
+      // pour éviter de couper les progress bars
+      const anyRunning = Object.values(this.pipelines).some(p => p.status === 'running');
+      if (!anyRunning) {
+        this.printMetrics();
+      }
     }, this.orchConfig.metricsInterval);
   }
   
