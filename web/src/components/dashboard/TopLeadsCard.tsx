@@ -5,8 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { PriorityBadge } from '@/components/ui';
 import type { TopLead } from '@/types';
 
 interface TopLeadsCardProps {
@@ -14,7 +12,21 @@ interface TopLeadsCardProps {
 }
 
 function LeadAvatar({ lead }: { lead: TopLead }) {
-  // TopLead doesn't have image_url, so we use a placeholder
+  if (lead.image_url) {
+    return (
+      <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-muted">
+        <Image
+          src={lead.image_url}
+          alt={lead.name}
+          fill
+          className="object-cover"
+          sizes="36px"
+          unoptimized
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
       <Building2 className="w-4 h-4 text-muted-foreground" />
@@ -63,11 +75,14 @@ export function TopLeadsCard({ leads }: TopLeadsCardProps) {
           <table className="w-full">
             <thead>
               <tr className="border-y border-border">
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30">
+                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 min-w-[200px]">
                   Établissement
                 </th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30">
                   Ville
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30">
+                  Note
                 </th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30">
                   Score
@@ -75,8 +90,7 @@ export function TopLeadsCard({ leads }: TopLeadsCardProps) {
                 <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30">
                   Raison
                 </th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 w-[80px]">
-                  Actions
+                <th className="px-4 py-2.5 text-right text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 w-20">
                 </th>
               </tr>
             </thead>
@@ -90,7 +104,7 @@ export function TopLeadsCard({ leads }: TopLeadsCardProps) {
                       <div className="min-w-0">
                         <Link 
                           href={`/leads/${lead.id}`}
-                          className="text-[13px] font-medium text-foreground hover:text-primary transition-colors truncate block max-w-[160px]"
+                          className="text-[13px] font-medium text-foreground hover:text-primary transition-colors truncate block max-w-[180px]"
                         >
                           {lead.name}
                         </Link>
@@ -106,6 +120,21 @@ export function TopLeadsCard({ leads }: TopLeadsCardProps) {
                   {/* Ville */}
                   <td className="px-4 py-3 text-[13px] text-muted-foreground">
                     {lead.city || '-'}
+                  </td>
+
+                  {/* Note (Rating) */}
+                  <td className="px-4 py-3">
+                    {lead.rating ? (
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        <span className="text-[13px] font-medium text-foreground">{lead.rating}</span>
+                        {lead.reviews_count && (
+                          <span className="text-[11px] text-muted-foreground">({lead.reviews_count})</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-muted-foreground/50">-</span>
+                    )}
                   </td>
 
                   {/* Score */}

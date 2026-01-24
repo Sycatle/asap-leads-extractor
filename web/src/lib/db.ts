@@ -1018,7 +1018,7 @@ export function getGamifiedStats(period: StatsPeriod = '24h'): GamifiedStats {
   // === TOP LEADS ===
   const topLeadsRows = database.prepare(`
     SELECT 
-      id, name, city, niche, phone, score, priority, website, website_status, pain_points
+      id, name, city, niche, phone, score, priority, website, website_status, pain_points, image_url, rating, reviews_count
     FROM leads 
     WHERE status = 'nouveau' 
     AND call_status = 'non_appele'
@@ -1056,6 +1056,9 @@ export function getGamifiedStats(period: StatsPeriod = '24h'): GamifiedStats {
       website_status: lead.website_status,
       pain_points: lead.pain_points ? JSON.parse(lead.pain_points) : null,
       reason,
+      image_url: lead.image_url,
+      rating: lead.rating,
+      reviews_count: lead.reviews_count,
     };
   });
   

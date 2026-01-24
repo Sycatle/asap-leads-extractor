@@ -141,6 +141,9 @@ export interface TopLead {
   website_status: string | null;
   pain_points: string[] | null;
   reason: string;
+  image_url: string | null;
+  rating: number | null;
+  reviews_count: number | null;
 }
 
 export interface WeeklyPerformance {
