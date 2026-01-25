@@ -13,14 +13,14 @@ interface LeadActionsCardProps {
   onScheduleFollowup: () => void;
 }
 
-// Action button styles using CSS variables
+// Action button styles using semantic color names
 const actionStyles = {
-  green: 'bg-success/10 text-success hover:bg-success/20',
-  blue: 'bg-primary/10 text-primary hover:bg-primary/20',
-  red: 'bg-danger/10 text-danger hover:bg-danger/20',
-  purple: 'bg-info/10 text-info hover:bg-info/20',
-  orange: 'bg-warning/10 text-warning hover:bg-warning/20',
-  zinc: 'bg-muted text-muted-foreground hover:bg-accent',
+  success: 'bg-success/10 text-success hover:bg-success/20',
+  primary: 'bg-primary/10 text-primary hover:bg-primary/20',
+  danger: 'bg-danger/10 text-danger hover:bg-danger/20',
+  info: 'bg-info/10 text-info hover:bg-info/20',
+  warning: 'bg-warning/10 text-warning hover:bg-warning/20',
+  muted: 'bg-muted text-muted-foreground hover:bg-accent',
 };
 
 interface ActionBtnProps {
@@ -78,21 +78,21 @@ export function LeadActionsCard({
               label="Conversation"
               onClick={() => onLogCall('appele')}
               loading={actionLoading === 'appele'}
-              color="green"
+              color="success"
             />
             <ActionBtn
               icon={<Calendar className="w-4 h-4" />}
               label="Rappeler"
               onClick={() => onLogCall('rappeler')}
               loading={actionLoading === 'rappeler'}
-              color="blue"
+              color="primary"
             />
             <ActionBtn
               icon={<PhoneOff className="w-4 h-4" />}
               label="Injoignable"
               onClick={() => onLogCall('injoignable')}
               loading={actionLoading === 'injoignable'}
-              color="red"
+              color="danger"
             />
           </div>
         </div>
@@ -107,14 +107,14 @@ export function LeadActionsCard({
               label="Qualifié"
               onClick={() => onUpdateStatus('qualifie')}
               loading={actionLoading === 'qualifie'}
-              color="purple"
+              color="info"
               small
             />
             <ActionBtn
               label="Proposition"
               onClick={() => onUpdateStatus('proposition')}
               loading={actionLoading === 'proposition'}
-              color="orange"
+              color="warning"
               small
             />
             <ActionBtn
@@ -122,7 +122,7 @@ export function LeadActionsCard({
               label="Converti"
               onClick={() => onUpdateStatus('converti')}
               loading={actionLoading === 'converti'}
-              color="green"
+              color="success"
               small
             />
             <ActionBtn
@@ -130,7 +130,7 @@ export function LeadActionsCard({
               label="Perdu"
               onClick={() => onUpdateStatus('perdu')}
               loading={actionLoading === 'perdu'}
-              color="zinc"
+              color="muted"
               small
             />
           </div>

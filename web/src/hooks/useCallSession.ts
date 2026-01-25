@@ -33,8 +33,6 @@ interface UseCallSessionResult {
   endSession: () => Promise<void>;
   togglePause: () => void;
   refreshNextLead: () => Promise<void>;
-  // Legacy (for backward compat)
-  processOutcome: (outcome: string, followupDatetime?: string) => Promise<void>;
 }
 
 export function useCallSession(): UseCallSessionResult {
@@ -233,40 +231,6 @@ export function useCallSession(): UseCallSessionResult {
     setPendingOutcome(null);
   }, []);
 
-  // Legacy processOutcome for backward compatibility
-  const processOutcome = useCallback(async (outcome: string, followupDatetime?: string) => {
-    if (!currentLead || !session) return;
-    
-    setActionLoading(true);
-    
-    try {
-      const callStatus = (outcome === 'pas_interesse' ? 'appele' : outcome) as CallStatus;
-      await logLeadCall(currentLead.id, callStatus, {});
-
-      if (outcome === 'pas_interesse') {
-        await updateLeadStatus(currentLead.id, 'perdu' as LeadStatus, 'Pas intéressé');
-      }
-
-      if (followupDatetime) {
-        await scheduleLeadFollowup(currentLead.id, followupDatetime);
-      }
-
-      const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
-      if (outcome === 'appele') stats.total_reached = session.total_reached + 1;
-      if (outcome === 'rappeler' || followupDatetime) stats.total_scheduled = session.total_scheduled + 1;
-
-      const updatedSession = await updateSession(session.id, { stats });
-      setSession(updatedSession);
-      
-      setSkippedIds([]);
-      setNeedsLeadRefresh(n => n + 1);
-    } catch (error) {
-      console.error('Failed to process outcome:', error);
-    }
-    
-    setActionLoading(false);
-  }, [currentLead, session]);
-
   const skipLead = useCallback(() => {
     if (!currentLead) return;
     setSkippedIds(prev => [...prev, currentLead.id]);
@@ -298,6 +262,5 @@ export function useCallSession(): UseCallSessionResult {
     endSession,
     togglePause,
     refreshNextLead,
-    processOutcome,
   };
 }

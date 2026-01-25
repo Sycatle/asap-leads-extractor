@@ -2,10 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// Import shared migration system
-import { runMigrations } from '../../../shared/migrations.js';
-
-// Re-export les types depuis shared
+// Re-export les types depuis shared (types-only imports work fine)
 export type { 
   LeadStatus, 
   CallStatus, 
@@ -73,8 +70,8 @@ export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    // Use shared migration system - single source of truth
-    runMigrations(db);
+    // Note: Migrations are handled by the worker (pnpm migrate)
+    // The web assumes the database schema is already up to date
   }
   return db;
 }

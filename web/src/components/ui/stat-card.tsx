@@ -46,21 +46,12 @@ const colorStyles: Record<StatColor, {
   },
 };
 
-// Compatibility map for old color names
-const colorMap: Record<string, StatColor> = {
-  blue: 'primary',
-  green: 'success',
-  orange: 'warning',
-  red: 'danger',
-  purple: 'info',
-};
-
 interface StatCardProps {
   icon: React.ElementType;
   label: string;
   value: number | string;
   subValue?: string;
-  color: StatColor | 'blue' | 'green' | 'orange' | 'red' | 'purple';
+  color: StatColor;
   href?: string;
   alert?: boolean;
   trend?: { value: number; positive: boolean };
@@ -76,8 +67,7 @@ export function StatCard({
   alert,
   trend,
 }: StatCardProps) {
-  const mappedColor = (colorMap[color] || color) as StatColor;
-  const styles = colorStyles[mappedColor];
+  const styles = colorStyles[color];
   
   const content = (
     <div className={cn(

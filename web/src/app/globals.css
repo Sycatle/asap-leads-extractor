@@ -94,10 +94,6 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
   --radius-full: 9999px;
-  
-  /* Legacy compat */
-  --background-card: #ffffff;
-  --foreground-muted: #64748b;
 }
 
 /* Dark Mode - Premium dark theme */
@@ -179,10 +175,6 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 30px rgba(129, 140, 248, 0.2);
-  
-  /* Legacy compat */
-  --background-card: #0a0a0a;
-  --foreground-muted: #71717a;
 }
 
 @theme inline {

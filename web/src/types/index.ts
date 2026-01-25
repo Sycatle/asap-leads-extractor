@@ -28,8 +28,8 @@ import type {
   CMSType,
 } from '../../../shared/types.js';
 
-// ===== ALIASES =====
-// Priority est un alias pour la compatibilité avec le code existant
+// ===== ADDITIONAL TYPES =====
+// Priority type for lead prioritization
 export type Priority = 'high' | 'medium' | 'low';
 
 // ===== LEAD TYPES (TRANSFORMED FOR FRONTEND) =====
