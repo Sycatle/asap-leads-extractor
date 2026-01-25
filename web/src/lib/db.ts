@@ -494,6 +494,17 @@ export function scheduleFollowup(id: number, date: string): boolean {
   return result.changes > 0;
 }
 
+export function markOptOut(id: number): boolean {
+  const database = getDb();
+  const stmt = database.prepare(`
+    UPDATE leads 
+    SET opt_out = 1, status = 'perdu', updated_at = datetime('now')
+    WHERE id = ?
+  `);
+  const result = stmt.run(id);
+  return result.changes > 0;
+}
+
 // ===== STATS =====
 
 export interface LeadStats {
@@ -816,25 +827,40 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
   const database = getDb();
   const config = LEAD_SELECTION_CONFIG;
   
-  const excludeClause = excludeIds.length > 0 
-    ? `AND id NOT IN (${excludeIds.join(',')})` 
-    : '';
+  // Paramètres sécurisés
+  const params: Record<string, unknown> = {
+    maxAttempts: config.maxAttempts,
+    coolingOffHours: `-${config.coolingOffHours} hours`,
+  };
   
-  // Filtres globaux (toujours appliqués)
+  // Clause d'exclusion avec placeholders
+  let excludeClause = '';
+  if (excludeIds.length > 0) {
+    // Valider que tous les IDs sont des entiers
+    const validIds = excludeIds.filter(id => Number.isInteger(id) && id > 0);
+    if (validIds.length > 0) {
+      const placeholders = validIds.map((_, i) => `@excludeId${i}`).join(',');
+      excludeClause = `AND id NOT IN (${placeholders})`;
+      validIds.forEach((id, i) => { params[`excludeId${i}`] = id; });
+    }
+  }
+  
+  // Filtres globaux avec paramètres
   const globalFilters = `
     AND opt_out = 0
     AND status NOT IN ('converti', 'perdu')
-    AND attempts_count < ${config.maxAttempts}
-    AND (last_contact_at IS NULL OR last_contact_at < datetime('now', '-${config.coolingOffHours} hours'))
+    AND attempts_count < @maxAttempts
+    AND (last_contact_at IS NULL OR last_contact_at < datetime('now', @coolingOffHours))
   `;
   
-  // Filtre de rotation des niches (éviter les mêmes niches consécutives)
+  // Filtre de rotation des niches
   let nicheFilter = '';
   if (options.recentNiches && options.recentNiches.length >= config.maxConsecutiveSameNiche) {
     const lastNiche = options.recentNiches[0];
     const consecutiveCount = options.recentNiches.filter(n => n === lastNiche).length;
     if (consecutiveCount >= config.maxConsecutiveSameNiche && lastNiche) {
-      nicheFilter = `AND (niche IS NULL OR niche != '${lastNiche.replace(/'/g, "''")}') `;
+      nicheFilter = `AND (niche IS NULL OR niche != @excludeNiche)`;
+      params.excludeNiche = lastNiche;
     }
   }
   
@@ -847,7 +873,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLeadRow | undefined;
+  `).get(params) as DbLeadRow | undefined;
   if (overdue) return transformDbLead(overdue);
   
   // 2. Relances aujourd'hui (plus tôt d'abord)
@@ -860,7 +886,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLeadRow | undefined;
+  `).get(params) as DbLeadRow | undefined;
   if (todayFollowup) return transformDbLead(todayFollowup);
   
   // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
@@ -873,7 +899,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY created_at ASC
     LIMIT 50
-  `).all() as DbLeadRow[];
+  `).all(params) as DbLeadRow[];
   
   if (freshLeads.length > 0) {
     // Calculer le score ajusté pour chaque lead et trier
@@ -894,7 +920,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY last_contact_at ASC
     LIMIT 50
-  `).all() as DbLeadRow[];
+  `).all(params) as DbLeadRow[];
   
   if (staleLeads.length > 0) {
     const scoredLeads = staleLeads

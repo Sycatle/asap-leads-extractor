@@ -147,13 +147,12 @@ interface MiniStatProps {
   label: string;
   value: number;
   total: number;
-  color?: StatColor | 'blue' | 'green' | 'orange' | 'red' | 'purple';
+  color?: StatColor;
 }
 
 export function MiniStat({ label, value, total, color = 'primary' }: MiniStatProps) {
-  const mappedColor = (colorMap[color] || color) as StatColor;
   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-  const styles = colorStyles[mappedColor];
+  const styles = colorStyles[color];
 
   return (
     <div className="text-center p-4 rounded-xl bg-accent/50 hover:bg-accent transition-colors">

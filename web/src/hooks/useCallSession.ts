@@ -120,29 +120,6 @@ export function useCallSession(): UseCallSessionResult {
     };
   }, [session, isPaused]);
 
-  // Select outcome (step 1 of workflow)
-  const selectOutcome = useCallback((outcome: CallOutcome) => {
-    if (!currentLead) return;
-    
-    const outcomeConfig = CALL_OUTCOMES.find((o) => o.id === outcome);
-    
-    // For outcomes that don't require next step, process immediately
-    if (outcome === 'opt_out' || outcome === 'mauvais_numero' || !outcomeConfig?.requiresNextStep) {
-      // Process directly
-      setPendingOutcome(outcome);
-      // Auto-confirm for these
-      if (outcome === 'opt_out') {
-        confirmOutcomeInternal(outcome, { type: 'aucun' });
-      } else if (outcome === 'mauvais_numero') {
-        confirmOutcomeInternal(outcome, { type: 'aucun' });
-      }
-      return;
-    }
-    
-    // Show next step drawer
-    setPendingOutcome(outcome);
-  }, [currentLead]);
-
   // Internal confirm (used by auto-confirm and external confirm)
   const confirmOutcomeInternal = useCallback(async (
     outcome: CallOutcome,
@@ -193,13 +170,13 @@ export function useCallSession(): UseCallSessionResult {
         }
       }
 
-      // Update session stats
-      const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
+      // Update session stats (server does atomic increment)
+      const stats: Partial<Session> = { total_calls: 1 };
       if (['interesse', 'rdv_pris', 'devis_envoye', 'accueil'].includes(outcome)) {
-        stats.total_reached = session.total_reached + 1;
+        stats.total_reached = 1;
       }
       if (nextStep.datetime || outcome === 'rdv_pris') {
-        stats.total_scheduled = session.total_scheduled + 1;
+        stats.total_scheduled = 1;
       }
 
       const updatedSession = await updateSession(session.id, { stats });
@@ -215,6 +192,29 @@ export function useCallSession(): UseCallSessionResult {
     
     setActionLoading(false);
   }, [currentLead, session]);
+
+  // Select outcome (step 1 of workflow)
+  const selectOutcome = useCallback((outcome: CallOutcome) => {
+    if (!currentLead) return;
+    
+    const outcomeConfig = CALL_OUTCOMES.find((o) => o.id === outcome);
+    
+    // For outcomes that don't require next step, process immediately
+    if (outcome === 'opt_out' || outcome === 'mauvais_numero' || !outcomeConfig?.requiresNextStep) {
+      // Process directly
+      setPendingOutcome(outcome);
+      // Auto-confirm for these
+      if (outcome === 'opt_out') {
+        confirmOutcomeInternal(outcome, { type: 'aucun' });
+      } else if (outcome === 'mauvais_numero') {
+        confirmOutcomeInternal(outcome, { type: 'aucun' });
+      }
+      return;
+    }
+    
+    // Show next step drawer
+    setPendingOutcome(outcome);
+  }, [currentLead, confirmOutcomeInternal]);
 
   // Confirm outcome (step 2 of workflow - from NextStepDrawer)
   const confirmOutcome = useCallback(async (
