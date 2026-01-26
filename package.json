@@ -22,7 +22,11 @@
     "migrate:rollback": "tsx shared/migrate.ts rollback",
     "web": "cd web && pnpm dev",
     "web:build": "cd web && pnpm build",
-    "help": "tsx worker/index.ts help"
+    "help": "tsx worker/index.ts help",
+    "postinstall": "echo 'Dependencies installed'"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
   },
   "bin": {
     "leads-finder": "./dist/cli.js"
