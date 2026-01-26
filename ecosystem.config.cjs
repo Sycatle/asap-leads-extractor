@@ -16,8 +16,8 @@ module.exports = {
     },
     {
       name: 'leadflow-worker',
-      script: 'npx',
-      args: 'tsx worker/index.ts orchestrator',
+      script: 'pnpm',
+      args: 'worker',
       instances: 1,
       autorestart: true,
       watch: false,
