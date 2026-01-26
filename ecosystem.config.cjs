@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'leadflow-web',
       cwd: './web',
-      script: 'node_modules/.bin/next',
+      script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3000',
       instances: 1,
       autorestart: true,
@@ -13,7 +13,6 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3000,
       },
-      env_file: '../.env',
     },
     {
       name: 'leadflow-worker',
@@ -28,7 +27,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
       },
-      env_file: './.env',
     },
   ],
 };
