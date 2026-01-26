@@ -2,32 +2,47 @@
 
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, Loader2 } from 'lucide-react';
+import { ArrowUpRight, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 
-// ===== STAT CARD =====
+// ===== STAT CARD - GAMIFIED =====
 
-type StatColor = 'blue' | 'green' | 'orange' | 'purple' | 'red';
+type StatColor = 'primary' | 'success' | 'warning' | 'danger' | 'info';
 
-const colorStyles: Record<StatColor, { icon: string; glow: string }> = {
-  blue: {
+const colorStyles: Record<StatColor, { 
+  icon: string; 
+  accent: string;
+  glow: string;
+  progress: string;
+}> = {
+  primary: {
     icon: 'bg-primary/10 text-primary',
-    glow: 'stat-card-blue',
+    accent: 'text-primary',
+    glow: 'stat-card-primary',
+    progress: 'bg-primary',
   },
-  green: {
+  success: {
     icon: 'bg-success/10 text-success',
-    glow: 'stat-card-green',
+    accent: 'text-success',
+    glow: 'stat-card-success',
+    progress: 'bg-success',
   },
-  orange: {
+  warning: {
     icon: 'bg-warning/10 text-warning',
-    glow: 'stat-card-orange',
+    accent: 'text-warning',
+    glow: 'stat-card-warning',
+    progress: 'bg-warning',
   },
-  purple: {
-    icon: 'bg-info/10 text-info',
-    glow: 'stat-card-purple',
-  },
-  red: {
+  danger: {
     icon: 'bg-danger/10 text-danger',
-    glow: 'stat-card-red',
+    accent: 'text-danger',
+    glow: 'stat-card-danger',
+    progress: 'bg-danger',
+  },
+  info: {
+    icon: 'bg-info/10 text-info',
+    accent: 'text-info',
+    glow: 'stat-card-info',
+    progress: 'bg-info',
   },
 };
 
@@ -56,50 +71,65 @@ export function StatCard({
   
   const content = (
     <div className={cn(
-      'bg-card rounded-xl border border-border p-6 group relative overflow-hidden transition-all duration-300',
-      href && 'cursor-pointer hover:scale-[1.02] hover:shadow-lg',
+      'stat-card bg-card rounded-xl border border-border p-5 group relative overflow-hidden transition-all duration-200',
+      href && 'cursor-pointer hover:border-border-hover',
       styles.glow
     )}>
-      <div className="flex items-start justify-between relative">
-        <div className="flex items-center gap-4">
+      <div className="relative flex items-start justify-between">
+        <div className="space-y-3">
           <div className={cn(
-            'p-3 rounded-xl relative transition-transform duration-300 group-hover:scale-110',
+            'inline-flex items-center justify-center w-10 h-10 rounded-lg transition-transform duration-200 group-hover:scale-105',
             styles.icon
           )}>
             <Icon className="w-5 h-5" />
             {alert && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card animate-pulse" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-danger" />
+              </span>
             )}
           </div>
           
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">
+            <p className="text-[13px] font-medium text-muted-foreground">
               {label}
             </p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-foreground tracking-tight">
+            <div className="flex items-baseline gap-2 mt-1">
+              <p className="text-2xl font-semibold text-foreground tracking-tight">
                 {value}
               </p>
               {subValue && (
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className={cn('text-sm font-medium', styles.accent)}>
                   {subValue}
                 </span>
               )}
             </div>
-            {trend && (
-              <p className={cn(
-                'text-xs font-medium mt-1',
-                trend.positive ? 'text-success' : 'text-danger'
-              )}>
-                {trend.positive ? '↑' : '↓'} {Math.abs(trend.value)}% vs last week
-              </p>
-            )}
           </div>
         </div>
         
-        {href && (
-          <ArrowUpRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {href && (
+            <div className="p-1.5 rounded-md bg-accent opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
+          
+          {trend && (
+            <div className={cn(
+              'flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded',
+              trend.positive 
+                ? 'text-success bg-success/10' 
+                : 'text-danger bg-danger/10'
+            )}>
+              {trend.positive ? (
+                <TrendingUp className="w-3 h-3" />
+              ) : (
+                <TrendingDown className="w-3 h-3" />
+              )}
+              {Math.abs(trend.value)}%
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -120,20 +150,20 @@ interface MiniStatProps {
   color?: StatColor;
 }
 
-export function MiniStat({ label, value, total, color = 'blue' }: MiniStatProps) {
+export function MiniStat({ label, value, total, color = 'primary' }: MiniStatProps) {
   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
   const styles = colorStyles[color];
 
   return (
-    <div className="text-center p-4 rounded-xl bg-accent transition-all hover:bg-accent/80">
+    <div className="text-center p-4 rounded-xl bg-accent/50 hover:bg-accent transition-colors">
       <div className={cn(
         'inline-flex items-center justify-center w-10 h-10 rounded-lg mb-2',
         styles.icon
       )}>
-        <span className="text-lg font-bold">{percentage}%</span>
+        <span className="text-sm font-bold">{percentage}%</span>
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold text-foreground">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
     </div>
   );
 }
@@ -146,20 +176,14 @@ interface LoadingSpinnerProps {
 }
 
 const sizes = {
-  sm: 'w-4 h-4 border-2',
-  md: 'w-8 h-8 border-[3px]',
-  lg: 'w-12 h-12 border-4',
+  sm: 'w-4 h-4',
+  md: 'w-6 h-6',
+  lg: 'w-8 h-8',
 };
 
 export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
   return (
-    <div
-      className={cn(
-        'rounded-full border-blue-500 border-t-transparent animate-spin',
-        sizes[size],
-        className
-      )}
-    />
+    <Loader2 className={cn('animate-spin text-primary', sizes[size], className)} />
   );
 }
 
@@ -177,10 +201,10 @@ export function LoadingState({ message = 'Chargement...', className }: LoadingSt
       className
     )}>
       <div className="relative">
-        <div className="w-16 h-16 rounded-full border-4 border-border" />
-        <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        <div className="w-12 h-12 rounded-full border-2 border-border" />
+        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
-      <p className="text-sm font-medium text-muted-foreground">{message}</p>
+      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }
@@ -189,16 +213,14 @@ export function LoadingState({ message = 'Chargement...', className }: LoadingSt
 
 export function SkeletonCard() {
   return (
-    <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
+    <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg skeleton" />
         <div className="flex-1 space-y-2">
-          <div className="h-5 w-1/3 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-1/2 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-1/3 skeleton rounded" />
+          <div className="h-6 w-1/2 skeleton rounded" />
         </div>
       </div>
-      <div className="h-4 w-full bg-muted rounded animate-pulse" />
-      <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
     </div>
   );
 }
@@ -208,11 +230,11 @@ export function SkeletonCard() {
 export function SkeletonTableRow() {
   return (
     <tr className="animate-pulse">
-      <td className="p-4"><div className="h-5 w-32 bg-muted rounded" /></td>
-      <td className="p-4"><div className="h-5 w-24 bg-muted rounded" /></td>
-      <td className="p-4"><div className="h-6 w-20 bg-muted rounded-full" /></td>
-      <td className="p-4"><div className="h-5 w-28 bg-muted rounded" /></td>
-      <td className="p-4"><div className="h-8 w-8 bg-muted rounded-lg" /></td>
+      <td className="p-4"><div className="h-4 w-32 skeleton rounded" /></td>
+      <td className="p-4"><div className="h-4 w-24 skeleton rounded" /></td>
+      <td className="p-4"><div className="h-5 w-20 skeleton rounded-full" /></td>
+      <td className="p-4"><div className="h-4 w-28 skeleton rounded" /></td>
+      <td className="p-4"><div className="h-8 w-8 skeleton rounded-lg" /></td>
     </tr>
   );
 }

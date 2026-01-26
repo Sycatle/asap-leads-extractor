@@ -7,3 +7,4 @@ export { LeadsTable } from './LeadsTable';
 export { LeadsFilters } from './LeadsFilters';
 export { LeadsStats } from './LeadsStats';
 export { LeadDetailHeader } from './LeadDetailHeader';
+export { AdvancedSearch, DEFAULT_FILTERS, type AdvancedFilters } from './AdvancedSearch';

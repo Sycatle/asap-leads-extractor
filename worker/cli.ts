@@ -5,6 +5,7 @@ import { enrich } from './enrich.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
 import { getStats, findLeads, closeDb, countLeads } from './db.js';
+import { logger as log } from './logger.js';
 
 const program = new Command();
 
@@ -20,26 +21,25 @@ program
   .option('-c, --config <path>', 'Chemin vers le fichier config', 'config.json')
   .option('--skip-enrich', 'Sauter l\'étape d\'enrichissement Pappers')
   .action(async (options) => {
-    console.log('🚀 Leads Finder - Pipeline complet\n');
+    log.header('LEADS FINDER - Pipeline complet');
     const startTime = Date.now();
 
-    console.log('📥 ÉTAPE 1: COLLECTE...');
+    log.section('ÉTAPE 1: COLLECTE');
     await collect();
-    console.log('');
 
     if (!options.skipEnrich) {
-      console.log('🔍 ÉTAPE 2: ENRICHISSEMENT...');
+      log.section('ÉTAPE 2: ENRICHISSEMENT');
       await enrich();
-      console.log('');
     } else {
-      console.log('⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
+      log.info('ÉTAPE 2: ENRICHISSEMENT (skipped)');
     }
 
     const stats = getStats();
-    console.log(`📊 En base: ${stats.total} leads total`);
+    log.blank();
+    log.success(`En base: ${stats.total} leads total`);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`\n⏱️  Terminé en ${duration}s`);
+    log.success(`Terminé en ${duration}s`);
     closeDb();
   });
 
@@ -51,7 +51,7 @@ program
   .option('--cities <cities>', 'Villes à scraper (séparées par virgule)', 'Le Mans')
   .option('--skip-enrich', 'Sauter l\'enrichissement Pappers')
   .action(async (options) => {
-    console.log('🚀 Leads Finder - Mode Scraping\n');
+    log.header('LEADS FINDER - Mode Scraping');
     const startTime = Date.now();
     const config = loadConfig();
 
@@ -60,7 +60,7 @@ program
     const cities = options.cities ? options.cities.split(',').map((s: string) => s.trim()) : config.scrape?.cities || ['Le Mans'];
 
     // Étape 1: Scraping + sauvegarde DB
-    console.log('🌐 ÉTAPE 1: SCRAPING GOOGLE MAPS...\n');
+    log.section('ÉTAPE 1: SCRAPING GOOGLE MAPS');
     const leads = await scrapeGoogleMaps({ 
       niches, 
       cities,
@@ -73,24 +73,23 @@ program
       return !config.exclude_keywords.some(kw => lower.includes(kw.toLowerCase()));
     }).length;
     
-    console.log(`✓ Leads scrapés: ${leads.length} (${filteredCount} après filtrage chaînes)`);
+    log.success(`Leads scrapés: ${leads.length} (${filteredCount} après filtrage chaînes)`);
 
     // Étape 2: Enrichissement
     if (!options.skipEnrich) {
-      console.log('\n🔍 ÉTAPE 2: ENRICHISSEMENT...');
+      log.section('ÉTAPE 2: ENRICHISSEMENT');
       await enrich();
-      console.log('');
     } else {
-      console.log('\n⏭️  ÉTAPE 2: ENRICHISSEMENT (skipped)\n');
+      log.info('ÉTAPE 2: ENRICHISSEMENT (skipped)');
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     
     // Stats DB
     const stats = getStats();
-    console.log(`📊 En base: ${stats.total} leads total`);
-    
-    console.log(`\n⏱️  Terminé en ${duration}s`);
+    log.blank();
+    log.success(`En base: ${stats.total} leads total`);
+    log.success(`Terminé en ${duration}s`);
     closeDb();
   });
 
@@ -100,7 +99,7 @@ program
   .description('Importer et nettoyer le CSV source')
   .option('-f, --file <path>', 'Fichier CSV à importer (override config)')
   .action(async () => {
-    console.log('📥 COLLECTE...\n');
+    log.section('COLLECTE CSV');
     await collect();
   });
 
@@ -109,7 +108,6 @@ program
   .command('enrich')
   .description('Enrichir les leads avec Pappers (SIREN + dirigeant)')
   .action(async () => {
-    console.log('🔍 ENRICHISSEMENT...\n');
     await enrich();
   });
 
@@ -122,43 +120,48 @@ program
   .action(async (options) => {
     const stats = getStats();
     
-    console.log('📊 STATISTIQUES LEADS\n');
-    console.log(`Total en base: ${stats.total}`);
+    log.header('STATISTIQUES LEADS');
+    log.kv('Total en base', stats.total);
     
-    console.log('\n📋 Par statut:');
-    console.log(`  🆕 Nouveau:     ${stats.by_status.nouveau}`);
-    console.log(`  📞 Contacté:    ${stats.by_status.contacte}`);
-    console.log(`  ✅ Qualifié:    ${stats.by_status.qualifie}`);
-    console.log(`  📝 Proposition: ${stats.by_status.proposition}`);
-    console.log(`  🎉 Converti:    ${stats.by_status.converti}`);
-    console.log(`  ❌ Perdu:       ${stats.by_status.perdu}`);
+    log.blank();
+    log.raw('  Par statut:');
+    log.raw(`    Nouveau:     ${stats.by_status.nouveau}`);
+    log.raw(`    Contacté:    ${stats.by_status.contacte}`);
+    log.raw(`    Qualifié:    ${stats.by_status.qualifie}`);
+    log.raw(`    Proposition: ${stats.by_status.proposition}`);
+    log.raw(`    Converti:    ${stats.by_status.converti}`);
+    log.raw(`    Perdu:       ${stats.by_status.perdu}`);
     
-    console.log('\n📞 Par appel:');
-    console.log(`  Non appelé:   ${stats.by_call_status.non_appele}`);
-    console.log(`  Appelé:       ${stats.by_call_status.appele}`);
-    console.log(`  Messagerie:   ${stats.by_call_status.messagerie}`);
-    console.log(`  À rappeler:   ${stats.by_call_status.rappeler}`);
-    console.log(`  Injoignable:  ${stats.by_call_status.injoignable}`);
+    log.blank();
+    log.raw('  Par appel:');
+    log.raw(`    Non appelé:   ${stats.by_call_status.non_appele}`);
+    log.raw(`    Appelé:       ${stats.by_call_status.appele}`);
+    log.raw(`    À rappeler:   ${stats.by_call_status.rappeler}`);
+    log.raw(`    Injoignable:  ${stats.by_call_status.injoignable}`);
     
-    console.log('\n⭐ Par priorité:');
-    console.log(`  High:   ${stats.by_priority.high || 0}`);
-    console.log(`  Medium: ${stats.by_priority.medium || 0}`);
-    console.log(`  Low:    ${stats.by_priority.low || 0}`);
+    log.blank();
+    log.raw('  Par priorité:');
+    log.raw(`    High:   ${stats.by_priority.high || 0}`);
+    log.raw(`    Medium: ${stats.by_priority.medium || 0}`);
+    log.raw(`    Low:    ${stats.by_priority.low || 0}`);
     
     if (options.byCity || Object.keys(stats.by_city).length <= 10) {
-      console.log('\n🏙️  Par ville:');
+      log.blank();
+      log.raw('  Par ville:');
       for (const [city, count] of Object.entries(stats.by_city)) {
-        console.log(`  ${city}: ${count}`);
+        log.raw(`    ${city}: ${count}`);
       }
     }
     
-    console.log('\n📅 Aujourd\'hui:');
-    console.log(`  Relances prévues: ${stats.followups_today}`);
-    console.log(`  Contactés:        ${stats.contacted_today}`);
+    log.blank();
+    log.raw('  Aujourd\'hui:');
+    log.raw(`    Relances prévues: ${stats.followups_today}`);
+    log.raw(`    Contactés:        ${stats.contacted_today}`);
     
     if (stats.total > 0) {
       const conversionRate = ((stats.by_status.converti / stats.total) * 100).toFixed(1);
-      console.log(`\n🏆 Taux conversion: ${conversionRate}%`);
+      log.blank();
+      log.success(`Taux conversion: ${conversionRate}%`);
     }
     
     closeDb();

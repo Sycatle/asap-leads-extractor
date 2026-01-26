@@ -45,9 +45,42 @@ export function extractPostalCode(input: string): string {
 export function extractCity(address: string): string {
   const match = address.match(/\d{5}\s+([A-Za-zÀ-ÿ\s\-'']+)/);
   if (match) {
-    return match[1].trim().replace(/\s+/g, ' ');
+    return normalizeCity(match[1].trim().replace(/\s+/g, ' '));
   }
   return '';
+}
+
+/**
+ * Normalize city name
+ * - Removes leading dashes/spaces
+ * - Capitalizes properly
+ * - Maps Paris arrondissements to "Paris"
+ */
+export function normalizeCity(city: string): string {
+  if (!city) return '';
+  
+  // Nettoyer les tirets et espaces en début/fin
+  let normalized = city.trim().replace(/^[-–—\s]+/, '').replace(/[-–—\s]+$/, '');
+  
+  // Paris et arrondissements → "Paris"
+  if (/^paris/i.test(normalized) || /paris\s*\d+/i.test(normalized) || /^\d+e?\s*arr/i.test(normalized)) {
+    return 'Paris';
+  }
+  
+  // Lyon arrondissements → "Lyon"
+  if (/^lyon/i.test(normalized) || /lyon\s*\d+/i.test(normalized)) {
+    return 'Lyon';
+  }
+  
+  // Marseille arrondissements → "Marseille"
+  if (/^marseille/i.test(normalized) || /marseille\s*\d+/i.test(normalized)) {
+    return 'Marseille';
+  }
+  
+  // Capitalisation correcte: première lettre majuscule après espace/tiret
+  return normalized
+    .toLowerCase()
+    .replace(/(?:^|\s|-)([a-zà-ÿ])/g, (m) => m.toUpperCase());
 }
 
 /**

@@ -106,7 +106,7 @@ export default function CallSessionPage() {
     pendingOutcome !== 'mauvais_numero';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6 animate-fade-in">
       {/* Header */}
       <SessionHeader
         session={session}
@@ -122,9 +122,9 @@ export default function CallSessionPage() {
       ) : !currentLead ? (
         <SessionCompleteCard session={session} onEnd={handleEnd} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left column: Lead info (2/3 width) */}
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Left column: Lead info (2/3 width on xl) */}
+          <div className="xl:col-span-2 space-y-5">
             {/* Current lead card */}
             <CurrentLeadCard lead={currentLead} />
 
@@ -139,9 +139,10 @@ export default function CallSessionPage() {
             />
           </div>
 
-          {/* Right column: Call outcomes (1/3 width, sticky) */}
-          <div className="lg:sticky lg:top-4 lg:self-start">
+          {/* Right column: Call outcomes (1/3 width on xl, sticky) */}
+          <div className="xl:sticky xl:top-6 xl:self-start">
             <CallOutcomesCard
+              key={currentLead.id}
               onOutcome={handleOutcome}
               loading={actionLoading}
             />

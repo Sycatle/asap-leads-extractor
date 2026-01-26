@@ -31,6 +31,8 @@ import type { Lead, HistoryEntry } from '@/types';
 
 interface CurrentLeadCardProps {
   lead: Lead;
+  /** Cacher le bouton "Voir la fiche" (utile quand on est déjà sur la page de détail) */
+  hideViewButton?: boolean;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -46,13 +48,13 @@ const SOURCE_LABELS: Record<string, string> = {
 function LeadImage({ lead }: { lead: Lead }) {
   if (lead.image_url) {
     return (
-      <div className="relative w-28 h-28 rounded-xl overflow-hidden shrink-0 bg-zinc-100 dark:bg-zinc-800 shadow-md">
+      <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-muted">
         <Image
           src={lead.image_url}
           alt={lead.name}
           fill
           className="object-cover"
-          sizes="112px"
+          sizes="96px"
           unoptimized // Google Maps images are external
         />
       </div>
@@ -61,8 +63,8 @@ function LeadImage({ lead }: { lead: Lead }) {
 
   // Fallback: icon placeholder
   return (
-    <div className="w-28 h-28 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-md">
-      <Building2 className="w-10 h-10 text-zinc-400" />
+    <div className="w-24 h-24 rounded-xl bg-muted flex items-center justify-center shrink-0">
+      <Building2 className="w-8 h-8 text-muted-foreground" />
     </div>
   );
 }
@@ -137,20 +139,323 @@ function formatLastContact(dateStr: string | null): string {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-function getWebsiteStatusLabel(lead: Lead): { label: string; color: string } | null {
+// Labels lisibles pour chaque CMS/plateforme
+const CMS_LABELS: Record<string, string> = {
+  // CMS classiques
+  wordpress: 'WordPress',
+  wix: 'Wix',
+  squarespace: 'Squarespace',
+  webflow: 'Webflow',
+  weebly: 'Weebly',
+  jimdo: 'Jimdo',
+  blogger: 'Blogger',
+  ghost: 'Ghost',
+  // E-commerce
+  shopify: 'Shopify',
+  prestashop: 'PrestaShop',
+  woocommerce: 'WooCommerce',
+  magento: 'Magento',
+  opencart: 'OpenCart',
+  // Plateformes métier (coiffure, beauté, santé)
+  planity: 'Planity',
+  treatwell: 'Treatwell',
+  doctolib: 'Doctolib',
+  kiute: 'Kiute Pro',
+  flexy: 'Flexy',
+  wavy: 'Wavy',
+  // Plateformes restaurant
+  thefork: 'TheFork',
+  zenchef: 'Zenchef',
+  metro: 'Metro Menu',
+  eatbu: 'Eatbu',
+  foxorders: 'FoxOrders',
+  // Pages jaunes / Annuaires
+  pagesjaunes: 'Pages Jaunes',
+  solocal: 'Solocal',
+  // Google Sites
+  googlesites: 'Google Sites',
+  // Réseaux sociaux comme site
+  facebook: 'Page Facebook',
+  instagram: 'Instagram',
+  linktree: 'Linktree',
+  // Autres
+  custom: 'Sur-mesure',
+  unknown: 'Inconnu',
+};
+
+// CMS considérés comme "plateformes" limitantes (bon argument de vente)
+const PLATFORM_CMS = ['wix', 'squarespace', 'weebly', 'jimdo', 'blogger', 'linktree', 'googlesites'];
+
+// Plateformes métier - pas un vrai site, juste une page de réservation
+const BOOKING_PLATFORMS = ['planity', 'treatwell', 'doctolib', 'kiute', 'flexy', 'wavy', 'thefork', 'zenchef', 'eatbu', 'foxorders'];
+
+// Pages sur réseaux sociaux utilisées comme site
+const SOCIAL_AS_WEBSITE = ['facebook', 'instagram', 'linktree'];
+
+// E-commerce
+const ECOMMERCE_CMS = ['shopify', 'prestashop', 'woocommerce', 'magento', 'opencart'];
+
+interface WebsiteInfo {
+  label: string;
+  sublabel?: string;
+  type: 'none' | 'old' | 'platform' | 'ecommerce' | 'modern' | 'custom';
+  issues: string[];
+}
+
+function getWebsiteInfo(lead: Lead): WebsiteInfo {
+  const issues: string[] = [];
+  
+  // Collecter les problèmes techniques
+  if (lead.has_mobile_friendly === false) issues.push('Non mobile-friendly');
+  if (lead.has_ssl === false) issues.push('Pas de HTTPS');
+  if (lead.page_load_time && lead.page_load_time > 3000) {
+    issues.push(`Lent (${(lead.page_load_time / 1000).toFixed(1)}s)`);
+  }
+  
+  // Pas de site web
   if (!lead.website) {
-    return { label: 'Pas de site web', color: 'text-red-600 dark:text-red-400' };
+    return { label: '🚫 Pas de site web', type: 'none', issues };
   }
+  
+  const cms = lead.cms_type?.toLowerCase() || 'unknown';
+  const cmsLabel = CMS_LABELS[cms] || cms.toUpperCase();
+  
+  // Site vieillot
   if (lead.website_status === 'old') {
-    return { label: 'Site vieillot', color: 'text-yellow-600 dark:text-yellow-400' };
+    return {
+      label: '⚠️ Site vieillot',
+      sublabel: cms !== 'unknown' ? `Tech: ${cmsLabel}` : undefined,
+      type: 'old',
+      issues,
+    };
   }
-  if (lead.website_status === 'platform') {
-    return { label: 'Site plateforme (Wix, etc.)', color: 'text-yellow-600 dark:text-yellow-400' };
+  
+  // Réseaux sociaux comme site (Facebook, Instagram, Linktree)
+  if (SOCIAL_AS_WEBSITE.includes(cms)) {
+    return {
+      label: `📱 ${cmsLabel} uniquement`,
+      sublabel: 'Pas de vrai site web',
+      type: 'none',
+      issues,
+    };
   }
+  
+  // Plateformes de réservation métier (Planity, Doctolib, etc.)
+  if (BOOKING_PLATFORMS.includes(cms)) {
+    return {
+      label: `📅 Page ${cmsLabel}`,
+      sublabel: 'Plateforme de réservation, pas un site propre',
+      type: 'platform',
+      issues,
+    };
+  }
+  
+  // Plateforme limitante (Wix, Squarespace, etc.)
+  if (lead.website_status === 'platform' || PLATFORM_CMS.includes(cms)) {
+    return {
+      label: `📦 Site ${cmsLabel}`,
+      sublabel: 'Plateforme limitante',
+      type: 'platform',
+      issues,
+    };
+  }
+  
+  // E-commerce
+  if (ECOMMERCE_CMS.includes(cms)) {
+    return {
+      label: `🛒 E-commerce ${cmsLabel}`,
+      type: 'ecommerce',
+      issues,
+    };
+  }
+  
+  // WordPress (cas spécial - peut être bon ou mauvais)
+  if (cms === 'wordpress') {
+    if (lead.website_status === 'modern') {
+      return {
+        label: '✓ Site WordPress',
+        sublabel: 'Moderne',
+        type: 'modern',
+        issues,
+      };
+    }
+    return {
+      label: '🔧 Site WordPress',
+      sublabel: issues.length > 0 ? 'À optimiser' : undefined,
+      type: 'custom',
+      issues,
+    };
+  }
+  
+  // Site moderne
   if (lead.website_status === 'modern') {
-    return { label: 'Site moderne', color: 'text-green-600 dark:text-green-400' };
+    return {
+      label: '✓ Site moderne',
+      sublabel: cms !== 'unknown' ? cmsLabel : undefined,
+      type: 'modern',
+      issues,
+    };
   }
-  return null;
+  
+  // Sur-mesure ou inconnu
+  if (cms === 'custom') {
+    return {
+      label: '🔧 Site sur-mesure',
+      type: 'custom',
+      issues,
+    };
+  }
+  
+  return {
+    label: '🌐 Site web',
+    sublabel: cms !== 'unknown' ? cmsLabel : undefined,
+    type: 'custom',
+    issues,
+  };
+}
+
+// ===== COMPOSANT ARGUMENTS DE VENTE =====
+function SalesArgumentsSection({ lead }: { lead: Lead }) {
+  const websiteInfo = getWebsiteInfo(lead);
+  // Ensure pain_points is always an array (handle string from DB edge case)
+  const painPoints = Array.isArray(lead.pain_points) 
+    ? lead.pain_points 
+    : (typeof lead.pain_points === 'string' ? JSON.parse(lead.pain_points) : []);
+  const hasPainPoints = painPoints.length > 0;
+  const hasTechIssues = websiteInfo.issues.length > 0;
+  const hasOpportunity = websiteInfo.type === 'none' || websiteInfo.type === 'old' || websiteInfo.type === 'platform';
+  
+  const cms = lead.cms_type?.toLowerCase() || 'unknown';
+  const isBookingPlatform = BOOKING_PLATFORMS.includes(cms);
+  const isSocialOnly = SOCIAL_AS_WEBSITE.includes(cms);
+  
+  // Ne rien afficher s'il n'y a rien d'intéressant
+  if (!hasPainPoints && !hasTechIssues && !hasOpportunity) {
+    return null;
+  }
+  
+  return (
+    <div className="border-b border-border">
+      {/* Header avec titre accrocheur */}
+      <div className="px-4 py-2.5 bg-linear-to-r from-warning/20 to-danger/20">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🎯</span>
+          <h3 className="text-sm font-semibold text-foreground">
+            Arguments de Vente
+          </h3>
+          {(hasPainPoints || hasTechIssues) && (
+            <span className="ml-auto px-2 py-0.5 bg-warning/20 rounded-full text-[10px] font-medium text-warning">
+              {(lead.pain_points?.length || 0) + websiteInfo.issues.length} opportunités
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-4 bg-linear-to-b from-warning/5 to-transparent space-y-3">
+        {/* Situation site web */}
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg shrink-0 ${
+            websiteInfo.type === 'none' ? 'bg-danger/10' :
+            websiteInfo.type === 'old' ? 'bg-warning/10' :
+            websiteInfo.type === 'platform' ? 'bg-warning/10' :
+            websiteInfo.type === 'modern' ? 'bg-success/10' :
+            'bg-primary/10'
+          }`}>
+            <Globe className={`w-4 h-4 ${
+              websiteInfo.type === 'none' ? 'text-danger' :
+              websiteInfo.type === 'old' ? 'text-warning' :
+              websiteInfo.type === 'platform' ? 'text-warning' :
+              websiteInfo.type === 'modern' ? 'text-success' :
+              'text-primary'
+            }`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${
+              websiteInfo.type === 'none' ? 'text-danger' :
+              websiteInfo.type === 'old' ? 'text-warning' :
+              websiteInfo.type === 'platform' ? 'text-warning' :
+              websiteInfo.type === 'modern' ? 'text-success' :
+              'text-primary'
+            }`}>
+              {websiteInfo.label}
+            </p>
+            {websiteInfo.sublabel && (
+              <p className="text-xs text-muted-foreground">{websiteInfo.sublabel}</p>
+            )}
+            
+            {/* Issues techniques */}
+            {websiteInfo.issues.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {websiteInfo.issues.map((issue, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-danger/10 text-danger"
+                  >
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pain points détaillés */}
+        {hasPainPoints && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Lightbulb className="w-3 h-3" />
+              Points de douleur identifiés
+            </p>
+            <div className="grid gap-1.5">
+              {painPoints.map((point: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2 p-2 rounded-lg bg-card border border-warning/20"
+                >
+                  <span className="text-warning font-bold shrink-0 text-xs">→</span>
+                  <p className="text-xs text-foreground">{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Résumé rapide si pas de pain points mais opportunité */}
+        {!hasPainPoints && hasOpportunity && (
+          <div className="p-2.5 rounded-lg bg-warning/10 border border-warning/20">
+            <p className="text-xs font-medium text-warning">
+              {isSocialOnly && "💡 Juste un réseau social = pas de vitrine professionnelle, aucun référencement Google"}
+              {isBookingPlatform && "💡 Seulement une page de réservation = pas de site propre, dépendant de la plateforme, pas de SEO"}
+              {websiteInfo.type === 'none' && !isSocialOnly && !isBookingPlatform && "💡 Pas de présence en ligne = besoin urgent d'un site web"}
+              {websiteInfo.type === 'old' && "💡 Site vieillot = perte de crédibilité et de clients potentiels"}
+              {websiteInfo.type === 'platform' && !isBookingPlatform && "💡 Plateforme limitante = difficile de se démarquer et de bien référencer"}
+            </p>
+          </div>
+        )}
+        
+        {/* CMS et tech - toujours visible si disponible */}
+        {lead.cms_type && lead.cms_type !== 'unknown' && (
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1 border-t border-border">
+            <span className="font-medium">Techno:</span>
+            <span className="px-1.5 py-0.5 rounded bg-muted font-mono">
+              {CMS_LABELS[lead.cms_type] || lead.cms_type}
+            </span>
+            {lead.has_booking === false && (
+              <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning">
+                Pas de RDV en ligne
+              </span>
+            )}
+            {lead.has_seo === false && (
+              <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning">
+                SEO faible
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ===== SCRIPTS PAR NICHE =====
@@ -176,9 +481,9 @@ function getContextualTip(lead: Lead, history: HistoryEntry[]): string | null {
   
   // Si beaucoup de tentatives sans réponse
   if (recentCalls.length >= 2) {
-    const messageries = recentCalls.filter(h => h.new_value?.includes('messagerie'));
-    if (messageries.length >= 2) {
-      return "💡 2+ messageries cette semaine. Essayez un SMS ou un autre créneau.";
+    const injoignables = recentCalls.filter(h => h.new_value?.includes('injoignable'));
+    if (injoignables.length >= 2) {
+      return "💡 2+ tentatives sans réponse cette semaine. Essayez un autre créneau.";
     }
   }
   
@@ -225,16 +530,10 @@ function getHistorySummary(history: HistoryEntry[]): { text: string; type: 'warn
     return daysAgo <= 7;
   });
   
-  const messageries = recentCalls.filter(h => 
-    h.new_value?.toLowerCase().includes('messagerie')
-  ).length;
   const injoignables = recentCalls.filter(h => 
     h.new_value?.toLowerCase().includes('injoignable')
   ).length;
   
-  if (messageries >= 2) {
-    return { text: `📞 ${messageries}x messagerie en 7j`, type: 'warning' };
-  }
   if (injoignables >= 2) {
     return { text: `📞 ${injoignables}x injoignable en 7j`, type: 'warning' };
   }
@@ -279,7 +578,7 @@ function isOptimalCallTime(bestCallTime: string | null): 'optimal' | 'suboptimal
   return 'suboptimal';
 }
 
-export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
+export function CurrentLeadCard({ lead, hideViewButton = false }: CurrentLeadCardProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -332,7 +631,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
     }
   }, [lead.phone]);
 
-  const websiteStatus = getWebsiteStatusLabel(lead);
+  const websiteInfo = getWebsiteInfo(lead);
   const phoneTypeLabel = lead.phone_type === 'perso' ? 'PERSO' : lead.phone_type === 'pro' ? 'PRO' : null;
   const isPersoPhone = lead.phone_type === 'perso';
   const callTimeStatus = isOptimalCallTime(lead.best_call_time ?? null);
@@ -352,42 +651,42 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
   
   // Bordure priorité
   const priorityBorderClass = lead.priority === 'high' 
-    ? 'border-l-4 border-l-red-500' 
+    ? 'border-l-4 border-l-danger' 
     : lead.priority === 'medium' 
-      ? 'border-l-4 border-l-yellow-500' 
+      ? 'border-l-4 border-l-warning' 
       : '';
 
   return (
     <Card className={`p-0 overflow-hidden ${priorityBorderClass}`}>
-      {/* ===== ALERTE B2C ===== */}
+      {/* ===== INDICATEUR NUMÉRO DIRIGEANT ===== */}
       {isPersoPhone && (
-        <div className="px-4 py-2 bg-yellow-500 text-yellow-950 flex items-center gap-2 text-sm font-medium">
-          <AlertTriangle className="w-4 h-4" />
-          <span>⚠️ NUMÉRO PERSONNEL - Risque B2C, adaptez votre approche</span>
+        <div className="px-4 py-2.5 bg-success/20 dark:bg-success/15 border-b border-success/30 flex items-center gap-2 text-sm font-medium text-success">
+          <Smartphone className="w-4 h-4" />
+          <span>NUMÉRO DIRECT - Forte probabilité de joindre le dirigeant</span>
         </div>
       )}
 
       {/* ===== BLOC 1: ESSENTIEL ===== */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-start gap-4 mb-3">
+      <div className="p-5 border-b border-border">
+        <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
           {/* Lead Image */}
           <LeadImage lead={lead} />
 
           <div className="flex-1 min-w-0">
             {/* Name + Priority */}
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <h2 className="text-xl font-bold text-foreground truncate">
                 {lead.name}
               </h2>
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                   PRIORITY_BADGE_COLORS[lead.priority]
                 }`}
               >
                 {lead.priority.toUpperCase()}
               </span>
               {lead.score && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/15 text-primary border border-primary/30">
                   <TrendingUp className="w-3 h-3" />
                   {lead.score}
                 </span>
@@ -395,14 +694,14 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             </div>
 
             {/* Activity + City */}
-            <div className="flex items-center gap-4 text-sm text-zinc-500 flex-wrap">
-              {lead.niche && <span className="font-medium text-foreground">{lead.niche}</span>}
-              <span className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {lead.niche && <span className="font-semibold text-foreground">{lead.niche}</span>}
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
                 {lead.city}
               </span>
               {lead.source && (
-                <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-md font-medium">
                   {SOURCE_LABELS[lead.source] || lead.source}
                 </span>
               )}
@@ -410,13 +709,13 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
           </div>
 
           {/* Quick links */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {lead.website && (
               <a
                 href={lead.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                 title="Site web"
               >
                 <Globe className="w-5 h-5" />
@@ -427,43 +726,45 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
                 href={lead.maps_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
                 title="Google Maps"
               >
                 <ExternalLink className="w-5 h-5" />
               </a>
             )}
-            <Link
-              href={`/leads/${lead.id}`}
-              className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
-              title="Voir la fiche"
-            >
-              <Eye className="w-5 h-5" />
-            </Link>
+            {!hideViewButton && (
+              <Link
+                href={`/leads/${lead.id}`}
+                className="p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
+                title="Voir la fiche"
+              >
+                <Eye className="w-5 h-5" />
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* Phone number - Main CTA - BIGGER */}
-        <div className="flex flex-col items-center gap-2 py-4">
-          <div className="flex items-center gap-2">
+        {/* Phone number - Main CTA */}
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="flex items-center gap-3">
             <a
               href={`tel:${lead.phone}`}
-              className={`flex items-center gap-3 px-8 py-4 rounded-xl text-2xl font-bold transition-colors tracking-wide ${
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg text-xl font-bold transition-colors tracking-wide ${
                 isPersoPhone
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  ? 'bg-warning hover:bg-warning/90 text-black'
+                  : 'bg-success hover:bg-success/90 text-white'
               }`}
             >
-              <Phone className="w-7 h-7" />
+              <Phone className="w-5 h-5" />
               {formattedPhone}
             </a>
             <button
               onClick={copyPhone}
-              className="p-3 rounded-xl bg-muted hover:bg-accent transition-colors"
+              className="p-2.5 rounded-lg bg-muted hover:bg-accent transition-colors"
               title="Copier le numéro"
             >
               {copied ? (
-                <Check className="w-5 h-5 text-green-600" />
+                <Check className="w-5 h-5 text-success" />
               ) : (
                 <Copy className="w-5 h-5 text-muted-foreground" />
               )}
@@ -471,40 +772,41 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
           </div>
           {phoneTypeLabel && (
             <span
-              className={`flex items-center gap-1 text-xs font-medium ${
-                isPersoPhone ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'
+              className={`flex items-center gap-1.5 text-xs font-semibold ${
+                isPersoPhone ? 'text-warning' : 'text-success'
               }`}
             >
-              {isPersoPhone ? <Smartphone className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
+              {isPersoPhone ? <Smartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
               {phoneTypeLabel}
             </span>
           )}
         </div>
 
         {/* ===== TAGS CRITIQUES SOUS LE TÉLÉPHONE ===== */}
-        <div className="flex flex-wrap justify-center gap-2 py-2">
-          {/* Website status */}
-          {websiteStatus && (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-              !lead.website 
-                ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' 
-                : lead.website_status === 'modern'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
-                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
-            }`}>
-              <Globe className="w-4 h-4" />
-              {websiteStatus.label}
-            </span>
-          )}
+        <div className="flex flex-wrap justify-center gap-2 py-3">
+          {/* Website status - compact version */}
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+            websiteInfo.type === 'none' 
+              ? 'bg-danger/10 text-danger' 
+              : websiteInfo.type === 'modern'
+                ? 'bg-success/10 text-success'
+                : websiteInfo.type === 'platform' || websiteInfo.type === 'old'
+                  ? 'bg-warning/10 text-warning'
+                  : 'bg-primary/10 text-primary'
+          }`}>
+            <Globe className="w-4 h-4" />
+            {websiteInfo.label}
+            {websiteInfo.sublabel && <span className="opacity-75">• {websiteInfo.sublabel}</span>}
+          </span>
           
           {/* Créneau optimal */}
           {lead.best_call_time && (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
               callTimeStatus === 'optimal'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
-                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                ? 'bg-success/10 text-success'
+                : 'bg-primary/10 text-primary'
             }`}>
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
               {callTimeStatus === 'optimal' 
                 ? `✓ Bon moment (${lead.best_call_time})`
                 : `Appeler ${lead.best_call_time}`
@@ -512,19 +814,12 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
             </span>
           )}
           
-          {/* Pas de réservation */}
-          {lead.has_booking === false && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">
-              Pas de RDV en ligne
-            </span>
-          )}
-          
           {/* Ouvert/Fermé */}
           {openStatus && (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
               openStatus === 'open'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
-                : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                ? 'bg-success/10 text-success'
+                : 'bg-danger/10 text-danger'
             }`}>
               {openStatus === 'open' ? '🟢 Ouvert' : '🔴 Fermé'}
             </span>
@@ -532,29 +827,29 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
         </div>
 
         {/* Meta info row */}
-        <div className="flex items-center justify-center gap-4 text-sm pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-sm pt-3">
           {/* Last contact */}
-          <div className="flex items-center gap-2 text-zinc-500">
-            <Clock className="w-4 h-4" />
-            <span>Dernier contact: <strong>{formatLastContact(lead.last_contact_at)}</strong></span>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Dernier contact: <strong className="text-foreground">{formatLastContact(lead.last_contact_at)}</strong></span>
           </div>
 
           {/* Attempts counter */}
-          <div className="flex items-center gap-1 text-zinc-500">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <span>
-              Tentatives: <strong>{lead.attempts_30d ?? lead.attempts_count ?? 0}/4</strong>
+              Tentatives: <strong className="text-foreground">{lead.attempts_30d ?? lead.attempts_count ?? 0}/4</strong>
             </span>
             {(lead.attempts_30d ?? 0) >= 3 && (
-              <AlertTriangle className="w-4 h-4 text-yellow-500" />
+              <AlertTriangle className="w-3.5 h-3.5 text-warning" />
             )}
           </div>
 
           {/* Rating - compact */}
           {lead.rating && (
-            <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
-              <Star className="w-4 h-4 fill-current" />
-              <span>{lead.rating}</span>
-              <span className="text-zinc-400">({lead.reviews_count})</span>
+            <div className="flex items-center gap-1.5 text-warning">
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span className="font-semibold">{lead.rating}</span>
+              <span className="text-muted-foreground">({lead.reviews_count})</span>
             </div>
           )}
         </div>
@@ -562,11 +857,11 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
 
       {/* ===== BLOC 2: DIRIGEANT ===== */}
       {lead.dirigeant && (
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/50 border-b border-border">
-          <p className="text-sm text-blue-700 dark:text-blue-300">
-            👤 Demander <strong>{lead.dirigeant}</strong>
+        <div className="px-5 py-3 bg-primary/10 dark:bg-primary/15 border-b border-border">
+          <p className="text-sm text-primary font-medium">
+            👤 Demander <strong className="font-bold">{lead.dirigeant}</strong>
             {lead.legal_name && lead.legal_name !== lead.name && (
-              <span className="text-blue-500"> ({lead.legal_name})</span>
+              <span className="opacity-75"> ({lead.legal_name})</span>
             )}
           </p>
         </div>
@@ -576,12 +871,12 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
       <div className="border-b border-border">
         <button
           onClick={() => setShowScript(!showScript)}
-          className="w-full flex items-center justify-between gap-2 px-4 py-2 hover:bg-accent transition-colors text-left"
+          className="w-full flex items-center justify-between gap-2 px-5 py-3 hover:bg-accent transition-colors text-left"
         >
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <div className="flex items-center gap-2.5 text-sm font-semibold text-muted-foreground">
             <FileText className="w-4 h-4" />
             <span>Script d&apos;appel</span>
-            <kbd className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded border border-border">S</kbd>
+            <kbd className="text-[10px] px-1.5 py-0.5 bg-muted rounded-md border border-border font-mono">S</kbd>
           </div>
           {showScript ? (
             <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -590,8 +885,8 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
           )}
         </button>
         {showScript && (
-          <div className="px-4 pb-3">
-            <pre className="text-sm text-foreground whitespace-pre-wrap bg-muted p-3 rounded-lg">
+          <div className="px-5 pb-4">
+            <pre className="text-sm text-foreground whitespace-pre-wrap bg-muted p-4 rounded-xl border border-border leading-relaxed">
               {script}
             </pre>
           </div>
@@ -600,32 +895,35 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
 
       {/* ===== BLOC 4: TIP CONTEXTUEL ===== */}
       {contextualTip && (
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-border">
-          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+        <div className="px-5 py-3 bg-info/10 dark:bg-info/15 border-b border-border">
+          <div className="flex items-center gap-2.5 text-sm text-info font-medium">
             <Lightbulb className="w-4 h-4 shrink-0" />
             <span>{contextualTip}</span>
           </div>
         </div>
       )}
 
+      {/* ===== BLOC 4.5: ARGUMENTS DE VENTE (Pain Points + Tech Issues) ===== */}
+      <SalesArgumentsSection lead={lead} />
+
       {/* ===== BLOC 5: HISTORIQUE AVEC RÉSUMÉ ===== */}
       {(history.length > 0 || loadingHistory) && (
-        <div className="p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="p-4">
+          <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <History className="w-4 h-4 text-zinc-400" />
-              <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <History className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Historique récent
               </h3>
             </div>
             
             {/* Résumé intelligent */}
             {historySummary && (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              <span className={`text-xs px-2 py-1 rounded-lg font-medium ${
                 historySummary.type === 'warning'
-                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
+                  ? 'bg-warning/10 text-warning'
                   : historySummary.type === 'success'
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                    ? 'bg-success/10 text-success'
                     : 'bg-muted text-muted-foreground'
               }`}>
                 {historySummary.text}
@@ -635,7 +933,7 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
           
           {loadingHistory ? (
             <div className="flex items-center justify-center py-2">
-              <div className="animate-spin w-4 h-4 border-2 border-zinc-300 border-t-zinc-600 rounded-full" />
+              <div className="animate-spin w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full" />
             </div>
           ) : (
             <LeadHistoryCompact history={history} maxItems={3} />
@@ -643,11 +941,11 @@ export function CurrentLeadCard({ lead }: CurrentLeadCardProps) {
         </div>
       )}
 
-      {/* Previous notes (if any and no history) */}
-      {lead.notes && history.length === 0 && !loadingHistory && (
+      {/* Previous notes (if any and no history) - Hidden on detail page to avoid duplication */}
+      {lead.notes && history.length === 0 && !loadingHistory && !hideViewButton && (
         <div className="px-4 py-2 border-t border-border">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Notes</p>
-          <pre className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
+          <pre className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-2">
             {lead.notes}
           </pre>
         </div>

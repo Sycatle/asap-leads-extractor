@@ -20,25 +20,25 @@ export function LeadsStats({ stats }: LeadsStatsProps) {
         icon={Users}
         label="Total leads"
         value={stats?.total ?? 0}
-        color="blue"
+        color="primary"
       />
       <StatCard
         icon={Phone}
         label="À appeler"
         value={stats?.to_call ?? 0}
-        color="orange"
+        color="warning"
       />
       <StatCard
         icon={Calendar}
         label="Relances"
         value={stats?.followups_today ?? 0}
-        color="purple"
+        color="info"
       />
       <StatCard
         icon={TrendingUp}
         label="Conversion"
         value={`${conversionRate}%`}
-        color="green"
+        color="success"
       />
     </div>
   );

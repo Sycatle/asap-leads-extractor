@@ -1,7 +1,14 @@
 "use client";
 
-import { Plus, Rocket, X, Loader2, Check, AlertCircle } from "lucide-react";
+import { Plus, Rocket, X, Check, AlertCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+
+import { PageHeader } from "@/components/layout";
+import { LoadingState } from "@/components/ui";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 interface Config {
   input_csv: string;
@@ -142,17 +149,13 @@ export default function ConfigPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-      </div>
-    );
+    return <LoadingState message="Chargement de la configuration..." />;
   }
 
   if (!config) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-zinc-500">Erreur de chargement de la configuration</p>
+        <p className="text-muted-foreground">Erreur de chargement de la configuration</p>
       </div>
     );
   }
@@ -162,148 +165,147 @@ export default function ConfigPage() {
   const totalQueries = niches.length * cities.length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <PageHeader 
+        title="Configuration"
+        description="Gérez vos paramètres de scraping et d'exclusion"
+      />
+
       {/* Status indicator */}
       {saving && (
-        <div className="fixed top-20 right-4 bg-zinc-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm shadow-lg">
-          <Loader2 className="w-4 h-4 animate-spin" />
+        <div className="fixed top-20 right-4 bg-card text-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm shadow-lg border border-border">
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           Sauvegarde...
         </div>
       )}
 
-      {/* Niches */}
-      <ConfigSection title="📍 Niches" description="Types d'établissements à rechercher">
-        <TagList 
-          tags={niches} 
-          onRemove={(tag) => updateNiches(niches.filter(n => n !== tag))} 
-        />
-        <div className="flex gap-2 mt-3">
-          <input
-            type="text"
-            value={newNiche}
-            onChange={(e) => setNewNiche(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addNiche()}
-            placeholder="ex: esthéticienne"
-            className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+      <div className="max-w-2xl space-y-6">
+        {/* Niches */}
+        <ConfigSection title="Niches" emoji="📍" description="Types d'établissements à rechercher">
+          <TagList 
+            tags={niches} 
+            onRemove={(tag) => updateNiches(niches.filter(n => n !== tag))} 
           />
-          <button
-            onClick={addNiche}
-            className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-medium hover:opacity-90 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter
-          </button>
-        </div>
-      </ConfigSection>
-
-      {/* Villes */}
-      <ConfigSection title="🏙️ Villes" description="Zones géographiques à couvrir">
-        <TagList 
-          tags={cities} 
-          onRemove={(tag) => updateCities(cities.filter(c => c !== tag))} 
-        />
-        <div className="flex gap-2 mt-3">
-          <input
-            type="text"
-            value={newCity}
-            onChange={(e) => setNewCity(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCity()}
-            placeholder="ex: Nantes"
-            className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-          />
-          <button
-            onClick={addCity}
-            className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-medium hover:opacity-90 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter
-          </button>
-        </div>
-      </ConfigSection>
-
-      {/* Mots-clés exclus */}
-      <ConfigSection title="🚫 Exclusions" description="Chaînes et franchises à ignorer">
-        <TagList 
-          tags={config.exclude_keywords} 
-          onRemove={(tag) => updateExcludeKeywords(config.exclude_keywords.filter(k => k !== tag))}
-          variant="red"
-        />
-        <div className="flex gap-2 mt-3">
-          <input
-            type="text"
-            value={newKeyword}
-            onChange={(e) => setNewKeyword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addKeyword()}
-            placeholder="ex: Leclerc"
-            className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-          />
-          <button
-            onClick={addKeyword}
-            className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-medium hover:opacity-90 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter
-          </button>
-        </div>
-      </ConfigSection>
-
-      {/* Lancer scrape */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold">Prêt à scraper ?</h3>
-            <p className="text-sm text-blue-100">
-              {niches.length} niche(s) × {cities.length} ville(s) = {totalQueries} requêtes
-            </p>
-            {totalQueries > 0 && (
-              <p className="text-xs text-blue-200 mt-1">
-                Estimation: ~{Math.ceil(totalQueries * 30 / 60)} min
-              </p>
-            )}
+          <div className="flex gap-2 mt-3">
+            <Input
+              value={newNiche}
+              onChange={(e) => setNewNiche(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addNiche()}
+              placeholder="ex: esthéticienne"
+              className="flex-1"
+            />
+            <Button onClick={addNiche} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter
+            </Button>
           </div>
-          <button 
-            onClick={launchScrape}
-            disabled={scraping || totalQueries === 0}
-            className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {scraping ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Scraping...
-              </>
-            ) : (
-              <>
-                <Rocket className="w-5 h-5" />
-                Lancer le Scrape
-              </>
-            )}
-          </button>
-        </div>
+        </ConfigSection>
 
-        {/* Scrape result */}
-        {scrapeResult && (
-          <div className={`mt-4 p-4 rounded-lg ${scrapeResult.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-            {scrapeResult.success ? (
-              <div className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-green-300 mt-0.5" />
-                <div>
-                  <p className="font-medium">Scrape terminé !</p>
-                  <p className="text-sm text-blue-100 mt-1">
-                    {scrapeResult.results?.total_raw} trouvés → {scrapeResult.results?.after_dedup} uniques → {scrapeResult.results?.inserted_db} en base
+        {/* Villes */}
+        <ConfigSection title="Villes" emoji="🏙️" description="Zones géographiques à couvrir">
+          <TagList 
+            tags={cities} 
+            onRemove={(tag) => updateCities(cities.filter(c => c !== tag))} 
+          />
+          <div className="flex gap-2 mt-3">
+            <Input
+              value={newCity}
+              onChange={(e) => setNewCity(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addCity()}
+              placeholder="ex: Nantes"
+              className="flex-1"
+            />
+            <Button onClick={addCity} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter
+            </Button>
+          </div>
+        </ConfigSection>
+
+        {/* Mots-clés exclus */}
+        <ConfigSection title="Exclusions" emoji="🚫" description="Chaînes et franchises à ignorer">
+          <TagList 
+            tags={config.exclude_keywords} 
+            onRemove={(tag) => updateExcludeKeywords(config.exclude_keywords.filter(k => k !== tag))}
+            variant="destructive"
+          />
+          <div className="flex gap-2 mt-3">
+            <Input
+              value={newKeyword}
+              onChange={(e) => setNewKeyword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addKeyword()}
+              placeholder="ex: Leclerc"
+              className="flex-1"
+            />
+            <Button onClick={addKeyword} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter
+            </Button>
+          </div>
+        </ConfigSection>
+
+        {/* Lancer scrape */}
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">Prêt à scraper ?</h3>
+                <p className="text-sm text-muted-foreground">
+                  {niches.length} niche(s) × {cities.length} ville(s) = {totalQueries} requêtes
+                </p>
+                {totalQueries > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Estimation: ~{Math.ceil(totalQueries * 30 / 60)} min
                   </p>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-300 mt-0.5" />
-                <div>
-                  <p className="font-medium">Erreur</p>
-                  <p className="text-sm text-red-200 mt-1">{scrapeResult.error}</p>
-                </div>
+              <Button 
+                onClick={launchScrape}
+                disabled={scraping || totalQueries === 0}
+                size="lg"
+                className="gap-2"
+              >
+                {scraping ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-5 h-5" />
+                    Lancer
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Scrape result */}
+            {scrapeResult && (
+              <div className={`mt-4 p-4 rounded-lg ${scrapeResult.success ? 'bg-success/10 border border-success/20' : 'bg-danger/10 border border-danger/20'}`}>
+                {scrapeResult.success ? (
+                  <div className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-success mt-0.5" />
+                    <div>
+                      <p className="font-medium text-success">Scrape terminé !</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {scrapeResult.results?.total_raw} trouvés → {scrapeResult.results?.after_dedup} uniques → {scrapeResult.results?.inserted_db} en base
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-danger mt-0.5" />
+                    <div>
+                      <p className="font-medium text-danger">Erreur</p>
+                      <p className="text-sm text-muted-foreground mt-1">{scrapeResult.error}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -311,19 +313,26 @@ export default function ConfigPage() {
 
 function ConfigSection({ 
   title, 
+  emoji,
   description, 
   children 
 }: { 
-  title: string; 
+  title: string;
+  emoji: string;
   description: string; 
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-      <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
-      <p className="text-sm text-zinc-500 mb-4">{description}</p>
-      {children}
-    </div>
+    <Card>
+      <CardContent className="p-6">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <span>{emoji}</span>
+          {title}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">{description}</p>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -334,30 +343,27 @@ function TagList({
 }: { 
   tags: string[]; 
   onRemove: (tag: string) => void;
-  variant?: "default" | "red";
+  variant?: "default" | "destructive";
 }) {
-  const colors = variant === "red" 
-    ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
-    : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-
   return (
     <div className="flex flex-wrap gap-2">
       {tags.map((tag) => (
-        <span 
+        <Badge 
           key={tag} 
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${colors}`}
+          variant={variant === "destructive" ? "destructive" : "secondary"}
+          className="gap-1.5 pr-1.5"
         >
           {tag}
           <button 
             onClick={() => onRemove(tag)}
-            className="hover:text-red-500 transition-colors"
+            className="hover:bg-background/20 rounded-full p-0.5 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
-        </span>
+        </Badge>
       ))}
       {tags.length === 0 && (
-        <span className="text-sm text-zinc-400 italic">Aucun élément</span>
+        <span className="text-sm text-muted-foreground italic">Aucun élément</span>
       )}
     </div>
   );

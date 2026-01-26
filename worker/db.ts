@@ -31,6 +31,12 @@ export interface InsertLead {
   has_seo?: boolean;
   last_gmb_update?: string | null;
   image_url?: string | null;
+  // Website analysis fields
+  cms_type?: string | null;
+  has_mobile_friendly?: boolean | null;
+  has_ssl?: boolean | null;
+  page_load_time?: number | null;
+  pain_points?: string[] | null;
 }
 
 /**
@@ -67,12 +73,14 @@ export function upsertLead(lead: InsertLead): DbLead | null {
     INSERT INTO leads (
       phone, phone_type, name, address, city, postal_code, website, website_status,
       maps_url, rating, reviews_count, niche, source, priority, score,
-      opening_hours, best_call_time, has_booking, has_seo, last_gmb_update, image_url
+      opening_hours, best_call_time, has_booking, has_seo, last_gmb_update, image_url,
+      cms_type, has_mobile_friendly, has_ssl, page_load_time, pain_points
     )
     VALUES (
       @phone, @phone_type, @name, @address, @city, @postal_code, @website, @website_status,
       @maps_url, @rating, @reviews_count, @niche, @source, @priority, @score,
-      @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update, @image_url
+      @opening_hours, @best_call_time, @has_booking, @has_seo, @last_gmb_update, @image_url,
+      @cms_type, @has_mobile_friendly, @has_ssl, @page_load_time, @pain_points
     )
     ON CONFLICT(phone) DO UPDATE SET
       -- Données GMB: toujours mettre à jour (fraîcheur des données)
@@ -94,6 +102,13 @@ export function upsertLead(lead: InsertLead): DbLead | null {
       has_booking = COALESCE(excluded.has_booking, leads.has_booking),
       has_seo = COALESCE(excluded.has_seo, leads.has_seo),
       last_gmb_update = COALESCE(excluded.last_gmb_update, leads.last_gmb_update),
+      
+      -- Website analysis: update if new data available
+      cms_type = COALESCE(excluded.cms_type, leads.cms_type),
+      has_mobile_friendly = COALESCE(excluded.has_mobile_friendly, leads.has_mobile_friendly),
+      has_ssl = COALESCE(excluded.has_ssl, leads.has_ssl),
+      page_load_time = COALESCE(excluded.page_load_time, leads.page_load_time),
+      pain_points = COALESCE(excluded.pain_points, leads.pain_points),
       
       -- Score et priorité: recalculer SAUF si le lead a été contacté
       priority = CASE 
@@ -132,9 +147,35 @@ export function upsertLead(lead: InsertLead): DbLead | null {
     has_seo: lead.has_seo ? 1 : 0,
     last_gmb_update: lead.last_gmb_update ?? null,
     image_url: lead.image_url ?? null,
+    cms_type: lead.cms_type ?? null,
+    has_mobile_friendly: lead.has_mobile_friendly !== undefined ? (lead.has_mobile_friendly ? 1 : 0) : null,
+    has_ssl: lead.has_ssl !== undefined ? (lead.has_ssl ? 1 : 0) : null,
+    page_load_time: lead.page_load_time ?? null,
+    pain_points: lead.pain_points ? JSON.stringify(lead.pain_points) : null,
   }) as DbLead | undefined;
   
   return result ?? null;
+}
+
+/**
+ * Check if a phone number already exists in the database
+ * Used to skip already-collected leads during scraping
+ */
+export function phoneExists(phone: string): boolean {
+  const database = getDb();
+  const stmt = database.prepare('SELECT 1 FROM leads WHERE phone = ?');
+  return stmt.get(phone) !== undefined;
+}
+
+/**
+ * Get all existing phones as a Set for fast lookup
+ * More efficient than checking each phone individually
+ */
+export function getExistingPhones(): Set<string> {
+  const database = getDb();
+  const stmt = database.prepare('SELECT phone FROM leads');
+  const rows = stmt.all() as { phone: string }[];
+  return new Set(rows.map(r => r.phone));
 }
 
 /**
@@ -394,6 +435,51 @@ export function enrichLead(id: number, data: {
   return result.changes > 0;
 }
 
+/**
+ * Enrichir un lead avec analyse website
+ */
+export function enrichLeadWebsiteAnalysis(id: number, data: {
+  cms_type?: string;
+  has_mobile_friendly?: boolean;
+  has_ssl?: boolean;
+  page_load_time?: number;
+  pain_points?: string[];
+}): boolean {
+  // Validate input
+  if (!id || id <= 0) {
+    console.error('enrichLeadWebsiteAnalysis: ID invalide', id);
+    return false;
+  }
+  
+  try {
+    const database = getDb();
+    const stmt = database.prepare(`
+      UPDATE leads 
+      SET 
+        cms_type = COALESCE(?, cms_type),
+        has_mobile_friendly = COALESCE(?, has_mobile_friendly),
+        has_ssl = COALESCE(?, has_ssl),
+        page_load_time = COALESCE(?, page_load_time),
+        pain_points = COALESCE(?, pain_points),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `);
+    const result = stmt.run(
+      data.cms_type ?? null, 
+      data.has_mobile_friendly !== undefined ? (data.has_mobile_friendly ? 1 : 0) : null,
+      data.has_ssl !== undefined ? (data.has_ssl ? 1 : 0) : null,
+      data.page_load_time ?? null,
+      data.pain_points ? JSON.stringify(data.pain_points) : null,
+      id
+    );
+    return result.changes > 0;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`enrichLeadWebsiteAnalysis: Erreur pour lead ${id}: ${errorMessage}`);
+    return false;
+  }
+}
+
 // ===== STATISTIQUES =====
 
 export interface LeadStats {
@@ -423,7 +509,7 @@ export function getStats(): LeadStats {
   // Par call_status
   const callRows = database.prepare('SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status').all() as { call_status: CallStatus; count: number }[];
   const by_call_status: Record<CallStatus, number> = {
-    non_appele: 0, appele: 0, messagerie: 0, rappeler: 0, injoignable: 0
+    non_appele: 0, appele: 0, rappeler: 0, injoignable: 0
   };
   for (const row of callRows) {
     by_call_status[row.call_status] = row.count;

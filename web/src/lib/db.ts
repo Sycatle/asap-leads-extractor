@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// Re-export les types depuis shared
+// Re-export les types depuis shared (types-only imports work fine)
 export type { 
   LeadStatus, 
   CallStatus, 
@@ -13,7 +13,26 @@ export type {
   DbLead 
 } from '../../../shared/types.js';
 
-import type { DbLead, LeadStatus, CallStatus, EmailStatus } from '../../../shared/types.js';
+import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types.js';
+import type { Lead } from '@/types';
+
+// Type alias for SQLite row results that contain full lead data
+type DbLeadRow = DbLead;
+
+/**
+ * Transform DbLead to Lead (parse JSON fields)
+ * Uses DbLeadRow to handle SQLite result typing
+ */
+export function transformDbLead(dbLead: DbLeadRow): Lead {
+  return {
+    ...dbLead,
+    has_booking: Boolean(dbLead.has_booking),
+    has_seo: Boolean(dbLead.has_seo),
+    has_mobile_friendly: dbLead.has_mobile_friendly !== null ? Boolean(dbLead.has_mobile_friendly) : null,
+    has_ssl: dbLead.has_ssl !== null ? Boolean(dbLead.has_ssl) : null,
+    pain_points: dbLead.pain_points ? JSON.parse(dbLead.pain_points) : null,
+  } as Lead;
+}
 
 // DB Path - Trouver le chemin vers data/leads.db
 // 1. Priorité: variable d'environnement DATABASE_PATH
@@ -23,7 +42,6 @@ function findDbPath(): string {
     return process.env.DATABASE_PATH;
   }
   
-  const fs = require('fs');
   const cwd = process.cwd();
   
   // Cas 1: cwd = .../leads-finder/web → ../data/leads.db
@@ -52,86 +70,50 @@ export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    migrateSchema(db);
+    // Note: Migrations are handled by the worker (pnpm migrate)
+    // The web assumes the database schema is already up to date
   }
   return db;
 }
 
+// ===== SQL SECURITY =====
+
 /**
- * Migration du schéma - ajoute les tables et colonnes manquantes
- * Le worker crée le schéma initial, le web le complète si nécessaire
+ * Colonnes autorisées pour ORDER BY (prévention injection SQL)
+ * IMPORTANT: Ne jamais interpoler directement des valeurs utilisateur dans ORDER BY
  */
-function migrateSchema(database: Database.Database): void {
-  // Vérifier les colonnes existantes
-  const columns = database.prepare("PRAGMA table_info(leads)").all() as { name: string }[];
-  const columnNames = new Set(columns.map(c => c.name));
-  
-  // Migrations des colonnes (le worker les crée, mais on s'assure qu'elles existent)
-  const migrations: [string, string][] = [
-    ['phone_type', "ALTER TABLE leads ADD COLUMN phone_type TEXT CHECK(phone_type IN ('pro', 'perso', 'unknown')) DEFAULT 'unknown'"],
-    ['website_status', "ALTER TABLE leads ADD COLUMN website_status TEXT CHECK(website_status IN ('none', 'old', 'platform', 'modern'))"],
-    ['score', "ALTER TABLE leads ADD COLUMN score INTEGER DEFAULT 50"],
-    ['opening_hours', "ALTER TABLE leads ADD COLUMN opening_hours TEXT"],
-    ['best_call_time', "ALTER TABLE leads ADD COLUMN best_call_time TEXT"],
-    ['has_booking', "ALTER TABLE leads ADD COLUMN has_booking INTEGER DEFAULT 0"],
-    ['has_seo', "ALTER TABLE leads ADD COLUMN has_seo INTEGER DEFAULT 0"],
-    ['last_gmb_update', "ALTER TABLE leads ADD COLUMN last_gmb_update TEXT"],
-    ['attempts_count', "ALTER TABLE leads ADD COLUMN attempts_count INTEGER DEFAULT 0"],
-    ['opt_out', "ALTER TABLE leads ADD COLUMN opt_out INTEGER DEFAULT 0"],
-    ['image_url', "ALTER TABLE leads ADD COLUMN image_url TEXT"],
-  ];
-  
-  for (const [column, sql] of migrations) {
-    if (!columnNames.has(column)) {
-      try {
-        database.exec(sql);
-        console.log(`[DB] Migration: ajout colonne ${column}`);
-      } catch {
-        // Ignore si déjà existe
-      }
-    }
-  }
-  
-  // Tables additionnelles pour le web
-  database.exec(`
-    -- Table historique des interactions
-    CREATE TABLE IF NOT EXISTS lead_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      lead_id INTEGER NOT NULL,
-      type TEXT CHECK(type IN ('call', 'email', 'note', 'status_change', 'followup_set')) NOT NULL,
-      old_value TEXT,
-      new_value TEXT,
-      note TEXT,
-      duration_seconds INTEGER,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_history_lead ON lead_history(lead_id);
-    CREATE INDEX IF NOT EXISTS idx_history_date ON lead_history(created_at);
-    
-    -- Table sessions de prospection
-    CREATE TABLE IF NOT EXISTS call_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      started_at TEXT NOT NULL DEFAULT (datetime('now')),
-      ended_at TEXT,
-      total_calls INTEGER DEFAULT 0,
-      total_reached INTEGER DEFAULT 0,
-      total_voicemail INTEGER DEFAULT 0,
-      total_scheduled INTEGER DEFAULT 0,
-      notes TEXT
-    );
-    
-    -- Table scripts d'appel
-    CREATE TABLE IF NOT EXISTS call_scripts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      niche TEXT,
-      type TEXT CHECK(type IN ('intro', 'objection', 'closing')) NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      is_active INTEGER DEFAULT 1
-    );
-  `);
+const VALID_ORDER_COLUMNS = [
+  'created_at',
+  'updated_at',
+  'score',
+  'rating',
+  'name',
+  'city',
+  'next_followup_at',
+  'priority',
+  'status',
+  'call_status',
+  'niche',
+  'reviews_count',
+] as const;
+
+type ValidOrderColumn = typeof VALID_ORDER_COLUMNS[number];
+
+/**
+ * Valide et retourne une colonne ORDER BY sécurisée
+ */
+function sanitizeOrderBy(column: string | undefined, defaultColumn: ValidOrderColumn = 'created_at'): ValidOrderColumn {
+  if (!column) return defaultColumn;
+  return VALID_ORDER_COLUMNS.includes(column as ValidOrderColumn) 
+    ? (column as ValidOrderColumn) 
+    : defaultColumn;
+}
+
+/**
+ * Valide et retourne une direction ORDER BY sécurisée
+ */
+function sanitizeOrderDir(dir: string | undefined): 'ASC' | 'DESC' {
+  return dir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 }
 
 // ===== QUERIES =====
@@ -190,10 +172,10 @@ export function findLeads(filters: LeadFilters = {}): DbLead[] {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
   
-  // Order
-  const orderBy = filters.orderBy || 'created_at';
-  const orderDir = filters.orderDir || 'desc';
-  sql += ` ORDER BY ${orderBy} ${orderDir.toUpperCase()}`;
+  // Order - sécurisé contre injection SQL
+  const orderBy = sanitizeOrderBy(filters.orderBy);
+  const orderDir = sanitizeOrderDir(filters.orderDir);
+  sql += ` ORDER BY ${orderBy} ${orderDir}`;
   
   // Pagination
   const limit = filters.limit || 25;
@@ -202,6 +184,184 @@ export function findLeads(filters: LeadFilters = {}): DbLead[] {
   
   const stmt = database.prepare(sql);
   return stmt.all(params) as DbLead[];
+}
+
+// ===== ADVANCED SEARCH =====
+
+export interface AdvancedLeadFilters {
+  // Basic filters
+  status?: LeadStatus;
+  call_status?: CallStatus;
+  city?: string;
+  niche?: string;
+  priority?: 'high' | 'medium' | 'low';
+  search?: string;
+  
+  // Boolean filters
+  hasWebsite?: 'all' | 'yes' | 'no';
+  hasDirigeant?: 'all' | 'yes' | 'no';
+  hasSiren?: 'all' | 'yes' | 'no';
+  hasPhone?: 'all' | 'yes' | 'no';
+  
+  // Range filters
+  scoreMin?: number;
+  scoreMax?: number;
+  ratingMin?: number;
+  ratingMax?: number;
+  
+  // Date filters
+  createdAfter?: string;
+  createdBefore?: string;
+  
+  // Pagination & sorting
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDir?: 'asc' | 'desc';
+}
+
+function buildAdvancedConditions(filters: AdvancedLeadFilters): { conditions: string[]; params: Record<string, unknown> } {
+  const conditions: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  // Basic filters
+  if (filters.status) {
+    conditions.push('status = @status');
+    params.status = filters.status;
+  }
+  
+  if (filters.call_status) {
+    conditions.push('call_status = @call_status');
+    params.call_status = filters.call_status;
+  }
+  
+  if (filters.city) {
+    conditions.push('city LIKE @city');
+    params.city = `%${filters.city}%`;
+  }
+  
+  if (filters.niche) {
+    conditions.push('niche = @niche');
+    params.niche = filters.niche;
+  }
+  
+  if (filters.priority) {
+    conditions.push('priority = @priority');
+    params.priority = filters.priority;
+  }
+  
+  // Enhanced search - searches across more fields
+  if (filters.search) {
+    conditions.push(`(
+      name LIKE @search 
+      OR phone LIKE @search 
+      OR city LIKE @search 
+      OR address LIKE @search
+      OR legal_name LIKE @search
+      OR dirigeant LIKE @search
+      OR siren LIKE @search
+      OR siret LIKE @search
+      OR niche LIKE @search
+      OR postal_code LIKE @search
+    )`);
+    params.search = `%${filters.search}%`;
+  }
+  
+  // Boolean filters
+  if (filters.hasWebsite === 'yes') {
+    conditions.push("website IS NOT NULL AND website != ''");
+  } else if (filters.hasWebsite === 'no') {
+    conditions.push("(website IS NULL OR website = '')");
+  }
+  
+  if (filters.hasDirigeant === 'yes') {
+    conditions.push("dirigeant IS NOT NULL AND dirigeant != ''");
+  } else if (filters.hasDirigeant === 'no') {
+    conditions.push("(dirigeant IS NULL OR dirigeant = '')");
+  }
+  
+  if (filters.hasSiren === 'yes') {
+    conditions.push("siren IS NOT NULL AND siren != ''");
+  } else if (filters.hasSiren === 'no') {
+    conditions.push("(siren IS NULL OR siren = '')");
+  }
+  
+  if (filters.hasPhone === 'yes') {
+    conditions.push("phone IS NOT NULL AND phone != ''");
+  } else if (filters.hasPhone === 'no') {
+    conditions.push("(phone IS NULL OR phone = '')");
+  }
+  
+  // Range filters
+  if (filters.scoreMin !== undefined) {
+    conditions.push('score >= @scoreMin');
+    params.scoreMin = filters.scoreMin;
+  }
+  
+  if (filters.scoreMax !== undefined) {
+    conditions.push('score <= @scoreMax');
+    params.scoreMax = filters.scoreMax;
+  }
+  
+  if (filters.ratingMin !== undefined) {
+    conditions.push('rating >= @ratingMin');
+    params.ratingMin = filters.ratingMin;
+  }
+  
+  if (filters.ratingMax !== undefined) {
+    conditions.push('rating <= @ratingMax');
+    params.ratingMax = filters.ratingMax;
+  }
+  
+  // Date filters
+  if (filters.createdAfter) {
+    conditions.push("created_at >= @createdAfter");
+    params.createdAfter = filters.createdAfter;
+  }
+  
+  if (filters.createdBefore) {
+    conditions.push("created_at <= @createdBefore");
+    params.createdBefore = filters.createdBefore + ' 23:59:59';
+  }
+
+  return { conditions, params };
+}
+
+export function findLeadsAdvanced(filters: AdvancedLeadFilters = {}): DbLead[] {
+  const database = getDb();
+  const { conditions, params } = buildAdvancedConditions(filters);
+  
+  let sql = 'SELECT * FROM leads';
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  // Order - sécurisé contre injection SQL
+  const orderBy = sanitizeOrderBy(filters.orderBy);
+  const orderDir = sanitizeOrderDir(filters.orderDir);
+  sql += ` ORDER BY ${orderBy} ${orderDir}`;
+  
+  // Pagination
+  const limit = filters.limit || 25;
+  const offset = filters.offset || 0;
+  sql += ` LIMIT ${limit} OFFSET ${offset}`;
+  
+  const stmt = database.prepare(sql);
+  return stmt.all(params) as DbLead[];
+}
+
+export function countLeadsAdvanced(filters: Omit<AdvancedLeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
+  const database = getDb();
+  const { conditions, params } = buildAdvancedConditions(filters);
+  
+  let sql = 'SELECT COUNT(*) as count FROM leads';
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  const stmt = database.prepare(sql);
+  const result = stmt.get(params) as { count: number };
+  return result.count;
 }
 
 export function countLeads(filters: Omit<LeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
@@ -241,10 +401,11 @@ export function countLeads(filters: Omit<LeadFilters, 'limit' | 'offset' | 'orde
   return result.count;
 }
 
-export function findById(id: number): DbLead | null {
+export function findById(id: number): Lead | null {
   const database = getDb();
   const stmt = database.prepare('SELECT * FROM leads WHERE id = ?');
-  return (stmt.get(id) as DbLead) ?? null;
+  const row = stmt.get(id) as DbLead | undefined;
+  return row ? transformDbLead(row) : null;
 }
 
 export function updateLead(id: number, data: Partial<DbLead>): boolean {
@@ -333,6 +494,17 @@ export function scheduleFollowup(id: number, date: string): boolean {
   return result.changes > 0;
 }
 
+export function markOptOut(id: number): boolean {
+  const database = getDb();
+  const stmt = database.prepare(`
+    UPDATE leads 
+    SET opt_out = 1, status = 'perdu', updated_at = datetime('now')
+    WHERE id = ?
+  `);
+  const result = stmt.run(id);
+  return result.changes > 0;
+}
+
 // ===== STATS =====
 
 export interface LeadStats {
@@ -360,7 +532,7 @@ export function getStats(): LeadStats {
   
   const callRows = database.prepare('SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status').all() as { call_status: CallStatus; count: number }[];
   const by_call_status: Record<CallStatus, number> = {
-    non_appele: 0, appele: 0, messagerie: 0, rappeler: 0, injoignable: 0
+    non_appele: 0, appele: 0, rappeler: 0, injoignable: 0
   };
   for (const row of callRows) {
     by_call_status[row.call_status] = row.count;
@@ -568,17 +740,20 @@ function matchesBestCallTime(bestCallTime: string | null): boolean {
 
 /**
  * Calcule le score ajusté pour un lead selon l'algorithme intelligent
+ * Priorise les leads avec le plus d'informations exploitables pour le cold call
  */
 function calculateAdjustedScore(lead: DbLead): number {
   const config = LEAD_SELECTION_CONFIG;
   let adjustedScore = lead.score || 50;
+  
+  // ===== BONUS CONTEXTE D'APPEL =====
   
   // Bonus heure optimale
   if (matchesBestCallTime(lead.best_call_time)) {
     adjustedScore += config.bonusBestCallTime;
   }
   
-  // Bonus pas de site web
+  // Bonus pas de site web (opportunité commerciale)
   if (!lead.website) {
     adjustedScore += config.bonusNoWebsite;
   }
@@ -590,13 +765,55 @@ function calculateAdjustedScore(lead: DbLead): number {
     adjustedScore += config.bonusPriorityMedium;
   }
   
-  // Malus tentatives
-  adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
-  
-  // Malus numéro perso
+  // Bonus numéro perso (plus de chances de joindre le dirigeant)
   if (lead.phone_type === 'perso') {
-    adjustedScore -= config.malusPhonePerso;
+    adjustedScore += config.bonusPhonePerso;
   }
+  
+  // ===== BONUS INFORMATIONS ENRICHIES =====
+  // Plus on a d'infos, mieux on peut préparer l'appel
+  
+  // Nom du dirigeant = personnalisation de l'appel ("Bonjour M. Dupont")
+  if (lead.dirigeant) {
+    adjustedScore += config.bonusDirigeant;
+  }
+  
+  // SIREN connu = entreprise vérifiée, on peut parler de leur structure
+  if (lead.siren) {
+    adjustedScore += config.bonusSiren;
+  }
+  
+  // Points de douleur identifiés = argumentation ciblée
+  if (lead.pain_points) {
+    try {
+      const painPoints = JSON.parse(lead.pain_points);
+      if (Array.isArray(painPoints) && painPoints.length > 0) {
+        adjustedScore += config.bonusPainPoints;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  
+  // Site analysé (on connaît leur CMS, leur vitesse, etc.)
+  if (lead.cms_type || lead.page_load_time) {
+    adjustedScore += config.bonusWebsiteAnalyzed;
+  }
+  
+  // Bonne note Google = entreprise sérieuse, plus réceptive
+  if (lead.rating && lead.rating >= 4.0) {
+    adjustedScore += config.bonusGoodRating;
+  }
+  
+  // A des avis = présence GMB active, entreprise visible
+  if (lead.reviews_count && lead.reviews_count > 0) {
+    adjustedScore += config.bonusHasReviews;
+  }
+  
+  // ===== MALUS =====
+  
+  // Malus tentatives (éviter de harceler)
+  adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
   
   return adjustedScore;
 }
@@ -606,29 +823,44 @@ export interface NextLeadOptions {
   recentNiches?: string[]; // Les niches des derniers leads appelés
 }
 
-export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): DbLead | null {
+export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): Lead | null {
   const database = getDb();
   const config = LEAD_SELECTION_CONFIG;
   
-  const excludeClause = excludeIds.length > 0 
-    ? `AND id NOT IN (${excludeIds.join(',')})` 
-    : '';
+  // Paramètres sécurisés
+  const params: Record<string, unknown> = {
+    maxAttempts: config.maxAttempts,
+    coolingOffHours: `-${config.coolingOffHours} hours`,
+  };
   
-  // Filtres globaux (toujours appliqués)
+  // Clause d'exclusion avec placeholders
+  let excludeClause = '';
+  if (excludeIds.length > 0) {
+    // Valider que tous les IDs sont des entiers
+    const validIds = excludeIds.filter(id => Number.isInteger(id) && id > 0);
+    if (validIds.length > 0) {
+      const placeholders = validIds.map((_, i) => `@excludeId${i}`).join(',');
+      excludeClause = `AND id NOT IN (${placeholders})`;
+      validIds.forEach((id, i) => { params[`excludeId${i}`] = id; });
+    }
+  }
+  
+  // Filtres globaux avec paramètres
   const globalFilters = `
     AND opt_out = 0
     AND status NOT IN ('converti', 'perdu')
-    AND attempts_count < ${config.maxAttempts}
-    AND (last_contact_at IS NULL OR last_contact_at < datetime('now', '-${config.coolingOffHours} hours'))
+    AND attempts_count < @maxAttempts
+    AND (last_contact_at IS NULL OR last_contact_at < datetime('now', @coolingOffHours))
   `;
   
-  // Filtre de rotation des niches (éviter les mêmes niches consécutives)
+  // Filtre de rotation des niches
   let nicheFilter = '';
   if (options.recentNiches && options.recentNiches.length >= config.maxConsecutiveSameNiche) {
     const lastNiche = options.recentNiches[0];
     const consecutiveCount = options.recentNiches.filter(n => n === lastNiche).length;
     if (consecutiveCount >= config.maxConsecutiveSameNiche && lastNiche) {
-      nicheFilter = `AND (niche IS NULL OR niche != '${lastNiche.replace(/'/g, "''")}') `;
+      nicheFilter = `AND (niche IS NULL OR niche != @excludeNiche)`;
+      params.excludeNiche = lastNiche;
     }
   }
   
@@ -641,8 +873,8 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLead | undefined;
-  if (overdue) return overdue;
+  `).get(params) as DbLeadRow | undefined;
+  if (overdue) return transformDbLead(overdue);
   
   // 2. Relances aujourd'hui (plus tôt d'abord)
   const todayFollowup = database.prepare(`
@@ -654,8 +886,8 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get() as DbLead | undefined;
-  if (todayFollowup) return todayFollowup;
+  `).get(params) as DbLeadRow | undefined;
+  if (todayFollowup) return transformDbLead(todayFollowup);
   
   // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
   const freshLeads = database.prepare(`
@@ -667,7 +899,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY created_at ASC
     LIMIT 50
-  `).all() as DbLead[];
+  `).all(params) as DbLeadRow[];
   
   if (freshLeads.length > 0) {
     // Calculer le score ajusté pour chaque lead et trier
@@ -675,7 +907,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return scoredLeads[0].lead;
+    return transformDbLead(scoredLeads[0].lead);
   }
   
   // 4. Leads à rappeler depuis > 24h - triés par SCORE AJUSTÉ
@@ -688,14 +920,14 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY last_contact_at ASC
     LIMIT 50
-  `).all() as DbLead[];
+  `).all(params) as DbLeadRow[];
   
   if (staleLeads.length > 0) {
     const scoredLeads = staleLeads
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return scoredLeads[0].lead;
+    return transformDbLead(scoredLeads[0].lead);
   }
   
   // 5. Fallback sans filtre de niche (si on a bloqué par rotation)
@@ -745,8 +977,7 @@ export function getFollowups(): FollowupLead[] {
 export function logCallWithHistory(
   id: number, 
   callStatus: CallStatus, 
-  note?: string,
-  autoScheduleFollowup = true
+  note?: string
 ): boolean {
   const database = getDb();
   const lead = findById(id);
@@ -763,28 +994,11 @@ export function logCallWithHistory(
   });
   
   // Prepare updates
-  let nextFollowup = lead.next_followup_at;
+  const nextFollowup = lead.next_followup_at;
   let newStatus = lead.status;
   
-  // Auto-schedule followup if messagerie
-  if (autoScheduleFollowup && callStatus === 'messagerie') {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-    nextFollowup = tomorrow.toISOString().slice(0, 19).replace('T', ' ');
-    
-    addHistory({
-      lead_id: id,
-      type: 'followup_set',
-      old_value: lead.next_followup_at,
-      new_value: nextFollowup,
-      note: 'Auto-relance après messagerie',
-      duration_seconds: null,
-    });
-  }
-  
   // Auto-update status to 'contacte' if first real contact
-  if (lead.status === 'nouveau' && ['appele', 'messagerie'].includes(callStatus)) {
+  if (lead.status === 'nouveau' && callStatus === 'appele') {
     newStatus = 'contacte';
     addHistory({
       lead_id: id,
@@ -875,4 +1089,253 @@ export function scheduleFollowupWithHistory(id: number, date: string, note?: str
   `);
   const result = stmt.run(date, id);
   return result.changes > 0;
+}
+
+// ===== GAMIFIED STATS =====
+
+export interface TodayStats {
+  calls_today: number;
+  calls_goal: number;
+  contacts_today: number;
+  rdv_today: number;
+  avg_call_duration: number;
+}
+
+export interface StreakInfo {
+  current_streak: number;
+  best_streak: number;
+  last_activity_date: string | null;
+}
+
+export interface TopLead {
+  id: number;
+  name: string;
+  city: string;
+  niche: string | null;
+  phone: string;
+  score: number;
+  priority: string;
+  website: string | null;
+  website_status: string | null;
+  pain_points: string[] | null;
+  reason: string; // Why this lead is recommended
+}
+
+export interface GamifiedStats {
+  today: TodayStats;
+  streak: StreakInfo;
+  top_leads: TopLead[];
+  weekly_performance: {
+    calls: number[];
+    contacts: number[];
+    labels: string[];
+  };
+  conversion_rate: number;
+}
+
+export type StatsPeriod = '24h' | '7d' | '30d' | 'all';
+
+function getPeriodFilter(period: StatsPeriod): string {
+  switch (period) {
+    case '24h':
+      return "AND created_at >= datetime('now', '-1 day')";
+    case '7d':
+      return "AND created_at >= datetime('now', '-7 days')";
+    case '30d':
+      return "AND created_at >= datetime('now', '-30 days')";
+    case 'all':
+      return '';
+  }
+}
+
+function getPeriodDays(period: StatsPeriod): number {
+  switch (period) {
+    case '24h': return 1;
+    case '7d': return 7;
+    case '30d': return 30;
+    case 'all': return 365;
+  }
+}
+
+export function getGamifiedStats(period: StatsPeriod = '24h'): GamifiedStats {
+  const database = getDb();
+  const periodFilter = getPeriodFilter(period);
+  const periodDays = getPeriodDays(period);
+  
+  // === PERIOD STATS ===
+  const callsCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' ${periodFilter}
+  `).get() as { count: number }).count;
+  
+  const contactsCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler')
+  `).get() as { count: number }).count;
+  
+  const rdvCount = (database.prepare(`
+    SELECT COUNT(*) as count FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND new_value = 'rdv_pris'
+  `).get() as { count: number }).count;
+  
+  const avgDuration = (database.prepare(`
+    SELECT AVG(duration_seconds) as avg FROM lead_history 
+    WHERE type = 'call' 
+    ${periodFilter}
+    AND duration_seconds IS NOT NULL
+  `).get() as { avg: number | null }).avg ?? 0;
+
+  // Daily goal based on period
+  const callsGoal = period === '24h' ? 25 : period === '7d' ? 175 : period === '30d' ? 500 : 1000;
+  
+  // === STREAK CALCULATION ===
+  // Get days with activity in last 30 days
+  const activityDays = database.prepare(`
+    SELECT DISTINCT date(created_at) as day FROM lead_history 
+    WHERE type = 'call'
+    AND created_at >= datetime('now', '-30 days')
+    ORDER BY day DESC
+  `).all() as { day: string }[];
+  
+  let currentStreak = 0;
+  const checkDate = new Date();
+  checkDate.setHours(0, 0, 0, 0);
+  
+  // Check if there's activity today
+  const todayStr = checkDate.toISOString().split('T')[0];
+  const hasActivityToday = activityDays.some(d => d.day === todayStr);
+  
+  if (!hasActivityToday) {
+    // Check yesterday - if no activity, streak is broken
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  
+  // Clone to avoid mutating the check date
+  const streakDate = new Date(checkDate);
+  for (const activityDay of activityDays) {
+    const expectedDate = streakDate.toISOString().split('T')[0];
+    if (activityDay.day === expectedDate) {
+      currentStreak++;
+      streakDate.setDate(streakDate.getDate() - 1);
+    } else if (activityDay.day < expectedDate) {
+      break; // Streak broken
+    }
+  }
+  
+  // Best streak (simplified - would need historical tracking for accuracy)
+  const bestStreak = Math.max(currentStreak, 5); // Placeholder
+  
+  // === TOP LEADS ===
+  const topLeadsRows = database.prepare(`
+    SELECT 
+      id, name, city, niche, phone, score, priority, website, website_status, pain_points, image_url, rating, reviews_count
+    FROM leads 
+    WHERE status = 'nouveau' 
+    AND call_status = 'non_appele'
+    AND (opt_out IS NULL OR opt_out = 0)
+    ORDER BY 
+      CASE WHEN website IS NULL OR website = '' THEN 0 ELSE 1 END,
+      score DESC,
+      priority = 'high' DESC
+    LIMIT 5
+  `).all() as DbLead[];
+  
+  const topLeads: TopLead[] = topLeadsRows.map(lead => {
+    let reason = '';
+    if (!lead.website) {
+      reason = '🚫 Pas de site web';
+    } else if (lead.website_status === 'old') {
+      reason = '⚠️ Site vieillot';
+    } else if (lead.website_status === 'platform') {
+      reason = '📦 Site plateforme limitant';
+    } else if (lead.score && lead.score >= 70) {
+      reason = '⭐ Score élevé';
+    } else {
+      reason = '📞 À contacter';
+    }
+    
+    return {
+      id: lead.id,
+      name: lead.name,
+      city: lead.city,
+      niche: lead.niche,
+      phone: lead.phone,
+      score: lead.score ?? 50,
+      priority: lead.priority,
+      website: lead.website,
+      website_status: lead.website_status,
+      pain_points: lead.pain_points ? JSON.parse(lead.pain_points) : null,
+      reason,
+      image_url: lead.image_url,
+      rating: lead.rating,
+      reviews_count: lead.reviews_count,
+    };
+  });
+  
+  // === PERFORMANCE BY PERIOD ===
+  const weeklyData = database.prepare(`
+    SELECT 
+      date(created_at) as day,
+      COUNT(*) as calls,
+      SUM(CASE WHEN new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler') THEN 1 ELSE 0 END) as contacts
+    FROM lead_history 
+    WHERE type = 'call'
+    AND created_at >= datetime('now', '-${periodDays} days')
+    GROUP BY date(created_at)
+    ORDER BY day
+  `).all() as { day: string; calls: number; contacts: number }[];
+  
+  // Fill in missing days based on period
+  const labels: string[] = [];
+  const calls: number[] = [];
+  const contacts: number[] = [];
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  
+  const displayDays = Math.min(periodDays, 30); // Max 30 days for chart
+  for (let i = displayDays - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dayStr = d.toISOString().split('T')[0];
+    const dayData = weeklyData.find(w => w.day === dayStr);
+    
+    // For longer periods, use date format
+    if (periodDays <= 7) {
+      labels.push(dayNames[d.getDay()]);
+    } else {
+      labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+    }
+    calls.push(dayData?.calls ?? 0);
+    contacts.push(dayData?.contacts ?? 0);
+  }
+  
+  // === CONVERSION RATE ===
+  const totalLeads = (database.prepare('SELECT COUNT(*) as count FROM leads').get() as { count: number }).count;
+  const convertedLeads = (database.prepare("SELECT COUNT(*) as count FROM leads WHERE status = 'converti'").get() as { count: number }).count;
+  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+  
+  return {
+    today: {
+      calls_today: callsCount,
+      calls_goal: callsGoal,
+      contacts_today: contactsCount,
+      rdv_today: rdvCount,
+      avg_call_duration: Math.round(avgDuration),
+    },
+    streak: {
+      current_streak: currentStreak,
+      best_streak: bestStreak,
+      last_activity_date: activityDays[0]?.day ?? null,
+    },
+    top_leads: topLeads,
+    weekly_performance: {
+      calls,
+      contacts,
+      labels,
+    },
+    conversion_rate: conversionRate,
+  };
 }

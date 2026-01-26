@@ -40,24 +40,70 @@ const NEXT_STEP_OPTIONS: { id: NextStepType; label: string; icon: typeof Calenda
   { id: 'tache', label: 'Tâche', icon: CheckCircle2, color: 'bg-muted text-muted-foreground hover:bg-accent' },
 ];
 
-const QUICK_DELAYS: { label: string; value: number | 'tomorrow' }[] = [
-  { label: '+1h', value: 1 },
-  { label: '+2h', value: 2 },
-  { label: 'Demain 10h', value: 'tomorrow' },
-  { label: '+2j', value: 48 },
-  { label: '+1 sem', value: 168 },
-];
+const QUICK_DELAYS: Record<string, { label: string; value: number | 'tomorrow' | 'in2days' | 'nextweek' }[]> = {
+  injoignable: [
+    { label: '+1h', value: 1 },
+    { label: '+2h', value: 2 },
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+  ],
+  accueil: [
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+  decideur_absent: [
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+  default: [
+    { label: '+1h', value: 1 },
+    { label: '+2h', value: 2 },
+    { label: 'Demain 10h', value: 'tomorrow' },
+    { label: '+2j', value: 'in2days' },
+    { label: '+1 sem', value: 'nextweek' },
+  ],
+};
 
-function getDefaultDate(delayHours: number | 'tomorrow'): string {
+// Skip weekends: if date falls on Saturday, move to Monday; if Sunday, move to Monday
+function skipWeekend(date: Date): Date {
+  const day = date.getDay();
+  if (day === 6) { // Saturday -> Monday
+    date.setDate(date.getDate() + 2);
+  } else if (day === 0) { // Sunday -> Monday
+    date.setDate(date.getDate() + 1);
+  }
+  return date;
+}
+
+function getDefaultDate(delayHours: number | 'tomorrow' | 'in2days' | 'nextweek'): string {
   const now = new Date();
+  
   if (delayHours === 'tomorrow') {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(10, 0, 0, 0);
-    return tomorrow.toISOString().slice(0, 16);
+    return skipWeekend(tomorrow).toISOString().slice(0, 16);
   }
+  
+  if (delayHours === 'in2days') {
+    const target = new Date(now);
+    target.setDate(target.getDate() + 2);
+    target.setHours(10, 0, 0, 0);
+    return skipWeekend(target).toISOString().slice(0, 16);
+  }
+  
+  if (delayHours === 'nextweek') {
+    const target = new Date(now);
+    target.setDate(target.getDate() + 7);
+    target.setHours(10, 0, 0, 0);
+    return skipWeekend(target).toISOString().slice(0, 16);
+  }
+  
+  // For hour-based delays, add hours then skip weekend if needed
   now.setHours(now.getHours() + delayHours);
-  return now.toISOString().slice(0, 16);
+  return skipWeekend(now).toISOString().slice(0, 16);
 }
 
 export function NextStepDrawer({
@@ -91,13 +137,13 @@ export function NextStepDrawer({
         if (workflow.defaultDelay === '+1d') {
           setDatetime(getDefaultDate('tomorrow'));
         } else if (workflow.defaultDelay === '+2d') {
-          setDatetime(getDefaultDate(48));
+          setDatetime(getDefaultDate('in2days'));
         }
       }
     }
   }, [isOpen, outcome]);
 
-  const handleQuickDelay = useCallback((delay: number | 'tomorrow') => {
+  const handleQuickDelay = useCallback((delay: number | 'tomorrow' | 'in2days' | 'nextweek') => {
     setDatetime(getDefaultDate(delay));
   }, []);
 
@@ -127,10 +173,11 @@ export function NextStepDrawer({
   const getTitle = () => {
     switch (outcome) {
       case 'injoignable':
-      case 'messagerie':
-        return 'Planifier la relance';
+        return 'Planifier le rappel';
       case 'accueil':
         return 'Action suite accueil';
+      case 'decideur_absent':
+        return 'Décideur absent';
       case 'rappeler':
         return 'Quand rappeler ?';
       case 'interesse':
@@ -150,10 +197,10 @@ export function NextStepDrawer({
     switch (outcome) {
       case 'injoignable':
         return `${leadName} n'a pas décroché. Planifiez une nouvelle tentative.`;
-      case 'messagerie':
-        return `Vous avez laissé un message à ${leadName}. Quand relancer ?`;
       case 'accueil':
         return `Vous avez eu l'accueil. Quelle action pour joindre le décideur ?`;
+      case 'decideur_absent':
+        return `Le décideur n'est pas disponible. Quand le rappeler ?`;
       case 'interesse':
         return `${leadName} est intéressé ! Quelle est la prochaine étape ?`;
       case 'rdv_pris':
@@ -216,7 +263,11 @@ export function NextStepDrawer({
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedType('rappel');
-                      setDatetime(getDefaultDate(2160)); // +90 jours
+                      // 90 jours, mais on évite le weekend
+                      const target = new Date();
+                      target.setDate(target.getDate() + 90);
+                      target.setHours(10, 0, 0, 0);
+                      setDatetime(skipWeekend(target).toISOString().slice(0, 16));
                     } else {
                       setSelectedType(null);
                       setDatetime('');
@@ -294,7 +345,7 @@ export function NextStepDrawer({
               
               {/* Quick delays */}
               <div className="flex flex-wrap gap-2">
-                {QUICK_DELAYS.map((delay) => (
+                {(QUICK_DELAYS[outcome || ''] || QUICK_DELAYS.default).map((delay) => (
                   <button
                     key={delay.label}
                     onClick={() => handleQuickDelay(delay.value)}

@@ -1,7 +1,9 @@
 'use client';
 
 import { STATUS_LABELS } from '@/lib/constants';
-import { NativeSelect, Input } from '@/components/ui';
+import { Input } from '@/components/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, Filter } from 'lucide-react';
 
 interface LeadsFiltersProps {
   status: string;
@@ -29,60 +31,70 @@ export function LeadsFilters({
   onSearchChange,
 }: LeadsFiltersProps) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <span className="text-sm text-zinc-500">Filtres:</span>
+    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Filter label - mobile only */}
+        <div className="flex items-center gap-2 text-muted-foreground sm:hidden col-span-full">
+          <Filter className="w-4 h-4" />
+          <span className="text-xs font-medium">Filtres</span>
+        </div>
 
         {/* Status filter */}
-        <NativeSelect
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value)}
-          className="w-auto"
-        >
-          <option value="">Tous les status</option>
-          {Object.entries(STATUS_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </NativeSelect>
+        <Select value={status || 'all'} onValueChange={(v) => onStatusChange(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* City filter */}
-        <NativeSelect
-          value={city}
-          onChange={(e) => onCityChange(e.target.value)}
-          className="w-auto"
-        >
-          <option value="">Toutes les villes</option>
-          {cities.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </NativeSelect>
+        <Select value={city || 'all'} onValueChange={(v) => onCityChange(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
+            <SelectValue placeholder="Ville" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les villes</SelectItem>
+            {cities.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Niche filter */}
-        <NativeSelect
-          value={niche}
-          onChange={(e) => onNicheChange(e.target.value)}
-          className="w-auto"
-        >
-          <option value="">Toutes les niches</option>
-          {niches.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </NativeSelect>
+        <Select value={niche || 'all'} onValueChange={(v) => onNicheChange(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-full h-10 text-[13px] bg-background">
+            <SelectValue placeholder="Secteur" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les secteurs</SelectItem>
+            {niches.map((n) => (
+              <SelectItem key={n} value={n}>
+                {n}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {/* Search */}
-        <Input
-          type="text"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Rechercher..."
-          className="flex-1 min-w-[150px]"
-        />
+        {/* Search - spans 2 cols on lg */}
+        <div className="relative lg:col-span-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Rechercher un lead..."
+            className="pl-9 h-10 text-[13px] bg-background"
+          />
+        </div>
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ export function SessionCompleteCard({ session, onEnd }: SessionCompleteCardProps
       </h2>
       <p className="text-zinc-500 mb-6">
         {session.total_calls} appels • {session.total_reached} conversations •{' '}
-        {session.total_voicemail} messageries
+        {session.total_scheduled} relances planifiées
       </p>
       <Link
         href="/leads"

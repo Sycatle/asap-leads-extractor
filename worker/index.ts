@@ -1,39 +1,51 @@
+/**
+ * Worker Entry Point - Leads Finder
+ * 
+ * Ce fichier orchestre le démarrage du worker en différents modes:
+ * - orchestrator: Mode intelligent multi-pipeline (recommandé)
+ * - worker: Mode legacy avec boucle simple
+ * - once: Exécution unique
+ * - scrape/enrich/collect: Commandes individuelles
+ */
+
+import { WorkerOrchestrator } from './orchestrator.js';
 import { collect } from './collect.js';
 import { enrich } from './enrich.js';
+import { enrichWebsiteAnalysis } from './enrichWebsite.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
 import { getDb, closeDb } from './db.js';
-import { sleep, formatDuration } from './utils.js';
+import { formatDuration } from './utils.js';
+import { logger as log } from './logger.js';
 
-const WORKER_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes par défaut
+// ===== TYPES =====
 
-interface WorkerStats {
-  runs: number;
-  totalLeadsScraped: number;
-  totalLeadsEnriched: number;
-  lastRunAt: Date | null;
-  errors: number;
+interface CommandOptions {
+  max?: number;
+  interval?: number;
+  parallel?: boolean;
 }
 
-const stats: WorkerStats = {
-  runs: 0,
-  totalLeadsScraped: 0,
-  totalLeadsEnriched: 0,
-  lastRunAt: null,
-  errors: 0,
-};
+// ===== COMMANDS =====
 
-
+async function runOrchestrator(options: CommandOptions = {}): Promise<void> {
+  const orchestrator = new WorkerOrchestrator({
+    enableParallelPipelines: options.parallel !== false,
+    maxEnrichPerCycle: options.max ?? 30,
+  });
+  
+  await orchestrator.start();
+}
 
 async function runScrapeJob(): Promise<number> {
   const config = loadConfig();
   
   if (!config.scrape?.niches?.length || !config.scrape?.cities?.length) {
-    console.log('⚠ Pas de config scrape définie, skip...');
+    log.warn('Pas de config scrape définie');
+    log.sub('Définissez scrape.niches et scrape.cities dans config.json');
     return 0;
   }
   
-  console.log('\n📍 JOB: Scraping Google Maps...');
   const leads = await scrapeGoogleMaps({
     niches: config.scrape.niches,
     cities: config.scrape.cities,
@@ -43,160 +55,217 @@ async function runScrapeJob(): Promise<number> {
   return leads.length;
 }
 
-async function runEnrichJob(): Promise<number> {
-  console.log('\n🔍 JOB: Enrichissement Pappers...');
-  const enriched = await enrich();
-  return enriched.length;
+async function runEnrichJob(maxLeads?: number): Promise<number> {
+  const stats = await enrich(maxLeads);
+  return stats.enriched;
+}
+
+async function runEnrichWebsiteJob(): Promise<void> {
+  await enrichWebsiteAnalysis();
 }
 
 async function runCollectJob(): Promise<number> {
   const config = loadConfig();
   
   if (!config.input_csv) {
+    log.warn('Pas de input_csv défini dans config.json');
     return 0;
   }
   
-  console.log('\n📥 JOB: Import CSV...');
   try {
     const leads = await collect();
     return leads.length;
   } catch (err) {
-    console.log('⚠ Pas de CSV à importer');
+    log.warn('Pas de CSV à importer ou erreur');
     return 0;
   }
 }
 
-async function runCycle(): Promise<void> {
-  const startTime = Date.now();
-  stats.runs++;
-  stats.lastRunAt = new Date();
+async function runOnce(): Promise<void> {
+  log.header('LEADS FINDER - Exécution unique');
   
-  console.log('\n' + '='.repeat(60));
-  console.log(`🔄 CYCLE #${stats.runs} - ${stats.lastRunAt.toLocaleString('fr-FR')}`);
-  console.log('='.repeat(60));
+  const startTime = Date.now();
+  const config = loadConfig();
+  
+  // Étape 1: Collecte (si CSV configuré)
+  if (config.input_csv) {
+    log.section('ÉTAPE 1: COLLECTE CSV');
+    await collect();
+  }
+  
+  // Étape 2: Scraping (si configuré)
+  if (config.scrape?.niches?.length && config.scrape?.cities?.length) {
+    log.section('ÉTAPE 2: SCRAPING GOOGLE MAPS');
+    await scrapeGoogleMaps({
+      niches: config.scrape.niches,
+      cities: config.scrape.cities,
+      saveToDb: true,
+    });
+  }
+  
+  // Étape 3: Enrichissement
+  log.section('ÉTAPE 3: ENRICHISSEMENT');
+  await enrich();
+  
+  const duration = Date.now() - startTime;
+  log.blank();
+  log.success(`Terminé en ${formatDuration(duration)}`);
+}
+
+async function runFullPipeline(): Promise<void> {
+  log.header('LEADS FINDER - Pipeline complet');
+  
+  const startTime = Date.now();
+  
+  // 1. Collect
+  log.section('ÉTAPE 1/4: COLLECTE');
+  await runCollectJob();
+  
+  // 2. Scrape
+  log.section('ÉTAPE 2/4: SCRAPING');
+  await runScrapeJob();
+  
+  // 3. Enrich Societe
+  log.section('ÉTAPE 3/4: ENRICHISSEMENT');
+  await runEnrichJob();
+  
+  // 4. Enrich Website
+  log.section('ÉTAPE 4/4: ANALYSE SITES WEB');
+  await runEnrichWebsiteJob();
+  
+  const duration = Date.now() - startTime;
+  log.blank();
+  log.success(`Pipeline complet terminé en ${formatDuration(duration)}`);
+}
+
+// ===== HELP =====
+
+function printHelp(): void {
+  console.log(`
+🚀 Leads Finder Worker
+
+USAGE:
+  pnpm worker [command] [options]
+
+COMMANDS:
+  orchestrator    Mode intelligent multi-pipeline (recommandé pour production)
+  worker          Mode boucle simple (legacy)
+  full            Pipeline complet une fois (collect → scrape → enrich → website)
+  once            Exécution unique simplifiée
+  scrape          Scraper Google Maps uniquement
+  enrich          Enrichir via Societe.com uniquement
+  enrich:website  Analyser les sites web uniquement
+  collect         Importer CSV uniquement
+  help            Afficher cette aide
+
+OPTIONS:
+  --max=N         Nombre max de leads à traiter par cycle
+  --interval=N    Intervalle entre cycles (minutes)
+  --no-parallel   Désactiver l'exécution parallèle
+
+EXEMPLES:
+  pnpm worker orchestrator           # Mode production recommandé
+  pnpm worker scrape                  # Scraping seul
+  pnpm worker enrich --max=50        # Enrichir 50 leads
+  pnpm worker full                   # Pipeline complet une fois
+
+ENVIRONNEMENT:
+  DEBUG=1         Activer les logs de debug
+  CONFIG_PATH     Chemin vers config.json (défaut: ./config.json)
+`);
+}
+
+// ===== CLI PARSING =====
+
+function parseArgs(): { command: string; options: CommandOptions } {
+  const args = process.argv.slice(2);
+  const command = args[0] || 'orchestrator';
+  const options: CommandOptions = {};
+  
+  for (const arg of args.slice(1)) {
+    if (arg.startsWith('--max=')) {
+      options.max = parseInt(arg.split('=')[1], 10);
+    } else if (arg.startsWith('--interval=')) {
+      options.interval = parseInt(arg.split('=')[1], 10);
+    } else if (arg === '--no-parallel') {
+      options.parallel = false;
+    }
+  }
+  
+  return { command, options };
+}
+
+// ===== MAIN =====
+
+async function main(): Promise<void> {
+  const { command, options } = parseArgs();
+  
+  // Init DB (sauf pour help)
+  if (command !== 'help') {
+    getDb();
+  }
   
   try {
-    // 1. Scrape
-    const scraped = await runScrapeJob();
-    stats.totalLeadsScraped += scraped;
-    
-    // 2. Collect (import CSV si présent)
-    await runCollectJob();
-    
-    // 3. Enrich
-    const enriched = await runEnrichJob();
-    stats.totalLeadsEnriched += enriched;
-    
-    const duration = Date.now() - startTime;
-    console.log('\n' + '-'.repeat(60));
-    console.log(`✅ Cycle terminé en ${formatDuration(duration)}`);
-    console.log(`   Leads scrappés: ${scraped} | Enrichis: ${enriched}`);
-    console.log(`   Total cumulé: ${stats.totalLeadsScraped} scrappés, ${stats.totalLeadsEnriched} enrichis`);
-    
-  } catch (error) {
-    stats.errors++;
-    console.error('\n❌ Erreur dans le cycle:', error);
-  }
-}
-
-async function runOnce(): Promise<void> {
-  console.log('🚀 Leads Finder - Mode single run\n');
-  
-  const startTime = Date.now();
-  
-  // Étape 1: Collecte
-  console.log('📥 ÉTAPE 1: COLLECTE...');
-  await collect();
-  console.log('');
-  
-  // Étape 2: Enrichissement
-  console.log('🔍 ÉTAPE 2: ENRICHISSEMENT...');
-  await enrich();
-  console.log('');
-  
-  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`\n⏱️  Terminé en ${duration}s`);
-}
-
-async function runWorker(): Promise<void> {
-  const config = loadConfig();
-  const intervalMs = (config.worker?.interval_minutes ?? 30) * 60 * 1000;
-  
-  console.log('🚀 Leads Finder - Worker Mode');
-  console.log('='.repeat(60));
-  console.log(`  Intervalle: ${intervalMs / 60000} minutes`);
-  console.log(`  Niches: ${config.scrape?.niches?.join(', ') || 'non défini'}`);
-  console.log(`  Villes: ${config.scrape?.cities?.join(', ') || 'non défini'}`);
-  console.log('='.repeat(60));
-  console.log('\n⏳ Worker démarré. Ctrl+C pour arrêter.\n');
-  
-  // Premier run immédiat
-  await runCycle();
-  
-  // Utiliser setInterval pour une boucle plus robuste
-  const intervalId = setInterval(async () => {
-    try {
-      await runCycle();
-    } catch (error) {
-      console.error('❌ Erreur dans le cycle du worker:', error);
-      stats.errors++;
+    switch (command) {
+      case 'orchestrator':
+      case 'brain':
+        await runOrchestrator(options);
+        break;
+        
+      case 'worker':
+      case 'loop':
+        // Legacy mode - utilise l'orchestrator avec config par défaut
+        await runOrchestrator(options);
+        break;
+        
+      case 'full':
+      case 'pipeline':
+        await runFullPipeline();
+        closeDb();
+        break;
+        
+      case 'scrape':
+        await runScrapeJob();
+        closeDb();
+        break;
+        
+      case 'enrich':
+        await runEnrichJob(options.max);
+        closeDb();
+        break;
+        
+      case 'enrich:website':
+      case 'website':
+        await runEnrichWebsiteJob();
+        closeDb();
+        break;
+        
+      case 'collect':
+        await runCollectJob();
+        closeDb();
+        break;
+        
+      case 'once':
+        await runOnce();
+        closeDb();
+        break;
+        
+      case 'help':
+      case '--help':
+      case '-h':
+        printHelp();
+        break;
+        
+      default:
+        log.error(`Commande inconnue: ${command}`);
+        log.sub('Utilisez "pnpm worker help" pour voir les commandes disponibles');
+        process.exit(1);
     }
-  }, intervalMs);
-  
-  console.log(`\n⏳ Prochain cycle dans ${intervalMs / 60000} minutes...`);
-  
-  // Handle graceful shutdown
-  const shutdown = () => {
-    console.log('\n\n🛑 Arrêt du worker...');
-    console.log(`   Runs effectués: ${stats.runs}`);
-    console.log(`   Leads scrappés: ${stats.totalLeadsScraped}`);
-    console.log(`   Erreurs: ${stats.errors}`);
-    clearInterval(intervalId);
+  } catch (error) {
+    log.error(`Erreur fatale: ${(error as Error).message}`);
     closeDb();
-    process.exit(0);
-  };
-  
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
-}
-
-
-
-// ===== CLI =====
-
-const args = process.argv.slice(2);
-const command = args[0] || 'once';
-
-async function main() {
-  // Init DB
-  getDb();
-  
-  switch (command) {
-    case 'worker':
-    case 'loop':
-      await runWorker();
-      break;
-      
-    case 'scrape':
-      await runScrapeJob();
-      closeDb();
-      break;
-      
-    case 'enrich':
-      await runEnrichJob();
-      closeDb();
-      break;
-      
-    case 'once':
-    default:
-      await runOnce();
-      closeDb();
-      break;
+    process.exit(1);
   }
 }
 
-main().catch((err) => {
-  console.error('❌ Erreur fatale:', err);
-  closeDb();
-  process.exit(1);
-});
+main();

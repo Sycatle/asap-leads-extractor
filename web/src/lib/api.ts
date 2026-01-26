@@ -2,6 +2,7 @@ import type {
   Lead,
   LeadsResponse,
   Stats,
+  GamifiedStats,
   Session,
   SessionResponse,
   FollowupsData,
@@ -35,12 +36,31 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
 // ===== LEADS =====
 
 export interface LeadFilters {
+  // Basic filters
   status?: LeadStatus;
   call_status?: CallStatus;
   city?: string;
   niche?: string;
   priority?: 'high' | 'medium' | 'low';
   search?: string;
+  
+  // Boolean filters
+  hasWebsite?: 'all' | 'yes' | 'no';
+  hasDirigeant?: 'all' | 'yes' | 'no';
+  hasSiren?: 'all' | 'yes' | 'no';
+  hasPhone?: 'all' | 'yes' | 'no';
+  
+  // Range filters
+  scoreMin?: number | null;
+  scoreMax?: number | null;
+  ratingMin?: number | null;
+  ratingMax?: number | null;
+  
+  // Date filters
+  createdAfter?: string;
+  createdBefore?: string;
+  
+  // Pagination & sorting
   page?: number;
   limit?: number;
   orderBy?: string;
@@ -50,12 +70,31 @@ export interface LeadFilters {
 export async function fetchLeads(filters: LeadFilters = {}): Promise<LeadsResponse> {
   const params = new URLSearchParams();
   
+  // Basic filters
   if (filters.status) params.set('status', filters.status);
   if (filters.call_status) params.set('call_status', filters.call_status);
   if (filters.city) params.set('city', filters.city);
   if (filters.niche) params.set('niche', filters.niche);
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.search) params.set('search', filters.search);
+  
+  // Boolean filters
+  if (filters.hasWebsite && filters.hasWebsite !== 'all') params.set('hasWebsite', filters.hasWebsite);
+  if (filters.hasDirigeant && filters.hasDirigeant !== 'all') params.set('hasDirigeant', filters.hasDirigeant);
+  if (filters.hasSiren && filters.hasSiren !== 'all') params.set('hasSiren', filters.hasSiren);
+  if (filters.hasPhone && filters.hasPhone !== 'all') params.set('hasPhone', filters.hasPhone);
+  
+  // Range filters
+  if (filters.scoreMin !== null && filters.scoreMin !== undefined) params.set('scoreMin', filters.scoreMin.toString());
+  if (filters.scoreMax !== null && filters.scoreMax !== undefined) params.set('scoreMax', filters.scoreMax.toString());
+  if (filters.ratingMin !== null && filters.ratingMin !== undefined) params.set('ratingMin', filters.ratingMin.toString());
+  if (filters.ratingMax !== null && filters.ratingMax !== undefined) params.set('ratingMax', filters.ratingMax.toString());
+  
+  // Date filters
+  if (filters.createdAfter) params.set('createdAfter', filters.createdAfter);
+  if (filters.createdBefore) params.set('createdBefore', filters.createdBefore);
+  
+  // Pagination & sorting
   if (filters.page) params.set('page', filters.page.toString());
   if (filters.limit) params.set('limit', filters.limit.toString());
   if (filters.orderBy) params.set('orderBy', filters.orderBy);
@@ -164,6 +203,10 @@ export async function addLeadNote(id: number | string, note: string): Promise<vo
 
 export async function fetchStats(): Promise<Stats> {
   return fetchApi<Stats>('/api/stats');
+}
+
+export async function fetchGamifiedStats(period: string = '24h'): Promise<GamifiedStats> {
+  return fetchApi<GamifiedStats>(`/api/stats/gamified?period=${period}`);
 }
 
 // ===== SESSION =====

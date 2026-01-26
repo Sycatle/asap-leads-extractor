@@ -12,20 +12,20 @@ export function UrgentFollowupsCard({ followups }: UrgentFollowupsCardProps) {
   const hasFollowups = followups.length > 0;
   
   return (
-    <Card>
+    <Card className="p-5">
       <CardHeader
         title="Relances Urgentes"
         icon={Bell}
-        description={hasFollowups ? `${followups.length} leads nécessitent votre attention` : undefined}
+        description={hasFollowups ? `${followups.length} à traiter` : undefined}
         action={
           hasFollowups ? (
             <LinkButton
               href="/followups"
               variant="ghost"
               size="sm"
-              icon={<ArrowRight className="w-4 h-4" />}
+              icon={<ArrowRight className="w-3.5 h-3.5" />}
             >
-              Tout voir
+              Voir tout
             </LinkButton>
           ) : undefined
         }
@@ -38,22 +38,22 @@ export function UrgentFollowupsCard({ followups }: UrgentFollowupsCardProps) {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 mb-4">
-            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+        <div className="text-center py-10">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-success/10 mb-3">
+            <CheckCircle2 className="w-6 h-6 text-success" />
           </div>
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+          <h3 className="text-sm font-medium text-foreground mb-1">
             Tout est à jour !
           </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Aucune relance urgente pour le moment
+          <p className="text-xs text-muted-foreground">
+            Aucune relance urgente
           </p>
           
           <Link 
             href="/leads"
-            className="inline-flex items-center gap-2 mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="inline-flex items-center gap-1.5 mt-4 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
           >
-            <Clock className="w-4 h-4" />
+            <Clock className="w-3.5 h-3.5" />
             Planifier des relances
           </Link>
         </div>

@@ -40,13 +40,17 @@ export function useFollowups(): UseFollowupsResult {
 
   const markDone = useCallback(async (leadId: number) => {
     setActionLoading(leadId);
+    setError(null);
     try {
       await scheduleLeadFollowup(leadId, null);
       await refresh();
-    } catch (error) {
-      console.error('Failed to mark done:', error);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to mark done');
+      setError(error);
+      console.error('Failed to mark done:', err);
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   }, [refresh]);
 
   const defaultGrouped: FollowupsData['grouped'] = {

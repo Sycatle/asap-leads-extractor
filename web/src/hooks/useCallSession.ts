@@ -33,8 +33,6 @@ interface UseCallSessionResult {
   endSession: () => Promise<void>;
   togglePause: () => void;
   refreshNextLead: () => Promise<void>;
-  // Legacy (for backward compat)
-  processOutcome: (outcome: string, followupDatetime?: string) => Promise<void>;
 }
 
 export function useCallSession(): UseCallSessionResult {
@@ -122,29 +120,6 @@ export function useCallSession(): UseCallSessionResult {
     };
   }, [session, isPaused]);
 
-  // Select outcome (step 1 of workflow)
-  const selectOutcome = useCallback((outcome: CallOutcome) => {
-    if (!currentLead) return;
-    
-    const outcomeConfig = CALL_OUTCOMES.find((o) => o.id === outcome);
-    
-    // For outcomes that don't require next step, process immediately
-    if (outcome === 'opt_out' || outcome === 'mauvais_numero' || !outcomeConfig?.requiresNextStep) {
-      // Process directly
-      setPendingOutcome(outcome);
-      // Auto-confirm for these
-      if (outcome === 'opt_out') {
-        confirmOutcomeInternal(outcome, { type: 'aucun' });
-      } else if (outcome === 'mauvais_numero') {
-        confirmOutcomeInternal(outcome, { type: 'aucun' });
-      }
-      return;
-    }
-    
-    // Show next step drawer
-    setPendingOutcome(outcome);
-  }, [currentLead]);
-
   // Internal confirm (used by auto-confirm and external confirm)
   const confirmOutcomeInternal = useCallback(async (
     outcome: CallOutcome,
@@ -164,9 +139,9 @@ export function useCallSession(): UseCallSessionResult {
         // Map outcome to call status for logging
         const callStatusMap: Record<CallOutcome, CallStatus> = {
           injoignable: 'injoignable',
-          messagerie: 'messagerie',
           mauvais_numero: 'appele',
           accueil: 'appele',
+          decideur_absent: 'rappeler',
           rappeler: 'rappeler',
           interesse: 'appele',
           rdv_pris: 'appele',
@@ -195,16 +170,13 @@ export function useCallSession(): UseCallSessionResult {
         }
       }
 
-      // Update session stats
-      const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
+      // Update session stats (server does atomic increment)
+      const stats: Partial<Session> = { total_calls: 1 };
       if (['interesse', 'rdv_pris', 'devis_envoye', 'accueil'].includes(outcome)) {
-        stats.total_reached = session.total_reached + 1;
-      }
-      if (outcome === 'messagerie') {
-        stats.total_voicemail = session.total_voicemail + 1;
+        stats.total_reached = 1;
       }
       if (nextStep.datetime || outcome === 'rdv_pris') {
-        stats.total_scheduled = session.total_scheduled + 1;
+        stats.total_scheduled = 1;
       }
 
       const updatedSession = await updateSession(session.id, { stats });
@@ -221,6 +193,29 @@ export function useCallSession(): UseCallSessionResult {
     setActionLoading(false);
   }, [currentLead, session]);
 
+  // Select outcome (step 1 of workflow)
+  const selectOutcome = useCallback((outcome: CallOutcome) => {
+    if (!currentLead) return;
+    
+    const outcomeConfig = CALL_OUTCOMES.find((o) => o.id === outcome);
+    
+    // For outcomes that don't require next step, process immediately
+    if (outcome === 'opt_out' || outcome === 'mauvais_numero' || !outcomeConfig?.requiresNextStep) {
+      // Process directly
+      setPendingOutcome(outcome);
+      // Auto-confirm for these
+      if (outcome === 'opt_out') {
+        confirmOutcomeInternal(outcome, { type: 'aucun' });
+      } else if (outcome === 'mauvais_numero') {
+        confirmOutcomeInternal(outcome, { type: 'aucun' });
+      }
+      return;
+    }
+    
+    // Show next step drawer
+    setPendingOutcome(outcome);
+  }, [currentLead, confirmOutcomeInternal]);
+
   // Confirm outcome (step 2 of workflow - from NextStepDrawer)
   const confirmOutcome = useCallback(async (
     nextStep: NextStep,
@@ -235,43 +230,6 @@ export function useCallSession(): UseCallSessionResult {
   const cancelOutcome = useCallback(() => {
     setPendingOutcome(null);
   }, []);
-
-  // Legacy processOutcome for backward compatibility
-  const processOutcome = useCallback(async (outcome: string, followupDatetime?: string) => {
-    if (!currentLead || !session) return;
-    
-    setActionLoading(true);
-    
-    try {
-      const callStatus = (outcome === 'pas_interesse' ? 'appele' : outcome) as CallStatus;
-      await logLeadCall(currentLead.id, callStatus, {
-        auto_schedule: outcome === 'messagerie',
-      });
-
-      if (outcome === 'pas_interesse') {
-        await updateLeadStatus(currentLead.id, 'perdu' as LeadStatus, 'Pas intéressé');
-      }
-
-      if (followupDatetime) {
-        await scheduleLeadFollowup(currentLead.id, followupDatetime);
-      }
-
-      const stats: Partial<Session> = { total_calls: session.total_calls + 1 };
-      if (outcome === 'appele') stats.total_reached = session.total_reached + 1;
-      if (outcome === 'messagerie') stats.total_voicemail = session.total_voicemail + 1;
-      if (outcome === 'rappeler' || followupDatetime) stats.total_scheduled = session.total_scheduled + 1;
-
-      const updatedSession = await updateSession(session.id, { stats });
-      setSession(updatedSession);
-      
-      setSkippedIds([]);
-      setNeedsLeadRefresh(n => n + 1);
-    } catch (error) {
-      console.error('Failed to process outcome:', error);
-    }
-    
-    setActionLoading(false);
-  }, [currentLead, session]);
 
   const skipLead = useCallback(() => {
     if (!currentLead) return;
@@ -304,6 +262,5 @@ export function useCallSession(): UseCallSessionResult {
     endSession,
     togglePause,
     refreshNextLead,
-    processOutcome,
   };
 }

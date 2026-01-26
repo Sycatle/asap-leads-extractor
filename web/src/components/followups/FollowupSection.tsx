@@ -30,10 +30,10 @@ export function FollowupSection({
   return (
     <div className={cn('rounded-xl border overflow-hidden', config.border)}>
       {/* Section header */}
-      <div className={cn('px-4 py-3 flex items-center gap-2', config.bg)}>
-        <Icon className={cn('w-5 h-5', config.color)} />
-        <span className={cn('font-medium', config.color)}>{config.label}</span>
-        <span className="text-sm text-zinc-500">({leads.length})</span>
+      <div className={cn('px-4 py-2.5 flex items-center gap-2', config.bg)}>
+        <Icon className={cn('w-4 h-4', config.color)} />
+        <span className={cn('text-sm font-medium', config.color)}>{config.label}</span>
+        <span className="text-xs text-muted-foreground">({leads.length})</span>
       </div>
 
       {/* Items */}
@@ -69,12 +69,12 @@ function FollowupSectionItem({
   const followupDate = new Date(lead.next_followup_at);
 
   return (
-    <div className="px-4 py-3 flex items-center gap-4 hover:bg-accent transition-colors">
+    <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors group">
       {/* Time */}
       <div
         className={cn(
-          'w-20 text-sm font-medium',
-          isOverdue ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'
+          'w-16 text-xs font-medium',
+          isOverdue ? 'text-danger' : 'text-muted-foreground'
         )}
       >
         {formatRelativeTime(followupDate, isOverdue)}
@@ -83,18 +83,18 @@ function FollowupSectionItem({
       {/* Lead info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-foreground truncate">
             {lead.name}
           </span>
-          <span className={cn('text-xs', PRIORITY_COLORS[lead.priority])}>
+          <span className={cn('text-[10px] font-medium', PRIORITY_COLORS[lead.priority])}>
             {lead.priority.toUpperCase()}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{lead.city}</span>
           {lead.niche && (
             <>
-              <span>•</span>
+              <span className="opacity-40">•</span>
               <span>{lead.niche}</span>
             </>
           )}
@@ -102,31 +102,31 @@ function FollowupSectionItem({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <a
           href={`tel:${lead.phone}`}
-          className="p-2 rounded-lg hover:bg-green-100 dark:hover:bg-green-900 text-zinc-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
           title="Appeler"
         >
-          <Phone className="w-5 h-5" />
+          <Phone className="w-4 h-4" />
         </a>
         <Link
           href={`/leads/${lead.id}`}
-          className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
           title="Voir la fiche"
         >
-          <Eye className="w-5 h-5" />
+          <Eye className="w-4 h-4" />
         </Link>
         <button
           onClick={() => onMarkDone(lead.id)}
           disabled={loading}
-          className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           title="Marquer fait"
         >
           {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Check className="w-5 h-5" />
+            <Check className="w-4 h-4" />
           )}
         </button>
       </div>

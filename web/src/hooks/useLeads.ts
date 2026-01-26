@@ -4,13 +4,34 @@ import { useState, useEffect, useCallback } from 'react';
 import type { LeadsResponse, LeadStatus, CallStatus, Priority } from '@/types';
 import { fetchLeads, type LeadFilters } from '@/lib/api';
 
-interface UseLeadsFilters {
-  status?: LeadStatus;
-  call_status?: CallStatus;
+export interface UseLeadsFilters {
+  // Basic filters
+  status?: LeadStatus | '';
+  call_status?: CallStatus | '';
   city?: string;
   niche?: string;
-  priority?: Priority;
+  priority?: Priority | '';
   search?: string;
+  
+  // Boolean filters
+  hasWebsite?: 'all' | 'yes' | 'no';
+  hasDirigeant?: 'all' | 'yes' | 'no';
+  hasSiren?: 'all' | 'yes' | 'no';
+  hasPhone?: 'all' | 'yes' | 'no';
+  
+  // Range filters
+  scoreMin?: number | null;
+  scoreMax?: number | null;
+  ratingMin?: number | null;
+  ratingMax?: number | null;
+  
+  // Date filters
+  createdAfter?: string;
+  createdBefore?: string;
+  
+  // Sorting
+  orderBy?: string;
+  orderDir?: 'asc' | 'desc';
 }
 
 interface UseLeadsResult {
@@ -45,8 +66,26 @@ export function useLeads(initialFilters: UseLeadsFilters = {}, limit = 20): UseL
       setLoading(true);
       setError(null);
       
+      // Convert UseLeadsFilters to LeadFilters for API
       const apiFilters: LeadFilters = {
-        ...filters,
+        status: filters.status || undefined,
+        call_status: filters.call_status || undefined,
+        city: filters.city || undefined,
+        niche: filters.niche || undefined,
+        priority: filters.priority || undefined,
+        search: filters.search || undefined,
+        hasWebsite: filters.hasWebsite,
+        hasDirigeant: filters.hasDirigeant,
+        hasSiren: filters.hasSiren,
+        hasPhone: filters.hasPhone,
+        scoreMin: filters.scoreMin,
+        scoreMax: filters.scoreMax,
+        ratingMin: filters.ratingMin,
+        ratingMax: filters.ratingMax,
+        createdAfter: filters.createdAfter,
+        createdBefore: filters.createdBefore,
+        orderBy: filters.orderBy,
+        orderDir: filters.orderDir,
         page,
         limit,
       };

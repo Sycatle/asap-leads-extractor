@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Clock, Pause, Play, ArrowLeft, Phone, CheckCircle, Voicemail, X, TrendingUp } from 'lucide-react';
 import { formatTime, cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 import type { Session } from '@/types';
 
@@ -29,103 +30,104 @@ export function SessionHeader({
   onEnd,
 }: SessionHeaderProps) {
   const avgTimePerCall = formatAvgTime(elapsedTime, session.total_calls);
-  const isLongCall = session.total_calls > 0 && (elapsedTime / session.total_calls) > 300; // > 5min avg
+  const isLongCall = session.total_calls > 0 && (elapsedTime / session.total_calls) > 300;
 
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/leads"
-            onClick={onEnd}
-            className="p-2.5 rounded-xl hover:bg-accent transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-zinc-500" />
+          <Link href="/leads" onClick={onEnd}>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="w-[18px] h-[18px] text-muted-foreground" />
+            </Button>
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">
+              <h1 className="text-lg font-semibold text-foreground">
                 Session d&apos;appel
               </h1>
               {isPaused && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-warning/10 text-warning">
                   En pause
                 </span>
               )}
             </div>
-            <p className="text-sm text-zinc-400 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               <span className="hidden md:inline">Raccourcis: </span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">I M R V</kbd> résultat
-              <span className="mx-1">•</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">Espace</kbd> passer
-              <span className="mx-1">•</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">Échap</kbd> pause
+              <kbd className="kbd">I M R V</kbd> résultat
+              <span className="mx-1.5 opacity-40">•</span>
+              <kbd className="kbd">Espace</kbd> passer
+              <span className="mx-1.5 opacity-40">•</span>
+              <kbd className="kbd">Échap</kbd> pause
             </p>
           </div>
         </div>
 
         {/* Session stats */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Timer + Average */}
           <div className="flex flex-col items-center">
             <div className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl',
+              'flex items-center gap-2 px-3 py-1.5 rounded-lg',
               isPaused 
-                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'
+                ? 'bg-warning/10 text-warning'
                 : isLongCall
-                  ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400'
-                  : 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                  ? 'bg-danger/10 text-danger'
+                  : 'bg-primary/10 text-primary'
             )}>
-              <Clock className="w-4 h-4" />
-              <span className="font-mono text-lg font-bold tabular-nums">{formatTime(elapsedTime)}</span>
+              <Clock className="w-3.5 h-3.5" />
+              <span className="font-mono text-sm font-semibold tabular-nums">{formatTime(elapsedTime)}</span>
             </div>
             {session.total_calls > 0 && (
               <div className={cn(
-                'flex items-center gap-1 text-xs mt-1',
-                isLongCall ? 'text-red-500' : 'text-muted-foreground'
+                'flex items-center gap-1 text-[10px] mt-1',
+                isLongCall ? 'text-danger' : 'text-muted-foreground'
               )}>
-                <TrendingUp className="w-3 h-3" />
+                <TrendingUp className="w-2.5 h-2.5" />
                 <span>Moy: {avgTimePerCall}/appel</span>
               </div>
             )}
           </div>
           
           {/* Stats pills */}
-          <div className="hidden lg:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-sm">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              <span className="font-semibold">{session.total_calls}</span>
+          <div className="hidden lg:flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted text-xs">
+              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-semibold tabular-nums">{session.total_calls}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-sm text-emerald-600 dark:text-emerald-400">
-              <CheckCircle className="w-4 h-4" />
-              <span className="font-semibold">{session.total_reached}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-success/10 text-xs text-success">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span className="font-semibold tabular-nums">{session.total_reached}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-600 dark:text-amber-400">
-              <Voicemail className="w-4 h-4" />
-              <span className="font-semibold">{session.total_voicemail}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-warning/10 text-xs text-warning">
+              <Voicemail className="w-3.5 h-3.5" />
+              <span className="font-semibold tabular-nums">{session.total_voicemail}</span>
             </div>
           </div>
 
           {/* Pause/Play button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onTogglePause}
             className={cn(
-              'p-3 rounded-xl transition-all',
               isPaused
-                ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg'
+                ? 'bg-success text-white hover:bg-success/90'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             )}
           >
-            {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
-          </button>
+            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+          </Button>
 
           {/* End button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onEnd}
-            className="p-3 rounded-xl bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+            className="bg-danger/10 text-danger hover:bg-danger/20"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
       </div>
     </div>

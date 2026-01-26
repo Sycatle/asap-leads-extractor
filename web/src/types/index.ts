@@ -1,12 +1,45 @@
-// ===== LEAD TYPES =====
+/**
+ * Web Types - Imports from shared + UI-specific types
+ * 
+ * IMPORTANT: Les types de base sont définis dans shared/types.ts
+ * Ce fichier ne contient que les types spécifiques au frontend (transformés, UI, API responses)
+ */
 
-export type LeadStatus = 'nouveau' | 'contacte' | 'qualifie' | 'proposition' | 'converti' | 'perdu';
-export type CallStatus = 'non_appele' | 'appele' | 'messagerie' | 'rappeler' | 'injoignable';
-export type EmailStatus = 'non_envoye' | 'envoye' | 'ouvert' | 'repondu' | 'bounce';
+// ===== RE-EXPORT FROM SHARED =====
+// Types de base partagés avec le worker
+export type {
+  LeadStatus,
+  CallStatus,
+  EmailStatus,
+  PhoneType,
+  LeadSource,
+  WebsiteStatus,
+  CMSType,
+} from '../../../shared/types.js';
+
+// Import pour usage interne
+import type {
+  LeadStatus,
+  CallStatus,
+  EmailStatus,
+  PhoneType,
+  LeadSource,
+  WebsiteStatus,
+  CMSType,
+} from '../../../shared/types.js';
+
+// ===== ADDITIONAL TYPES =====
+// Priority type for lead prioritization
 export type Priority = 'high' | 'medium' | 'low';
-export type PhoneType = 'pro' | 'perso' | 'unknown';
-export type LeadSource = 'gmb' | 'annuaire' | 'scraping' | 'import' | 'manual';
 
+// ===== LEAD TYPES (TRANSFORMED FOR FRONTEND) =====
+
+/**
+ * Lead transformé pour le frontend
+ * Différences avec DbLead:
+ * - has_booking, has_seo, etc. sont des boolean (pas des 0/1)
+ * - pain_points est un array parsé (pas JSON string)
+ */
 export interface Lead {
   id: number;
   name: string;
@@ -41,12 +74,21 @@ export interface Lead {
   score?: number;
   opening_hours?: string | null;
   best_call_time?: string | null;
-  website_status?: 'none' | 'old' | 'platform' | 'modern' | null;
-  has_booking?: boolean;
-  has_seo?: boolean;
+  website_status?: WebsiteStatus | null;
+  has_booking?: boolean;  // boolean (transformed from SQLite 0/1)
+  has_seo?: boolean;      // boolean (transformed from SQLite 0/1)
   last_gmb_update?: string | null;
+  // Website analysis fields
+  cms_type?: CMSType | null;
+  has_mobile_friendly?: boolean | null;  // boolean (transformed from SQLite 0/1)
+  has_ssl?: boolean | null;              // boolean (transformed from SQLite 0/1)
+  page_load_time?: number | null;
+  pain_points?: string[] | null;         // parsed JSON array
 }
 
+/**
+ * Version résumée d'un lead pour les listes
+ */
 export interface LeadSummary {
   id: number;
   name: string;
@@ -87,6 +129,55 @@ export interface Stats {
   by_city?: Record<string, number>;
   followups_today: number;
   to_call: number;
+}
+
+// ===== GAMIFIED STATS TYPES =====
+
+// ===== GAMIFIED STATS =====
+
+export interface TodayStats {
+  calls_today: number;
+  calls_goal: number;
+  contacts_today: number;
+  rdv_today: number;
+  avg_call_duration: number;
+}
+
+export interface StreakInfo {
+  current_streak: number;
+  best_streak: number;
+  last_activity_date: string | null;
+}
+
+export interface TopLead {
+  id: number;
+  name: string;
+  city: string;
+  niche: string | null;
+  phone: string;
+  score: number;
+  priority: Priority;
+  website: string | null;
+  website_status: string | null;
+  pain_points: string[] | null;
+  reason: string;
+  image_url: string | null;
+  rating: number | null;
+  reviews_count: number | null;
+}
+
+export interface WeeklyPerformance {
+  calls: number[];
+  contacts: number[];
+  labels: string[];
+}
+
+export interface GamifiedStats {
+  today: TodayStats;
+  streak: StreakInfo;
+  top_leads: TopLead[];
+  weekly_performance: WeeklyPerformance;
+  conversion_rate: number;
 }
 
 // ===== FOLLOWUP TYPES =====
@@ -159,9 +250,9 @@ export interface Config {
 
 export type CallOutcome = 
   | 'injoignable'
-  | 'messagerie'
   | 'mauvais_numero'
   | 'accueil'
+  | 'decideur_absent'
   | 'rappeler'
   | 'interesse'
   | 'rdv_pris'

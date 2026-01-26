@@ -22,11 +22,6 @@ export function PerformanceCard({ stats }: PerformanceCardProps) {
           total={stats.total}
         />
         <MiniStat
-          label="Messageries"
-          value={stats.by_call_status.messagerie ?? 0}
-          total={stats.total}
-        />
-        <MiniStat
           label="À rappeler"
           value={stats.by_call_status.rappeler ?? 0}
           total={stats.total}

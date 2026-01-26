@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Phone, ArrowRight, Rocket, Zap } from 'lucide-react';
+import { Phone, ArrowRight, Play, Sparkles } from 'lucide-react';
 import type { Session } from '@/types';
 
 interface SessionBannerProps {
@@ -12,38 +12,36 @@ export function SessionBanner({ session }: SessionBannerProps) {
     : 0;
 
   return (
-    <div className="relative overflow-hidden card p-6 bg-linear-to-r from-emerald-600 to-teal-600 text-white border-none">
+    <div className="relative overflow-hidden rounded-xl p-5 bg-gradient-to-r from-success/90 to-emerald-500/90 text-white">
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full" />
+        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white rounded-full" />
       </div>
       
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-            <Phone className="w-6 h-6" />
+          <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+            <Phone className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium">
-                <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse" />
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/20 rounded-full text-[11px] font-medium">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse-soft" />
                 Session active
               </span>
             </div>
-            <p className="text-xl font-bold">{session.total_calls} appels</p>
-            <div className="flex items-center gap-3 text-sm text-emerald-100 mt-1">
+            <p className="text-lg font-semibold">{session.total_calls} appels</p>
+            <div className="flex items-center gap-2 text-xs text-white/80 mt-0.5">
               <span>{session.total_reached} conversations</span>
               <span>•</span>
-              <span>{session.total_voicemail} messages</span>
-              <span>•</span>
-              <span>{successRate}% de succès</span>
+              <span>{successRate}% succès</span>
             </div>
           </div>
         </div>
         <Link
           href="/call"
-          className="flex items-center gap-2 px-5 py-3 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white text-success rounded-lg text-sm font-medium hover:bg-white/90 transition-all shadow-lg"
         >
           <span>Reprendre</span>
           <ArrowRight className="w-4 h-4" />
@@ -64,51 +62,43 @@ export function CallCTA({ toCall, overdueFollowups }: CallCTAProps) {
   return (
     <Link
       href="/call"
-      className="group relative block overflow-hidden card p-6 bg-linear-to-r from-blue-600 via-indigo-600 to-violet-600 text-white border-none hover:shadow-2xl transition-all duration-300"
+      className="group relative block overflow-hidden rounded-xl p-5 bg-gradient-to-r from-primary via-indigo-500 to-violet-500 text-white transition-all hover:shadow-xl hover:shadow-primary/20"
     >
-      {/* Animated background */}
-      <div className="absolute inset-0 bg-linear-to-r from-blue-600 via-indigo-600 to-violet-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-      
-      {/* Glow effect */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white rounded-full blur-3xl" />
-      </div>
-      
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-white rounded-full -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-1/4 w-48 h-48 bg-white rounded-full translate-y-1/2" />
+        <div className="absolute -top-16 -right-16 w-48 h-48 bg-white rounded-full" />
+        <div className="absolute -bottom-8 left-1/4 w-32 h-32 bg-white rounded-full" />
       </div>
       
       <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm group-hover:scale-110 transition-transform">
-            <Rocket className="w-8 h-8" />
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-105 transition-transform">
+            <Play className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold mb-1 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-0.5 flex items-center gap-2">
               Lancer une session
-              <Zap className="w-5 h-5 text-yellow-300" />
+              <Sparkles className="w-4 h-4 text-amber-300" />
             </h2>
-            <div className="flex items-center gap-3 text-blue-100">
+            <div className="flex items-center gap-2 text-sm text-white/80">
               <span className="flex items-center gap-1.5">
-                <Phone className="w-4 h-4" />
+                <Phone className="w-3.5 h-3.5" />
                 {toCall} leads à contacter
               </span>
               {hasUrgent && (
                 <>
                   <span>•</span>
-                  <span className="flex items-center gap-1.5 text-orange-200">
-                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                    {overdueFollowups} relances urgentes
+                  <span className="flex items-center gap-1.5 text-amber-200">
+                    <span className="w-1.5 h-1.5 bg-amber-300 rounded-full animate-pulse-soft" />
+                    {overdueFollowups} urgentes
                   </span>
                 </>
               )}
             </div>
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-white/10 group-hover:bg-white/20 transition-all">
-          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+        <div className="p-3 rounded-lg bg-white/10 group-hover:bg-white/20 transition-all">
+          <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </div>
     </Link>
