@@ -16,9 +16,8 @@ module.exports = {
     },
     {
       name: 'leadflow-worker',
-      script: './worker/index.ts',
-      interpreter: 'node',
-      interpreter_args: '--import tsx',
+      script: 'node_modules/.bin/tsx',
+      args: 'worker/index.ts orchestrator',
       instances: 1,
       autorestart: true,
       watch: false,
