@@ -27,5 +27,17 @@ module.exports = {
         NODE_ENV: 'production',
       },
     },
+    {
+      name: 'leadflow-backup',
+      script: './backup.sh',
+      args: '--rotate 7',
+      instances: 1,
+      autorestart: false,
+      watch: false,
+      cron_restart: '0 2 * * *', // Backup tous les jours à 2h du matin
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
   ],
 };
