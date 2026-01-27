@@ -239,7 +239,6 @@ export interface ScrapeConfig {
 }
 
 export interface Config {
-  input_csv: string;
   target: number;
   allowed_departments: string[];
   exclude_keywords: string[];

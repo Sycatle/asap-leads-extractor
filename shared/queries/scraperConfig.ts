@@ -34,7 +34,6 @@ export interface ScraperSettings {
   scrape_interval: number;
   enrich_interval: number;
   website_interval: number;
-  collect_interval: number;
   enrich_priority_threshold: number;
   parallel_pipelines: boolean;
   auto_throttle: boolean;
@@ -303,7 +302,6 @@ export function loadScraperConfigFromDb(db: Database.Database): ScraperConfigFro
       scrape_interval: allSettings.scrape_interval ? parseInt(allSettings.scrape_interval, 10) : undefined,
       enrich_interval: allSettings.enrich_interval ? parseInt(allSettings.enrich_interval, 10) : undefined,
       website_interval: allSettings.website_interval ? parseInt(allSettings.website_interval, 10) : undefined,
-      collect_interval: allSettings.collect_interval ? parseInt(allSettings.collect_interval, 10) : undefined,
       enrich_priority_threshold: allSettings.enrich_priority_threshold ? parseInt(allSettings.enrich_priority_threshold, 10) : undefined,
       parallel_pipelines: allSettings.parallel_pipelines !== undefined ? getSettingBoolean(db, 'parallel_pipelines', true) : undefined,
       auto_throttle: allSettings.auto_throttle !== undefined ? getSettingBoolean(db, 'auto_throttle', true) : undefined,
@@ -327,7 +325,6 @@ export function importConfigToDb(
       scrape_interval?: number;
       enrich_interval?: number;
       website_interval?: number;
-      collect_interval?: number;
       max_scrape_per_cycle?: number;
       max_enrich_per_cycle?: number;
       max_website_per_cycle?: number;
@@ -376,7 +373,6 @@ export function importConfigToDb(
     if (orch.scrape_interval !== undefined) setSetting(db, 'scrape_interval', orch.scrape_interval, 'Minutes between scrape cycles');
     if (orch.enrich_interval !== undefined) setSetting(db, 'enrich_interval', orch.enrich_interval, 'Minutes between enrich cycles');
     if (orch.website_interval !== undefined) setSetting(db, 'website_interval', orch.website_interval, 'Minutes between website analysis cycles');
-    if (orch.collect_interval !== undefined) setSetting(db, 'collect_interval', orch.collect_interval, 'Minutes between collect cycles');
     if (orch.max_scrape_per_cycle !== undefined) setSetting(db, 'max_scrape_per_cycle', orch.max_scrape_per_cycle, 'Max scrape requests per cycle');
     if (orch.max_enrich_per_cycle !== undefined) setSetting(db, 'max_enrich_per_cycle', orch.max_enrich_per_cycle, 'Max leads to enrich per cycle');
     if (orch.max_website_per_cycle !== undefined) setSetting(db, 'max_website_per_cycle', orch.max_website_per_cycle, 'Max websites to analyze per cycle');

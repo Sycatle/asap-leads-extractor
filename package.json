@@ -12,7 +12,6 @@
     "once": "tsx worker/index.ts once",
     "cli": "tsx worker/cli.ts",
     "scrape": "tsx worker/index.ts scrape",
-    "collect": "tsx worker/cli.ts collect",
     "enrich": "tsx worker/index.ts enrich",
     "enrich:website": "tsx worker/index.ts enrich:website",
     "stats": "tsx worker/cli.ts stats",
@@ -48,8 +47,6 @@
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "commander": "^14.0.2",
-    "csv-parse": "^6.1.0",
-    "csv-stringify": "^6.6.0",
     "dotenv": "^17.2.3",
     "p-limit": "^7.2.0",
     "playwright": "^1.57.0",

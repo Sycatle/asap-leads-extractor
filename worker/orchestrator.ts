@@ -5,7 +5,6 @@
  * - Pipeline SCRAPE: Google Maps scraping
  * - Pipeline ENRICH_SOCIETE: Enrichissement SIREN/dirigeant via Societe.com
  * - Pipeline ENRICH_WEBSITE: Analyse CMS, vitesse, pain points
- * - Pipeline COLLECT: Import CSV périodique
  * 
  * Features:
  * - Exécution parallèle des pipelines compatibles
@@ -21,7 +20,6 @@ import { getDb, closeDb } from './db.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { enrich as enrichSociete } from './enrich.js';
 import { enrichWebsiteAnalysis } from './enrichWebsite.js';
-import { collect } from './collect.js';
 import { sleep, formatDuration } from './utils.js';
 import { WorkerMonitor, type PipelineMetrics } from './monitor.js';
 import { orchLogger as log } from './logger.js';
@@ -49,7 +47,6 @@ interface OrchestratorMetrics {
     scrape: PipelineState;
     enrichSociete: PipelineState;
     enrichWebsite: PipelineState;
-    collect: PipelineState;
   };
   database: {
     totalLeads: number;
@@ -63,7 +60,6 @@ interface OrchestratorConfig {
   scrapeInterval: number;
   enrichSocieteInterval: number;
   enrichWebsiteInterval: number;
-  collectInterval: number;
   
   // Limites par cycle
   maxScrapePerCycle: number;      // Nombre max de requêtes GMaps par cycle (pas total leads)
@@ -83,7 +79,6 @@ const DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
   scrapeInterval: 5 * 60 * 1000,        // 5 min entre scrapes (plus court car incrémental)
   enrichSocieteInterval: 1 * 60 * 1000,  // 1 min entre enrichissements (plus agressif)
   enrichWebsiteInterval: 5 * 60 * 1000,  // 5 min entre analyses website
-  collectInterval: 30 * 60 * 1000,       // 30 min entre imports CSV
   
   maxScrapePerCycle: 3,          // 3 requêtes GMaps par cycle (niche+ville)
   maxEnrichPerCycle: 30,
@@ -105,7 +100,6 @@ function buildOrchestratorConfig(appConfig: Config, overrides?: Partial<Orchestr
     scrapeInterval: (fromFile.scrape_interval ?? 10) * 60 * 1000,
     enrichSocieteInterval: (fromFile.enrich_interval ?? 2) * 60 * 1000,
     enrichWebsiteInterval: (fromFile.website_interval ?? 5) * 60 * 1000,
-    collectInterval: (fromFile.collect_interval ?? 30) * 60 * 1000,
     
     maxScrapePerCycle: fromFile.max_scrape_per_cycle ?? 3,
     maxEnrichPerCycle: fromFile.max_enrich_per_cycle ?? 30,
@@ -133,7 +127,6 @@ export class WorkerOrchestrator extends EventEmitter {
     scrape: PipelineState;
     enrichSociete: PipelineState;
     enrichWebsite: PipelineState;
-    collect: PipelineState;
   };
   
   private metricsTimer: NodeJS.Timeout | null = null;
@@ -154,7 +147,6 @@ export class WorkerOrchestrator extends EventEmitter {
       scrape: this.createPipelineState(),
       enrichSociete: this.createPipelineState(),
       enrichWebsite: this.createPipelineState(),
-      collect: this.createPipelineState(),
     };
     
     // Générer la liste des requêtes de scraping
@@ -311,13 +303,6 @@ export class WorkerOrchestrator extends EventEmitter {
       ready.push('enrichWebsite');
     }
     
-    // Check collect
-    if (this.isPipelineReady('collect', this.orchConfig.collectInterval)) {
-      if (this.config.input_csv) {
-        ready.push('collect');
-      }
-    }
-    
     return ready;
   }
   
@@ -336,7 +321,6 @@ export class WorkerOrchestrator extends EventEmitter {
   private async runParallelPipelines(tasks: string[]): Promise<void> {
     // IMPORTANT: Exécution séquentielle pour éviter les conflits de sortie terminal
     // Toutes les tâches Playwright (scrape, enrichSociete, enrichWebsite) doivent tourner une par une
-    // collect peut théoriquement tourner en parallèle mais on garde séquentiel pour la lisibilité
     
     // Ordre de priorité intelligent
     const orderedTasks = this.prioritizeTasks(tasks);
@@ -355,13 +339,11 @@ export class WorkerOrchestrator extends EventEmitter {
       SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
     `).get() as { c: number }).c;
     
-    // Collect d'abord (rapide, ajoute des leads)
-    // Puis enrichissement si beaucoup en attente, sinon scrape
+    // Prioriser enrichissement si beaucoup en attente, sinon scrape
     const priority: Record<string, number> = {
-      collect: 1,
-      enrichSociete: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 2 : 4,
-      scrape: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 4 : 2,
-      enrichWebsite: 3,
+      enrichSociete: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 1 : 3,
+      scrape: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 3 : 1,
+      enrichWebsite: 2,
     };
     
     return [...tasks].sort((a, b) => (priority[a] || 99) - (priority[b] || 99));
@@ -413,9 +395,6 @@ export class WorkerOrchestrator extends EventEmitter {
           break;
         case 'enrichWebsite':
           processed = await this.runEnrichWebsitePipeline();
-          break;
-        case 'collect':
-          processed = await this.runCollectPipeline();
           break;
       }
       
@@ -500,17 +479,6 @@ export class WorkerOrchestrator extends EventEmitter {
   private async runEnrichWebsitePipeline(): Promise<number> {
     const stats = await enrichWebsiteAnalysis();
     return stats.analyzed;
-  }
-  
-  private async runCollectPipeline(): Promise<number> {
-    if (!this.config.input_csv) return 0;
-    
-    try {
-      const leads = await collect();
-      return leads.length;
-    } catch {
-      return 0;
-    }
   }
   
   // ===== SCHEDULING =====

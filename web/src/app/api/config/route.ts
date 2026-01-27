@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync, existsSync } from 'fs';
-import path from 'path';
 import { getDb, scraperConfig } from '@/lib/db';
 
-const CONFIG_PATH = path.join(process.cwd(), '..', 'config.json');
-
 interface Config {
-  input_csv: string;
   target: number;
   allowed_departments: string[];
   exclude_keywords: string[];
@@ -19,7 +14,6 @@ interface Config {
 
 function getDefaultConfig(): Config {
   return {
-    input_csv: 'data/raw/export.csv',
     target: 100,
     allowed_departments: ['72', '49', '53', '44', '85'],
     exclude_keywords: ['Carrefour', "McDonald's", 'Leclerc', 'Auchan', 'Intermarché'],
@@ -31,13 +25,13 @@ function getDefaultConfig(): Config {
 }
 
 /**
- * GET: Load config from database (if available) or JSON file
+ * GET: Load config from database
  */
 export async function GET() {
   try {
     const db = getDb();
     
-    // Try loading from database first
+    // Load from database
     if (scraperConfig.hasScraperConfigTables(db)) {
       const niches = scraperConfig.getNicheNames(db);
       const cities = scraperConfig.getCityNames(db);
@@ -62,14 +56,8 @@ export async function GET() {
       }
     }
     
-    // Fallback to JSON file
-    if (!existsSync(CONFIG_PATH)) {
-      return NextResponse.json({ source: 'default', ...getDefaultConfig() });
-    }
-    
-    const content = readFileSync(CONFIG_PATH, 'utf-8');
-    const config = JSON.parse(content);
-    return NextResponse.json({ source: 'file', ...config });
+    // Return default config if DB is empty
+    return NextResponse.json({ source: 'default', ...getDefaultConfig() });
   } catch (error) {
     console.error('Error reading config:', error);
     return NextResponse.json({ source: 'error', ...getDefaultConfig() });

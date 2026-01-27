@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { collect } from './collect.js';
 import { enrich } from './enrich.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { loadConfig } from './config.js';
@@ -12,20 +11,23 @@ const program = new Command();
 program
   .name('leads-finder')
   .description('Générateur de leads call-ready pour prospection')
-  .version('1.0.0');
+  .version('2.0.0');
 
 // Commande: run (pipeline complet)
 program
   .command('run')
-  .description('Exécute le pipeline complet: collect → enrich (full SQLite)')
+  .description('Exécute le pipeline complet: scrape → enrich (full SQLite)')
   .option('-c, --config <path>', 'Chemin vers le fichier config', 'config.json')
-  .option('--skip-enrich', 'Sauter l\'étape d\'enrichissement Pappers')
+  .option('--skip-enrich', 'Sauter l\'étape d\'enrichissement')
   .action(async (options) => {
     log.header('LEADS FINDER - Pipeline complet');
     const startTime = Date.now();
+    const config = loadConfig();
 
-    log.section('ÉTAPE 1: COLLECTE');
-    await collect();
+    log.section('ÉTAPE 1: SCRAPING');
+    const niches = config.scrape?.niches || ['coiffeur'];
+    const cities = config.scrape?.cities || ['Le Mans'];
+    await scrapeGoogleMaps({ niches, cities, saveToDb: true });
 
     if (!options.skipEnrich) {
       log.section('ÉTAPE 2: ENRICHISSEMENT');
@@ -91,16 +93,6 @@ program
     log.success(`En base: ${stats.total} leads total`);
     log.success(`Terminé en ${duration}s`);
     closeDb();
-  });
-
-// Commande: collect
-program
-  .command('collect')
-  .description('Importer et nettoyer le CSV source')
-  .option('-f, --file <path>', 'Fichier CSV à importer (override config)')
-  .action(async () => {
-    log.section('COLLECTE CSV');
-    await collect();
   });
 
 // Commande: enrich

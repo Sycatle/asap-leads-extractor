@@ -146,7 +146,6 @@ export interface DbLead {
 // ===== CONFIG =====
 
 export interface Config {
-  input_csv: string;
   target: number;
   allowed_departments: string[];
   exclude_keywords: string[];
@@ -164,7 +163,6 @@ export interface Config {
     scrape_interval?: number;
     enrich_interval?: number;
     website_interval?: number;
-    collect_interval?: number;
     // Limites par cycle
     max_scrape_per_cycle?: number;   // Nombre de requêtes GMaps par cycle (pas total leads)
     max_enrich_per_cycle?: number;

@@ -5,7 +5,6 @@ import { loadScraperConfigFromDb, hasScraperConfigTables } from '../shared/queri
 
 // Default configuration values
 const DEFAULT_CONFIG: Config = {
-  input_csv: '',
   target: 100,
   allowed_departments: [],
   exclude_keywords: [],
