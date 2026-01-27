@@ -1,8 +1,20 @@
+/**
+ * Web Database Layer
+ * 
+ * This file re-exports the centralized queries from shared/queries
+ * and provides web-specific extensions (like getNextLead with constants).
+ * 
+ * Migrations are handled by the worker (pnpm migrate).
+ * The web assumes the database schema is already up to date.
+ */
+
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// Re-export les types depuis shared (types-only imports work fine)
+// ===== RE-EXPORTS FROM SHARED =====
+
+// Re-export types
 export type { 
   LeadStatus, 
   CallStatus, 
@@ -13,30 +25,31 @@ export type {
   DbLead 
 } from '../../../shared/types.js';
 
+// Re-export query types
+export type {
+  Lead,
+  LeadFilters,
+  AdvancedLeadFilters,
+  LeadHistoryEntry,
+  HistoryType,
+  CallSession,
+  LeadStats,
+  GamifiedStats,
+  TodayStats,
+  StreakInfo,
+  TopLead,
+  StatsPeriod,
+  FollowupLead,
+  FollowupUrgency,
+} from '../../../shared/queries/index.js';
+
+// Import query functions (will be wrapped with getDb())
+import * as queries from '../../../shared/queries/index.js';
 import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types.js';
 import type { Lead } from '@/types';
 
-// Type alias for SQLite row results that contain full lead data
-type DbLeadRow = DbLead;
+// ===== DATABASE CONNECTION =====
 
-/**
- * Transform DbLead to Lead (parse JSON fields)
- * Uses DbLeadRow to handle SQLite result typing
- */
-export function transformDbLead(dbLead: DbLeadRow): Lead {
-  return {
-    ...dbLead,
-    has_booking: Boolean(dbLead.has_booking),
-    has_seo: Boolean(dbLead.has_seo),
-    has_mobile_friendly: dbLead.has_mobile_friendly !== null ? Boolean(dbLead.has_mobile_friendly) : null,
-    has_ssl: dbLead.has_ssl !== null ? Boolean(dbLead.has_ssl) : null,
-    pain_points: dbLead.pain_points ? JSON.parse(dbLead.pain_points) : null,
-  } as Lead;
-}
-
-// DB Path - Trouver le chemin vers data/leads.db
-// 1. Priorité: variable d'environnement DATABASE_PATH
-// 2. Fallback: chercher le dossier data/ relativement au cwd
 function findDbPath(): string {
   if (process.env.DATABASE_PATH) {
     return process.env.DATABASE_PATH;
@@ -70,650 +83,136 @@ export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    // Note: Migrations are handled by the worker (pnpm migrate)
-    // The web assumes the database schema is already up to date
   }
   return db;
 }
 
-// ===== SQL SECURITY =====
+// ===== TRANSFORMATION =====
 
 /**
- * Colonnes autorisées pour ORDER BY (prévention injection SQL)
- * IMPORTANT: Ne jamais interpoler directement des valeurs utilisateur dans ORDER BY
+ * Transform DbLead to Lead (parse JSON fields)
+ * @deprecated Use queries.transformDbLead instead
  */
-const VALID_ORDER_COLUMNS = [
-  'created_at',
-  'updated_at',
-  'score',
-  'rating',
-  'name',
-  'city',
-  'next_followup_at',
-  'priority',
-  'status',
-  'call_status',
-  'niche',
-  'reviews_count',
-] as const;
-
-type ValidOrderColumn = typeof VALID_ORDER_COLUMNS[number];
-
-/**
- * Valide et retourne une colonne ORDER BY sécurisée
- */
-function sanitizeOrderBy(column: string | undefined, defaultColumn: ValidOrderColumn = 'created_at'): ValidOrderColumn {
-  if (!column) return defaultColumn;
-  return VALID_ORDER_COLUMNS.includes(column as ValidOrderColumn) 
-    ? (column as ValidOrderColumn) 
-    : defaultColumn;
+export function transformDbLead(dbLead: DbLead): Lead {
+  return queries.transformDbLead(dbLead) as Lead;
 }
 
-/**
- * Valide et retourne une direction ORDER BY sécurisée
- */
-function sanitizeOrderDir(dir: string | undefined): 'ASC' | 'DESC' {
-  return dir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+// ===== WRAPPED QUERY FUNCTIONS =====
+// These wrap shared/queries functions with getDb() for convenience
+
+// Lead queries
+export function findLeads(filters: queries.LeadFilters = {}): Lead[] {
+  return queries.findLeads(getDb(), filters) as Lead[];
 }
 
-// ===== QUERIES =====
-
-export interface LeadFilters {
-  status?: LeadStatus;
-  call_status?: CallStatus;
-  city?: string;
-  niche?: string;
-  priority?: 'high' | 'medium' | 'low';
-  search?: string;
-  limit?: number;
-  offset?: number;
-  orderBy?: string;
-  orderDir?: 'asc' | 'desc';
+export function findLeadsAdvanced(filters: queries.AdvancedLeadFilters = {}): Lead[] {
+  return queries.findLeadsAdvanced(getDb(), filters) as Lead[];
 }
 
-export function findLeads(filters: LeadFilters = {}): DbLead[] {
-  const database = getDb();
-  
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = {};
-  
-  if (filters.status) {
-    conditions.push('status = @status');
-    params.status = filters.status;
-  }
-  
-  if (filters.call_status) {
-    conditions.push('call_status = @call_status');
-    params.call_status = filters.call_status;
-  }
-  
-  if (filters.city) {
-    conditions.push('city LIKE @city');
-    params.city = `%${filters.city}%`;
-  }
-  
-  if (filters.niche) {
-    conditions.push('niche = @niche');
-    params.niche = filters.niche;
-  }
-  
-  if (filters.priority) {
-    conditions.push('priority = @priority');
-    params.priority = filters.priority;
-  }
-  
-  if (filters.search) {
-    conditions.push('(name LIKE @search OR phone LIKE @search OR city LIKE @search)');
-    params.search = `%${filters.search}%`;
-  }
-  
-  let sql = 'SELECT * FROM leads';
-  if (conditions.length > 0) {
-    sql += ' WHERE ' + conditions.join(' AND ');
-  }
-  
-  // Order - sécurisé contre injection SQL
-  const orderBy = sanitizeOrderBy(filters.orderBy);
-  const orderDir = sanitizeOrderDir(filters.orderDir);
-  sql += ` ORDER BY ${orderBy} ${orderDir}`;
-  
-  // Pagination
-  const limit = filters.limit || 25;
-  const offset = filters.offset || 0;
-  sql += ` LIMIT ${limit} OFFSET ${offset}`;
-  
-  const stmt = database.prepare(sql);
-  return stmt.all(params) as DbLead[];
+export function countLeads(filters: Omit<queries.LeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
+  return queries.countLeads(getDb(), filters);
 }
 
-// ===== ADVANCED SEARCH =====
-
-export interface AdvancedLeadFilters {
-  // Basic filters
-  status?: LeadStatus;
-  call_status?: CallStatus;
-  city?: string;
-  niche?: string;
-  priority?: 'high' | 'medium' | 'low';
-  search?: string;
-  
-  // Boolean filters
-  hasWebsite?: 'all' | 'yes' | 'no';
-  hasDirigeant?: 'all' | 'yes' | 'no';
-  hasSiren?: 'all' | 'yes' | 'no';
-  hasPhone?: 'all' | 'yes' | 'no';
-  
-  // Range filters
-  scoreMin?: number;
-  scoreMax?: number;
-  ratingMin?: number;
-  ratingMax?: number;
-  
-  // Date filters
-  createdAfter?: string;
-  createdBefore?: string;
-  
-  // Pagination & sorting
-  limit?: number;
-  offset?: number;
-  orderBy?: string;
-  orderDir?: 'asc' | 'desc';
-}
-
-function buildAdvancedConditions(filters: AdvancedLeadFilters): { conditions: string[]; params: Record<string, unknown> } {
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = {};
-
-  // Basic filters
-  if (filters.status) {
-    conditions.push('status = @status');
-    params.status = filters.status;
-  }
-  
-  if (filters.call_status) {
-    conditions.push('call_status = @call_status');
-    params.call_status = filters.call_status;
-  }
-  
-  if (filters.city) {
-    conditions.push('city LIKE @city');
-    params.city = `%${filters.city}%`;
-  }
-  
-  if (filters.niche) {
-    conditions.push('niche = @niche');
-    params.niche = filters.niche;
-  }
-  
-  if (filters.priority) {
-    conditions.push('priority = @priority');
-    params.priority = filters.priority;
-  }
-  
-  // Enhanced search - searches across more fields
-  if (filters.search) {
-    conditions.push(`(
-      name LIKE @search 
-      OR phone LIKE @search 
-      OR city LIKE @search 
-      OR address LIKE @search
-      OR legal_name LIKE @search
-      OR dirigeant LIKE @search
-      OR siren LIKE @search
-      OR siret LIKE @search
-      OR niche LIKE @search
-      OR postal_code LIKE @search
-    )`);
-    params.search = `%${filters.search}%`;
-  }
-  
-  // Boolean filters
-  if (filters.hasWebsite === 'yes') {
-    conditions.push("website IS NOT NULL AND website != ''");
-  } else if (filters.hasWebsite === 'no') {
-    conditions.push("(website IS NULL OR website = '')");
-  }
-  
-  if (filters.hasDirigeant === 'yes') {
-    conditions.push("dirigeant IS NOT NULL AND dirigeant != ''");
-  } else if (filters.hasDirigeant === 'no') {
-    conditions.push("(dirigeant IS NULL OR dirigeant = '')");
-  }
-  
-  if (filters.hasSiren === 'yes') {
-    conditions.push("siren IS NOT NULL AND siren != ''");
-  } else if (filters.hasSiren === 'no') {
-    conditions.push("(siren IS NULL OR siren = '')");
-  }
-  
-  if (filters.hasPhone === 'yes') {
-    conditions.push("phone IS NOT NULL AND phone != ''");
-  } else if (filters.hasPhone === 'no') {
-    conditions.push("(phone IS NULL OR phone = '')");
-  }
-  
-  // Range filters
-  if (filters.scoreMin !== undefined) {
-    conditions.push('score >= @scoreMin');
-    params.scoreMin = filters.scoreMin;
-  }
-  
-  if (filters.scoreMax !== undefined) {
-    conditions.push('score <= @scoreMax');
-    params.scoreMax = filters.scoreMax;
-  }
-  
-  if (filters.ratingMin !== undefined) {
-    conditions.push('rating >= @ratingMin');
-    params.ratingMin = filters.ratingMin;
-  }
-  
-  if (filters.ratingMax !== undefined) {
-    conditions.push('rating <= @ratingMax');
-    params.ratingMax = filters.ratingMax;
-  }
-  
-  // Date filters
-  if (filters.createdAfter) {
-    conditions.push("created_at >= @createdAfter");
-    params.createdAfter = filters.createdAfter;
-  }
-  
-  if (filters.createdBefore) {
-    conditions.push("created_at <= @createdBefore");
-    params.createdBefore = filters.createdBefore + ' 23:59:59';
-  }
-
-  return { conditions, params };
-}
-
-export function findLeadsAdvanced(filters: AdvancedLeadFilters = {}): DbLead[] {
-  const database = getDb();
-  const { conditions, params } = buildAdvancedConditions(filters);
-  
-  let sql = 'SELECT * FROM leads';
-  if (conditions.length > 0) {
-    sql += ' WHERE ' + conditions.join(' AND ');
-  }
-  
-  // Order - sécurisé contre injection SQL
-  const orderBy = sanitizeOrderBy(filters.orderBy);
-  const orderDir = sanitizeOrderDir(filters.orderDir);
-  sql += ` ORDER BY ${orderBy} ${orderDir}`;
-  
-  // Pagination
-  const limit = filters.limit || 25;
-  const offset = filters.offset || 0;
-  sql += ` LIMIT ${limit} OFFSET ${offset}`;
-  
-  const stmt = database.prepare(sql);
-  return stmt.all(params) as DbLead[];
-}
-
-export function countLeadsAdvanced(filters: Omit<AdvancedLeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
-  const database = getDb();
-  const { conditions, params } = buildAdvancedConditions(filters);
-  
-  let sql = 'SELECT COUNT(*) as count FROM leads';
-  if (conditions.length > 0) {
-    sql += ' WHERE ' + conditions.join(' AND ');
-  }
-  
-  const stmt = database.prepare(sql);
-  const result = stmt.get(params) as { count: number };
-  return result.count;
-}
-
-export function countLeads(filters: Omit<LeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
-  const database = getDb();
-  
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = {};
-  
-  if (filters.status) {
-    conditions.push('status = @status');
-    params.status = filters.status;
-  }
-  if (filters.call_status) {
-    conditions.push('call_status = @call_status');
-    params.call_status = filters.call_status;
-  }
-  if (filters.city) {
-    conditions.push('city LIKE @city');
-    params.city = `%${filters.city}%`;
-  }
-  if (filters.priority) {
-    conditions.push('priority = @priority');
-    params.priority = filters.priority;
-  }
-  if (filters.search) {
-    conditions.push('(name LIKE @search OR phone LIKE @search OR city LIKE @search)');
-    params.search = `%${filters.search}%`;
-  }
-  
-  let sql = 'SELECT COUNT(*) as count FROM leads';
-  if (conditions.length > 0) {
-    sql += ' WHERE ' + conditions.join(' AND ');
-  }
-  
-  const stmt = database.prepare(sql);
-  const result = stmt.get(params) as { count: number };
-  return result.count;
+export function countLeadsAdvanced(filters: Omit<queries.AdvancedLeadFilters, 'limit' | 'offset' | 'orderBy' | 'orderDir'> = {}): number {
+  return queries.countLeadsAdvanced(getDb(), filters);
 }
 
 export function findById(id: number): Lead | null {
-  const database = getDb();
-  const stmt = database.prepare('SELECT * FROM leads WHERE id = ?');
-  const row = stmt.get(id) as DbLead | undefined;
-  return row ? transformDbLead(row) : null;
+  return queries.findById(getDb(), id) as Lead | null;
 }
 
 export function updateLead(id: number, data: Partial<DbLead>): boolean {
-  const database = getDb();
-  
-  const fields: string[] = [];
-  const params: Record<string, unknown> = { id };
-  
-  const allowedFields = ['status', 'call_status', 'email_status', 'priority', 'notes', 'next_followup_at'];
-  
-  for (const field of allowedFields) {
-    if (field in data) {
-      fields.push(`${field} = @${field}`);
-      params[field] = data[field as keyof DbLead];
-    }
-  }
-  
-  if (fields.length === 0) return false;
-  
-  fields.push("updated_at = datetime('now')");
-  
-  const sql = `UPDATE leads SET ${fields.join(', ')} WHERE id = @id`;
-  const stmt = database.prepare(sql);
-  const result = stmt.run(params);
-  return result.changes > 0;
-}
-
-export function logCall(id: number, callStatus: CallStatus, note?: string): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET 
-      call_status = ?,
-      last_contact_at = datetime('now'),
-      notes = CASE 
-        WHEN notes IS NULL THEN ?
-        WHEN ? IS NULL THEN notes
-        ELSE notes || char(10) || ?
-      END,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const timestamp = new Date().toLocaleString('fr-FR');
-  const formattedNote = note ? `[${timestamp}] 📞 ${note}` : null;
-  const result = stmt.run(callStatus, formattedNote, formattedNote, formattedNote, id);
-  return result.changes > 0;
-}
-
-export function addNote(id: number, note: string): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET 
-      notes = CASE 
-        WHEN notes IS NULL THEN ?
-        ELSE notes || char(10) || ?
-      END,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const timestamp = new Date().toLocaleString('fr-FR');
-  const formattedNote = `[${timestamp}] ${note}`;
-  const result = stmt.run(formattedNote, formattedNote, id);
-  return result.changes > 0;
+  return queries.updateLead(getDb(), id, data);
 }
 
 export function updateStatus(id: number, status: LeadStatus): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET status = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(status, id);
-  return result.changes > 0;
+  return queries.updateStatus(getDb(), id, status);
 }
 
 export function scheduleFollowup(id: number, date: string): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET next_followup_at = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(date, id);
-  return result.changes > 0;
+  return queries.scheduleFollowup(getDb(), id, date);
+}
+
+export function softDeleteLead(id: number): boolean {
+  return queries.softDeleteLead(getDb(), id);
+}
+
+export function restoreLead(id: number): boolean {
+  return queries.restoreLead(getDb(), id);
+}
+
+export function logCall(id: number, callStatus: CallStatus, note?: string): boolean {
+  return queries.logCall(getDb(), id, callStatus, note);
+}
+
+export function addNote(id: number, note: string): boolean {
+  return queries.addNote(getDb(), id, note);
 }
 
 export function markOptOut(id: number): boolean {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET opt_out = 1, status = 'perdu', updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(id);
-  return result.changes > 0;
+  return queries.markOptOut(getDb(), id);
 }
-
-// ===== STATS =====
-
-export interface LeadStats {
-  total: number;
-  by_status: Record<LeadStatus, number>;
-  by_call_status: Record<CallStatus, number>;
-  by_priority: Record<string, number>;
-  by_city: Record<string, number>;
-  followups_today: number;
-  to_call: number;
-}
-
-export function getStats(): LeadStats {
-  const database = getDb();
-  
-  const total = (database.prepare('SELECT COUNT(*) as count FROM leads').get() as { count: number }).count;
-  
-  const statusRows = database.prepare('SELECT status, COUNT(*) as count FROM leads GROUP BY status').all() as { status: LeadStatus; count: number }[];
-  const by_status: Record<LeadStatus, number> = {
-    nouveau: 0, contacte: 0, qualifie: 0, proposition: 0, converti: 0, perdu: 0
-  };
-  for (const row of statusRows) {
-    by_status[row.status] = row.count;
-  }
-  
-  const callRows = database.prepare('SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status').all() as { call_status: CallStatus; count: number }[];
-  const by_call_status: Record<CallStatus, number> = {
-    non_appele: 0, appele: 0, rappeler: 0, injoignable: 0
-  };
-  for (const row of callRows) {
-    by_call_status[row.call_status] = row.count;
-  }
-  
-  const priorityRows = database.prepare('SELECT priority, COUNT(*) as count FROM leads GROUP BY priority').all() as { priority: string; count: number }[];
-  const by_priority: Record<string, number> = {};
-  for (const row of priorityRows) {
-    by_priority[row.priority] = row.count;
-  }
-  
-  const cityRows = database.prepare('SELECT city, COUNT(*) as count FROM leads GROUP BY city ORDER BY count DESC LIMIT 10').all() as { city: string; count: number }[];
-  const by_city: Record<string, number> = {};
-  for (const row of cityRows) {
-    by_city[row.city] = row.count;
-  }
-  
-  const followups_today = (database.prepare(`
-    SELECT COUNT(*) as count FROM leads 
-    WHERE date(next_followup_at) <= date('now')
-  `).get() as { count: number }).count;
-  
-  const to_call = (database.prepare(`
-    SELECT COUNT(*) as count FROM leads 
-    WHERE call_status = 'non_appele' AND status = 'nouveau'
-  `).get() as { count: number }).count;
-  
-  return {
-    total,
-    by_status,
-    by_call_status,
-    by_priority,
-    by_city,
-    followups_today,
-    to_call,
-  };
-}
-
-// ===== CITIES & NICHES =====
 
 export function getDistinctCities(): string[] {
-  const database = getDb();
-  const rows = database.prepare("SELECT DISTINCT city FROM leads WHERE city != '' ORDER BY city").all() as { city: string }[];
-  return rows.map(r => r.city);
+  return queries.getDistinctCities(getDb());
 }
 
 export function getDistinctNiches(): string[] {
-  const database = getDb();
-  const rows = database.prepare('SELECT DISTINCT niche FROM leads WHERE niche IS NOT NULL ORDER BY niche').all() as { niche: string }[];
-  return rows.map(r => r.niche);
+  return queries.getDistinctNiches(getDb());
 }
 
-// ===== HISTORIQUE =====
-
-export type HistoryType = 'call' | 'email' | 'note' | 'status_change' | 'followup_set';
-
-export interface LeadHistoryEntry {
-  id: number;
-  lead_id: number;
-  type: HistoryType;
-  old_value: string | null;
-  new_value: string | null;
-  note: string | null;
-  duration_seconds: number | null;
-  created_at: string;
+export function getFollowups(): queries.FollowupLead[] {
+  return queries.getFollowups(getDb());
 }
 
-export function addHistory(entry: Omit<LeadHistoryEntry, 'id' | 'created_at'>): number {
-  const database = getDb();
-  const stmt = database.prepare(`
-    INSERT INTO lead_history (lead_id, type, old_value, new_value, note, duration_seconds)
-    VALUES (@lead_id, @type, @old_value, @new_value, @note, @duration_seconds)
-  `);
-  const result = stmt.run({
-    lead_id: entry.lead_id,
-    type: entry.type,
-    old_value: entry.old_value ?? null,
-    new_value: entry.new_value ?? null,
-    note: entry.note ?? null,
-    duration_seconds: entry.duration_seconds ?? null,
-  });
-  return result.lastInsertRowid as number;
+// History queries
+export function addHistory(entry: Omit<queries.LeadHistoryEntry, 'id' | 'created_at'>): number {
+  return queries.addHistory(getDb(), entry);
 }
 
-export function getLeadHistory(leadId: number, limit = 50): LeadHistoryEntry[] {
-  const database = getDb();
-  const stmt = database.prepare(`
-    SELECT * FROM lead_history 
-    WHERE lead_id = ? 
-    ORDER BY created_at DESC 
-    LIMIT ?
-  `);
-  return stmt.all(leadId, limit) as LeadHistoryEntry[];
+export function getLeadHistory(leadId: number, limit = 50): queries.LeadHistoryEntry[] {
+  return queries.getLeadHistory(getDb(), leadId, limit);
 }
 
-// ===== SESSIONS =====
-
-export interface CallSession {
-  id: number;
-  started_at: string;
-  ended_at: string | null;
-  total_calls: number;
-  total_reached: number;
-  total_voicemail: number;
-  total_scheduled: number;
-  notes: string | null;
+// Session queries
+export function startSession(): queries.CallSession {
+  return queries.startSession(getDb());
 }
 
-export function startSession(): CallSession {
-  const database = getDb();
-  const stmt = database.prepare(`
-    INSERT INTO call_sessions (started_at) VALUES (datetime('now'))
-    RETURNING *
-  `);
-  return stmt.get() as CallSession;
+export function endSession(id: number): queries.CallSession | null {
+  return queries.endSession(getDb(), id);
 }
 
-export function endSession(id: number): CallSession | null {
-  const database = getDb();
-  const stmt = database.prepare(`
-    UPDATE call_sessions 
-    SET ended_at = datetime('now')
-    WHERE id = ?
-    RETURNING *
-  `);
-  return (stmt.get(id) as CallSession) ?? null;
+export function updateSessionStats(
+  id: number, 
+  stats: Partial<Pick<queries.CallSession, 'total_calls' | 'total_reached' | 'total_voicemail' | 'total_scheduled'>>
+): boolean {
+  return queries.updateSessionStats(getDb(), id, stats);
 }
 
-export function updateSessionStats(id: number, stats: Partial<Pick<CallSession, 'total_calls' | 'total_reached' | 'total_voicemail' | 'total_scheduled'>>): boolean {
-  const database = getDb();
-  const fields: string[] = [];
-  const params: Record<string, unknown> = { id };
-  
-  if (stats.total_calls !== undefined) {
-    fields.push('total_calls = total_calls + @total_calls');
-    params.total_calls = stats.total_calls;
-  }
-  if (stats.total_reached !== undefined) {
-    fields.push('total_reached = total_reached + @total_reached');
-    params.total_reached = stats.total_reached;
-  }
-  if (stats.total_voicemail !== undefined) {
-    fields.push('total_voicemail = total_voicemail + @total_voicemail');
-    params.total_voicemail = stats.total_voicemail;
-  }
-  if (stats.total_scheduled !== undefined) {
-    fields.push('total_scheduled = total_scheduled + @total_scheduled');
-    params.total_scheduled = stats.total_scheduled;
-  }
-  
-  if (fields.length === 0) return false;
-  
-  const stmt = database.prepare(`UPDATE call_sessions SET ${fields.join(', ')} WHERE id = @id`);
-  const result = stmt.run(params);
-  return result.changes > 0;
+export function getActiveSession(): queries.CallSession | null {
+  return queries.getActiveSession(getDb());
 }
 
-export function getActiveSession(): CallSession | null {
-  const database = getDb();
-  const stmt = database.prepare(`
-    SELECT * FROM call_sessions 
-    WHERE ended_at IS NULL 
-    ORDER BY started_at DESC 
-    LIMIT 1
-  `);
-  return (stmt.get() as CallSession) ?? null;
+export function getSessionById(id: number): queries.CallSession | null {
+  return queries.getSessionById(getDb(), id);
 }
 
-export function getSessionById(id: number): CallSession | null {
-  const database = getDb();
-  const stmt = database.prepare('SELECT * FROM call_sessions WHERE id = ?');
-  return (stmt.get(id) as CallSession) ?? null;
+// Stats queries
+export function getStats(): queries.LeadStats {
+  return queries.getStats(getDb());
 }
 
-// ===== NEXT LEAD (INTELLIGENT) =====
+export function getGamifiedStats(period: queries.StatsPeriod = '24h'): queries.GamifiedStats {
+  return queries.getGamifiedStats(getDb(), period);
+}
 
-import { LEAD_SELECTION_CONFIG } from './constants';
+// ===== WEB-SPECIFIC: NEXT LEAD ALGORITHM =====
+
+import { LEAD_SELECTION_CONFIG } from './constants.js';
 
 /**
  * Vérifie si l'heure actuelle correspond au best_call_time du lead
- * Format attendu: "10h-12h" ou "14h-18h" ou "10h-12h, 14h-18h"
  */
 function matchesBestCallTime(bestCallTime: string | null): boolean {
   if (!bestCallTime) return false;
@@ -721,7 +220,6 @@ function matchesBestCallTime(bestCallTime: string | null): boolean {
   const now = new Date();
   const currentHour = now.getHours();
   
-  // Parser les plages horaires
   const ranges = bestCallTime.split(',').map(r => r.trim());
   
   for (const range of ranges) {
@@ -740,50 +238,34 @@ function matchesBestCallTime(bestCallTime: string | null): boolean {
 
 /**
  * Calcule le score ajusté pour un lead selon l'algorithme intelligent
- * Priorise les leads avec le plus d'informations exploitables pour le cold call
  */
 function calculateAdjustedScore(lead: DbLead): number {
   const config = LEAD_SELECTION_CONFIG;
   let adjustedScore = lead.score || 50;
   
-  // ===== BONUS CONTEXTE D'APPEL =====
-  
-  // Bonus heure optimale
+  // Bonus contexte d'appel
   if (matchesBestCallTime(lead.best_call_time)) {
     adjustedScore += config.bonusBestCallTime;
   }
-  
-  // Bonus pas de site web (opportunité commerciale)
   if (!lead.website) {
     adjustedScore += config.bonusNoWebsite;
   }
-  
-  // Bonus priorité
   if (lead.priority === 'high') {
     adjustedScore += config.bonusPriorityHigh;
   } else if (lead.priority === 'medium') {
     adjustedScore += config.bonusPriorityMedium;
   }
-  
-  // Bonus numéro perso (plus de chances de joindre le dirigeant)
   if (lead.phone_type === 'perso') {
     adjustedScore += config.bonusPhonePerso;
   }
   
-  // ===== BONUS INFORMATIONS ENRICHIES =====
-  // Plus on a d'infos, mieux on peut préparer l'appel
-  
-  // Nom du dirigeant = personnalisation de l'appel ("Bonjour M. Dupont")
+  // Bonus informations enrichies
   if (lead.dirigeant) {
     adjustedScore += config.bonusDirigeant;
   }
-  
-  // SIREN connu = entreprise vérifiée, on peut parler de leur structure
   if (lead.siren) {
     adjustedScore += config.bonusSiren;
   }
-  
-  // Points de douleur identifiés = argumentation ciblée
   if (lead.pain_points) {
     try {
       const painPoints = JSON.parse(lead.pain_points);
@@ -794,25 +276,17 @@ function calculateAdjustedScore(lead: DbLead): number {
       // Ignore parse errors
     }
   }
-  
-  // Site analysé (on connaît leur CMS, leur vitesse, etc.)
   if (lead.cms_type || lead.page_load_time) {
     adjustedScore += config.bonusWebsiteAnalyzed;
   }
-  
-  // Bonne note Google = entreprise sérieuse, plus réceptive
   if (lead.rating && lead.rating >= 4.0) {
     adjustedScore += config.bonusGoodRating;
   }
-  
-  // A des avis = présence GMB active, entreprise visible
   if (lead.reviews_count && lead.reviews_count > 0) {
     adjustedScore += config.bonusHasReviews;
   }
   
-  // ===== MALUS =====
-  
-  // Malus tentatives (éviter de harceler)
+  // Malus tentatives
   adjustedScore -= (lead.attempts_count || 0) * config.malusPerAttempt;
   
   return adjustedScore;
@@ -820,23 +294,20 @@ function calculateAdjustedScore(lead: DbLead): number {
 
 export interface NextLeadOptions {
   excludeIds?: number[];
-  recentNiches?: string[]; // Les niches des derniers leads appelés
+  recentNiches?: string[];
 }
 
 export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOptions, 'excludeIds'> = {}): Lead | null {
   const database = getDb();
   const config = LEAD_SELECTION_CONFIG;
   
-  // Paramètres sécurisés
   const params: Record<string, unknown> = {
     maxAttempts: config.maxAttempts,
     coolingOffHours: `-${config.coolingOffHours} hours`,
   };
   
-  // Clause d'exclusion avec placeholders
   let excludeClause = '';
   if (excludeIds.length > 0) {
-    // Valider que tous les IDs sont des entiers
     const validIds = excludeIds.filter(id => Number.isInteger(id) && id > 0);
     if (validIds.length > 0) {
       const placeholders = validIds.map((_, i) => `@excludeId${i}`).join(',');
@@ -845,15 +316,14 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     }
   }
   
-  // Filtres globaux avec paramètres
   const globalFilters = `
     AND opt_out = 0
     AND status NOT IN ('converti', 'perdu')
     AND attempts_count < @maxAttempts
     AND (last_contact_at IS NULL OR last_contact_at < datetime('now', @coolingOffHours))
+    AND deleted_at IS NULL
   `;
   
-  // Filtre de rotation des niches
   let nicheFilter = '';
   if (options.recentNiches && options.recentNiches.length >= config.maxConsecutiveSameNiche) {
     const lastNiche = options.recentNiches[0];
@@ -864,7 +334,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     }
   }
   
-  // 1. Relances en retard (plus ancien d'abord) - PRIORITÉ ABSOLUE
+  // 1. Relances en retard
   const overdue = database.prepare(`
     SELECT * FROM leads 
     WHERE next_followup_at < datetime('now')
@@ -873,10 +343,10 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get(params) as DbLeadRow | undefined;
+  `).get(params) as DbLead | undefined;
   if (overdue) return transformDbLead(overdue);
   
-  // 2. Relances aujourd'hui (plus tôt d'abord)
+  // 2. Relances aujourd'hui
   const todayFollowup = database.prepare(`
     SELECT * FROM leads 
     WHERE date(next_followup_at) = date('now')
@@ -886,10 +356,10 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY next_followup_at ASC
     LIMIT 1
-  `).get(params) as DbLeadRow | undefined;
+  `).get(params) as DbLead | undefined;
   if (todayFollowup) return transformDbLead(todayFollowup);
   
-  // 3. Nouveaux leads jamais appelés - triés par SCORE AJUSTÉ
+  // 3. Nouveaux leads jamais appelés - triés par score ajusté
   const freshLeads = database.prepare(`
     SELECT * FROM leads 
     WHERE call_status = 'non_appele'
@@ -899,10 +369,9 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY created_at ASC
     LIMIT 50
-  `).all(params) as DbLeadRow[];
+  `).all(params) as DbLead[];
   
   if (freshLeads.length > 0) {
-    // Calculer le score ajusté pour chaque lead et trier
     const scoredLeads = freshLeads
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
@@ -910,7 +379,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     return transformDbLead(scoredLeads[0].lead);
   }
   
-  // 4. Leads à rappeler depuis > 24h - triés par SCORE AJUSTÉ
+  // 4. Leads à rappeler depuis > 24h
   const staleLeads = database.prepare(`
     SELECT * FROM leads 
     WHERE call_status = 'rappeler'
@@ -920,7 +389,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ${nicheFilter}
     ORDER BY last_contact_at ASC
     LIMIT 50
-  `).all(params) as DbLeadRow[];
+  `).all(params) as DbLead[];
   
   if (staleLeads.length > 0) {
     const scoredLeads = staleLeads
@@ -930,7 +399,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     return transformDbLead(scoredLeads[0].lead);
   }
   
-  // 5. Fallback sans filtre de niche (si on a bloqué par rotation)
+  // 5. Fallback sans filtre de niche
   if (nicheFilter) {
     return getNextLead(excludeIds, { recentNiches: [] });
   }
@@ -938,52 +407,16 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
   return null;
 }
 
-// ===== FOLLOWUPS =====
-
-export interface FollowupLead extends DbLead {
-  urgency: 'overdue' | 'today' | 'tomorrow' | 'week';
-}
-
-export function getFollowups(): FollowupLead[] {
-  const database = getDb();
-  
-  const rows = database.prepare(`
-    SELECT *,
-      CASE 
-        WHEN next_followup_at < datetime('now') THEN 'overdue'
-        WHEN date(next_followup_at) = date('now') THEN 'today'
-        WHEN date(next_followup_at) = date('now', '+1 day') THEN 'tomorrow'
-        ELSE 'week'
-      END as urgency
-    FROM leads 
-    WHERE next_followup_at IS NOT NULL
-    AND next_followup_at <= datetime('now', '+7 days')
-    AND status NOT IN ('converti', 'perdu')
-    ORDER BY 
-      CASE 
-        WHEN next_followup_at < datetime('now') THEN 0
-        WHEN date(next_followup_at) = date('now') THEN 1
-        WHEN date(next_followup_at) = date('now', '+1 day') THEN 2
-        ELSE 3
-      END,
-      next_followup_at ASC
-  `).all() as FollowupLead[];
-  
-  return rows;
-}
-
-// ===== ENHANCED LOG CALL WITH HISTORY =====
+// ===== WEB-SPECIFIC: LOG WITH HISTORY =====
 
 export function logCallWithHistory(
   id: number, 
   callStatus: CallStatus, 
   note?: string
 ): boolean {
-  const database = getDb();
   const lead = findById(id);
   if (!lead) return false;
   
-  // Add to history
   addHistory({
     lead_id: id,
     type: 'call',
@@ -993,11 +426,8 @@ export function logCallWithHistory(
     duration_seconds: null,
   });
   
-  // Prepare updates
-  const nextFollowup = lead.next_followup_at;
   let newStatus = lead.status;
   
-  // Auto-update status to 'contacte' if first real contact
   if (lead.status === 'nouveau' && callStatus === 'appele') {
     newStatus = 'contacte';
     addHistory({
@@ -1010,21 +440,20 @@ export function logCallWithHistory(
     });
   }
   
-  // Update lead
+  const database = getDb();
   const stmt = database.prepare(`
     UPDATE leads 
     SET 
       call_status = ?,
       status = ?,
       last_contact_at = datetime('now'),
-      next_followup_at = ?,
       notes = CASE 
         WHEN notes IS NULL THEN ?
         WHEN ? IS NULL THEN notes
         ELSE notes || char(10) || ?
       END,
       updated_at = datetime('now')
-    WHERE id = ?
+    WHERE id = ? AND deleted_at IS NULL
   `);
   
   const timestamp = new Date().toLocaleString('fr-FR');
@@ -1033,7 +462,6 @@ export function logCallWithHistory(
   const result = stmt.run(
     callStatus, 
     newStatus, 
-    nextFollowup, 
     formattedNote, 
     formattedNote, 
     formattedNote, 
@@ -1044,11 +472,9 @@ export function logCallWithHistory(
 }
 
 export function updateStatusWithHistory(id: number, status: LeadStatus, note?: string): boolean {
-  const database = getDb();
   const lead = findById(id);
   if (!lead) return false;
   
-  // Add to history
   addHistory({
     lead_id: id,
     type: 'status_change',
@@ -1058,21 +484,13 @@ export function updateStatusWithHistory(id: number, status: LeadStatus, note?: s
     duration_seconds: null,
   });
   
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET status = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(status, id);
-  return result.changes > 0;
+  return updateStatus(id, status);
 }
 
 export function scheduleFollowupWithHistory(id: number, date: string, note?: string): boolean {
-  const database = getDb();
   const lead = findById(id);
   if (!lead) return false;
   
-  // Add to history
   addHistory({
     lead_id: id,
     type: 'followup_set',
@@ -1082,260 +500,5 @@ export function scheduleFollowupWithHistory(id: number, date: string, note?: str
     duration_seconds: null,
   });
   
-  const stmt = database.prepare(`
-    UPDATE leads 
-    SET next_followup_at = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `);
-  const result = stmt.run(date, id);
-  return result.changes > 0;
-}
-
-// ===== GAMIFIED STATS =====
-
-export interface TodayStats {
-  calls_today: number;
-  calls_goal: number;
-  contacts_today: number;
-  rdv_today: number;
-  avg_call_duration: number;
-}
-
-export interface StreakInfo {
-  current_streak: number;
-  best_streak: number;
-  last_activity_date: string | null;
-}
-
-export interface TopLead {
-  id: number;
-  name: string;
-  city: string;
-  niche: string | null;
-  phone: string;
-  score: number;
-  priority: string;
-  website: string | null;
-  website_status: string | null;
-  pain_points: string[] | null;
-  reason: string; // Why this lead is recommended
-}
-
-export interface GamifiedStats {
-  today: TodayStats;
-  streak: StreakInfo;
-  top_leads: TopLead[];
-  weekly_performance: {
-    calls: number[];
-    contacts: number[];
-    labels: string[];
-  };
-  conversion_rate: number;
-}
-
-export type StatsPeriod = '24h' | '7d' | '30d' | 'all';
-
-function getPeriodFilter(period: StatsPeriod): string {
-  switch (period) {
-    case '24h':
-      return "AND created_at >= datetime('now', '-1 day')";
-    case '7d':
-      return "AND created_at >= datetime('now', '-7 days')";
-    case '30d':
-      return "AND created_at >= datetime('now', '-30 days')";
-    case 'all':
-      return '';
-  }
-}
-
-function getPeriodDays(period: StatsPeriod): number {
-  switch (period) {
-    case '24h': return 1;
-    case '7d': return 7;
-    case '30d': return 30;
-    case 'all': return 365;
-  }
-}
-
-export function getGamifiedStats(period: StatsPeriod = '24h'): GamifiedStats {
-  const database = getDb();
-  const periodFilter = getPeriodFilter(period);
-  const periodDays = getPeriodDays(period);
-  
-  // === PERIOD STATS ===
-  const callsCount = (database.prepare(`
-    SELECT COUNT(*) as count FROM lead_history 
-    WHERE type = 'call' ${periodFilter}
-  `).get() as { count: number }).count;
-  
-  const contactsCount = (database.prepare(`
-    SELECT COUNT(*) as count FROM lead_history 
-    WHERE type = 'call' 
-    ${periodFilter}
-    AND new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler')
-  `).get() as { count: number }).count;
-  
-  const rdvCount = (database.prepare(`
-    SELECT COUNT(*) as count FROM lead_history 
-    WHERE type = 'call' 
-    ${periodFilter}
-    AND new_value = 'rdv_pris'
-  `).get() as { count: number }).count;
-  
-  const avgDuration = (database.prepare(`
-    SELECT AVG(duration_seconds) as avg FROM lead_history 
-    WHERE type = 'call' 
-    ${periodFilter}
-    AND duration_seconds IS NOT NULL
-  `).get() as { avg: number | null }).avg ?? 0;
-
-  // Daily goal based on period
-  const callsGoal = period === '24h' ? 25 : period === '7d' ? 175 : period === '30d' ? 500 : 1000;
-  
-  // === STREAK CALCULATION ===
-  // Get days with activity in last 30 days
-  const activityDays = database.prepare(`
-    SELECT DISTINCT date(created_at) as day FROM lead_history 
-    WHERE type = 'call'
-    AND created_at >= datetime('now', '-30 days')
-    ORDER BY day DESC
-  `).all() as { day: string }[];
-  
-  let currentStreak = 0;
-  const checkDate = new Date();
-  checkDate.setHours(0, 0, 0, 0);
-  
-  // Check if there's activity today
-  const todayStr = checkDate.toISOString().split('T')[0];
-  const hasActivityToday = activityDays.some(d => d.day === todayStr);
-  
-  if (!hasActivityToday) {
-    // Check yesterday - if no activity, streak is broken
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-  
-  // Clone to avoid mutating the check date
-  const streakDate = new Date(checkDate);
-  for (const activityDay of activityDays) {
-    const expectedDate = streakDate.toISOString().split('T')[0];
-    if (activityDay.day === expectedDate) {
-      currentStreak++;
-      streakDate.setDate(streakDate.getDate() - 1);
-    } else if (activityDay.day < expectedDate) {
-      break; // Streak broken
-    }
-  }
-  
-  // Best streak (simplified - would need historical tracking for accuracy)
-  const bestStreak = Math.max(currentStreak, 5); // Placeholder
-  
-  // === TOP LEADS ===
-  const topLeadsRows = database.prepare(`
-    SELECT 
-      id, name, city, niche, phone, score, priority, website, website_status, pain_points, image_url, rating, reviews_count
-    FROM leads 
-    WHERE status = 'nouveau' 
-    AND call_status = 'non_appele'
-    AND (opt_out IS NULL OR opt_out = 0)
-    ORDER BY 
-      CASE WHEN website IS NULL OR website = '' THEN 0 ELSE 1 END,
-      score DESC,
-      priority = 'high' DESC
-    LIMIT 5
-  `).all() as DbLead[];
-  
-  const topLeads: TopLead[] = topLeadsRows.map(lead => {
-    let reason = '';
-    if (!lead.website) {
-      reason = '🚫 Pas de site web';
-    } else if (lead.website_status === 'old') {
-      reason = '⚠️ Site vieillot';
-    } else if (lead.website_status === 'platform') {
-      reason = '📦 Site plateforme limitant';
-    } else if (lead.score && lead.score >= 70) {
-      reason = '⭐ Score élevé';
-    } else {
-      reason = '📞 À contacter';
-    }
-    
-    return {
-      id: lead.id,
-      name: lead.name,
-      city: lead.city,
-      niche: lead.niche,
-      phone: lead.phone,
-      score: lead.score ?? 50,
-      priority: lead.priority,
-      website: lead.website,
-      website_status: lead.website_status,
-      pain_points: lead.pain_points ? JSON.parse(lead.pain_points) : null,
-      reason,
-      image_url: lead.image_url,
-      rating: lead.rating,
-      reviews_count: lead.reviews_count,
-    };
-  });
-  
-  // === PERFORMANCE BY PERIOD ===
-  const weeklyData = database.prepare(`
-    SELECT 
-      date(created_at) as day,
-      COUNT(*) as calls,
-      SUM(CASE WHEN new_value IN ('interesse', 'rdv_pris', 'devis_envoye', 'rappeler') THEN 1 ELSE 0 END) as contacts
-    FROM lead_history 
-    WHERE type = 'call'
-    AND created_at >= datetime('now', '-${periodDays} days')
-    GROUP BY date(created_at)
-    ORDER BY day
-  `).all() as { day: string; calls: number; contacts: number }[];
-  
-  // Fill in missing days based on period
-  const labels: string[] = [];
-  const calls: number[] = [];
-  const contacts: number[] = [];
-  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-  
-  const displayDays = Math.min(periodDays, 30); // Max 30 days for chart
-  for (let i = displayDays - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dayStr = d.toISOString().split('T')[0];
-    const dayData = weeklyData.find(w => w.day === dayStr);
-    
-    // For longer periods, use date format
-    if (periodDays <= 7) {
-      labels.push(dayNames[d.getDay()]);
-    } else {
-      labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
-    }
-    calls.push(dayData?.calls ?? 0);
-    contacts.push(dayData?.contacts ?? 0);
-  }
-  
-  // === CONVERSION RATE ===
-  const totalLeads = (database.prepare('SELECT COUNT(*) as count FROM leads').get() as { count: number }).count;
-  const convertedLeads = (database.prepare("SELECT COUNT(*) as count FROM leads WHERE status = 'converti'").get() as { count: number }).count;
-  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
-  
-  return {
-    today: {
-      calls_today: callsCount,
-      calls_goal: callsGoal,
-      contacts_today: contactsCount,
-      rdv_today: rdvCount,
-      avg_call_duration: Math.round(avgDuration),
-    },
-    streak: {
-      current_streak: currentStreak,
-      best_streak: bestStreak,
-      last_activity_date: activityDays[0]?.day ?? null,
-    },
-    top_leads: topLeads,
-    weekly_performance: {
-      calls,
-      contacts,
-      labels,
-    },
-    conversion_rate: conversionRate,
-  };
+  return scheduleFollowup(id, date);
 }
