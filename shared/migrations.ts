@@ -187,6 +187,215 @@ export const migrations: Migration[] = [
       db.prepare("UPDATE leads SET call_status = 'injoignable' WHERE call_status IN ('messagerie', 'occupe')").run();
     },
   },
+  {
+    id: 14,
+    name: '014_add_missing_indexes',
+    description: 'Add indexes for niche, call_status, score, created_at for better query performance',
+    up: `
+      CREATE INDEX IF NOT EXISTS idx_leads_niche ON leads(niche);
+      CREATE INDEX IF NOT EXISTS idx_leads_call_status ON leads(call_status);
+      CREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score);
+      CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_leads_niche;
+      DROP INDEX IF EXISTS idx_leads_call_status;
+      DROP INDEX IF EXISTS idx_leads_score;
+      DROP INDEX IF EXISTS idx_leads_created;
+    `,
+  },
+  {
+    id: 15,
+    name: '015_add_soft_delete',
+    description: 'Add deleted_at column for soft-delete support',
+    up: `
+      ALTER TABLE leads ADD COLUMN deleted_at TEXT DEFAULT NULL;
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted ON leads(deleted_at);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_leads_deleted;
+      -- Note: SQLite doesn't support DROP COLUMN in older versions
+    `,
+  },
+  {
+    id: 16,
+    name: '016_normalize_pain_points',
+    description: 'Create lead_pain_points table and migrate existing data',
+    up: (db) => {
+      // Create normalized table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lead_pain_points (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lead_id INTEGER NOT NULL,
+          pain_point TEXT NOT NULL,
+          detected_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_pain_points_lead ON lead_pain_points(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_pain_points_type ON lead_pain_points(pain_point);
+      `);
+      
+      // Migrate existing JSON data
+      const leads = db.prepare("SELECT id, pain_points FROM leads WHERE pain_points IS NOT NULL AND pain_points != ''").all() as { id: number; pain_points: string }[];
+      const insertStmt = db.prepare("INSERT INTO lead_pain_points (lead_id, pain_point) VALUES (?, ?)");
+      
+      for (const lead of leads) {
+        try {
+          const painPoints = JSON.parse(lead.pain_points);
+          if (Array.isArray(painPoints)) {
+            for (const point of painPoints) {
+              if (typeof point === 'string' && point.trim()) {
+                insertStmt.run(lead.id, point.trim());
+              }
+            }
+          }
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    },
+    down: `DROP TABLE IF EXISTS lead_pain_points;`,
+  },
+  {
+    id: 17,
+    name: '017_create_stats_daily',
+    description: 'Create stats_daily table for cached daily statistics',
+    up: `
+      CREATE TABLE IF NOT EXISTS stats_daily (
+        date TEXT PRIMARY KEY,
+        leads_created INTEGER DEFAULT 0,
+        leads_contacted INTEGER DEFAULT 0,
+        leads_qualified INTEGER DEFAULT 0,
+        leads_converted INTEGER DEFAULT 0,
+        leads_lost INTEGER DEFAULT 0,
+        calls_made INTEGER DEFAULT 0,
+        calls_reached INTEGER DEFAULT 0,
+        calls_voicemail INTEGER DEFAULT 0,
+        followups_set INTEGER DEFAULT 0,
+        avg_score REAL DEFAULT 0,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_stats_daily_date ON stats_daily(date);
+    `,
+    down: `DROP TABLE IF EXISTS stats_daily;`,
+  },
+  {
+    id: 18,
+    name: '018_normalize_lead_calls',
+    description: 'Create dedicated lead_calls table for call tracking',
+    up: (db) => {
+      // Create normalized calls table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lead_calls (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lead_id INTEGER NOT NULL,
+          session_id INTEGER,
+          outcome TEXT NOT NULL,
+          duration_seconds INTEGER,
+          note TEXT,
+          called_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+          FOREIGN KEY (session_id) REFERENCES call_sessions(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_lead_calls_lead ON lead_calls(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_lead_calls_session ON lead_calls(session_id);
+        CREATE INDEX IF NOT EXISTS idx_lead_calls_date ON lead_calls(called_at);
+        CREATE INDEX IF NOT EXISTS idx_lead_calls_outcome ON lead_calls(outcome);
+      `);
+      
+      // Migrate existing call history
+      const calls = db.prepare(`
+        SELECT lead_id, new_value, note, duration_seconds, created_at 
+        FROM lead_history 
+        WHERE type = 'call'
+      `).all() as { lead_id: number; new_value: string; note: string | null; duration_seconds: number | null; created_at: string }[];
+      
+      const insertStmt = db.prepare(`
+        INSERT INTO lead_calls (lead_id, outcome, note, duration_seconds, called_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      for (const call of calls) {
+        insertStmt.run(call.lead_id, call.new_value || 'unknown', call.note, call.duration_seconds, call.created_at);
+      }
+    },
+    down: `DROP TABLE IF EXISTS lead_calls;`,
+  },
+  {
+    id: 19,
+    name: '019_create_lead_notes',
+    description: 'Create dedicated lead_notes table',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lead_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lead_id INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          author TEXT DEFAULT 'system',
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_lead_notes_lead ON lead_notes(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_lead_notes_date ON lead_notes(created_at);
+      `);
+      
+      // Migrate existing notes from history
+      const notes = db.prepare(`
+        SELECT lead_id, note, created_at 
+        FROM lead_history 
+        WHERE type = 'note' AND note IS NOT NULL AND note != ''
+      `).all() as { lead_id: number; note: string; created_at: string }[];
+      
+      const insertStmt = db.prepare(`
+        INSERT INTO lead_notes (lead_id, content, created_at)
+        VALUES (?, ?, ?)
+      `);
+      
+      for (const note of notes) {
+        insertStmt.run(note.lead_id, note.note, note.created_at);
+      }
+    },
+    down: `DROP TABLE IF EXISTS lead_notes;`,
+  },
+  {
+    id: 20,
+    name: '020_create_lead_status_log',
+    description: 'Create dedicated lead_status_log table for status transitions',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lead_status_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lead_id INTEGER NOT NULL,
+          from_status TEXT,
+          to_status TEXT NOT NULL,
+          reason TEXT,
+          changed_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_status_log_lead ON lead_status_log(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_status_log_date ON lead_status_log(changed_at);
+        CREATE INDEX IF NOT EXISTS idx_status_log_to ON lead_status_log(to_status);
+      `);
+      
+      // Migrate existing status changes
+      const changes = db.prepare(`
+        SELECT lead_id, old_value, new_value, note, created_at 
+        FROM lead_history 
+        WHERE type = 'status_change'
+      `).all() as { lead_id: number; old_value: string | null; new_value: string; note: string | null; created_at: string }[];
+      
+      const insertStmt = db.prepare(`
+        INSERT INTO lead_status_log (lead_id, from_status, to_status, reason, changed_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      for (const change of changes) {
+        insertStmt.run(change.lead_id, change.old_value, change.new_value, change.note, change.created_at);
+      }
+    },
+    down: `DROP TABLE IF EXISTS lead_status_log;`,
+  },
 ];
 
 /**

@@ -140,6 +140,7 @@ export interface DbLead {
   next_followup_at: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null; // Soft-delete timestamp
 }
 
 // ===== CONFIG =====
@@ -186,3 +187,70 @@ export interface PappersResult {
     qualite: string;
   }>;
 }
+
+// ===== NORMALIZED TABLES =====
+
+/**
+ * Pain point normalisé (table lead_pain_points)
+ */
+export interface DbLeadPainPoint {
+  id: number;
+  lead_id: number;
+  pain_point: string;
+  detected_at: string;
+}
+
+/**
+ * Appel normalisé (table lead_calls)
+ */
+export interface DbLeadCall {
+  id: number;
+  lead_id: number;
+  session_id: number | null;
+  outcome: string;
+  duration_seconds: number | null;
+  note: string | null;
+  called_at: string;
+}
+
+/**
+ * Note normalisée (table lead_notes)
+ */
+export interface DbLeadNote {
+  id: number;
+  lead_id: number;
+  content: string;
+  author: string;
+  created_at: string;
+}
+
+/**
+ * Log de changement de statut (table lead_status_log)
+ */
+export interface DbLeadStatusLog {
+  id: number;
+  lead_id: number;
+  from_status: string | null;
+  to_status: string;
+  reason: string | null;
+  changed_at: string;
+}
+
+/**
+ * Stats quotidiennes cachées (table stats_daily)
+ */
+export interface DbStatsDaily {
+  date: string;
+  leads_created: number;
+  leads_contacted: number;
+  leads_qualified: number;
+  leads_converted: number;
+  leads_lost: number;
+  calls_made: number;
+  calls_reached: number;
+  calls_voicemail: number;
+  followups_set: number;
+  avg_score: number;
+  updated_at: string;
+}
+
