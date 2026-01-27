@@ -16,7 +16,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { loadConfig } from './config.js';
+import { loadConfig, reloadConfigFromDb } from './config.js';
 import { getDb, closeDb } from './db.js';
 import { scrapeGoogleMaps } from './googleMapsScraper.js';
 import { enrich as enrichSociete } from './enrich.js';
@@ -181,6 +181,25 @@ export class WorkerOrchestrator extends EventEmitter {
     log.info(`${this.scrapeQueries.length} requêtes de scraping préparées`);
   }
   
+  /**
+   * Reload configuration from database if available
+   * This allows changing niches/cities without restarting the worker
+   */
+  private reloadConfig(): void {
+    const dbConfig = reloadConfigFromDb();
+    if (dbConfig) {
+      const nichesChanged = JSON.stringify(dbConfig.scrape?.niches) !== JSON.stringify(this.config.scrape?.niches);
+      const citiesChanged = JSON.stringify(dbConfig.scrape?.cities) !== JSON.stringify(this.config.scrape?.cities);
+      
+      if (nichesChanged || citiesChanged) {
+        log.info('🔄 Configuration mise à jour depuis la base de données');
+        this.config = dbConfig;
+        this.orchConfig = buildOrchestratorConfig(dbConfig, {});
+        this.initScrapeQueries(); // Rebuild query list
+      }
+    }
+  }
+  
   private shuffleArray<T>(array: T[]): void {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -244,6 +263,9 @@ export class WorkerOrchestrator extends EventEmitter {
     const cycleStart = Date.now();
     
     log.section(`CYCLE #${this.totalCycles} - ${new Date().toLocaleString('fr-FR')}`, 70);
+    
+    // Reload config from database if available (allows runtime changes)
+    this.reloadConfig();
     
     try {
       // Déterminer quels pipelines peuvent tourner
