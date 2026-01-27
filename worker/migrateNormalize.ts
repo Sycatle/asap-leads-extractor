@@ -16,7 +16,7 @@ import { normalizeCity } from './utils.js';
 
 // ===== CONFIGURATION =====
 
-const NICHE_MAPPING: Record<string, string> = {
+const NICHE_MAPPING: Record<string, string | null> = {
   // Fragments → valeurs complètes
   'expert': 'expert comptable',
   'entreprise': 'expert comptable',
