@@ -20,6 +20,8 @@
     "migrate:status": "tsx shared/migrate.ts status",
     "migrate:up": "tsx shared/migrate.ts up",
     "migrate:rollback": "tsx shared/migrate.ts rollback",
+    "config:import": "tsx worker/importConfig.ts",
+    "config:import:dry": "tsx worker/importConfig.ts --dry-run",
     "backup": "./backup.sh",
     "backup:rotate": "./backup.sh --rotate 7",
     "web": "cd web && pnpm dev",
