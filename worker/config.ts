@@ -1,5 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { Config } from '../shared/types.js';
+import { getDb } from './db.js';
+import { loadScraperConfigFromDb, hasScraperConfigTables } from '../shared/queries/scraperConfig.js';
 
 // Default configuration values
 const DEFAULT_CONFIG: Config = {
@@ -15,12 +17,126 @@ const DEFAULT_CONFIG: Config = {
 };
 
 /**
- * Load and validate configuration
- * Supports environment variable overrides:
- * - CONFIG_PATH: path to config file
- * - WORKER_INTERVAL: override worker interval in minutes
+ * Load configuration from database if available, otherwise from JSON file.
+ * 
+ * Priority:
+ * 1. Database (scraper_* tables) - allows runtime changes
+ * 2. JSON file (config.json) - static fallback
+ * 3. Default values
+ * 
+ * Environment variable overrides still apply on top.
  */
 export function loadConfig(path?: string): Config {
+  // First, try to load from database
+  try {
+    const db = getDb();
+    if (hasScraperConfigTables(db)) {
+      const dbConfig = loadScraperConfigFromDb(db);
+      if (dbConfig && (dbConfig.niches.length > 0 || dbConfig.cities.length > 0)) {
+        console.log('📦 Configuration chargée depuis la base de données');
+        return mergeDbConfigWithDefaults(dbConfig, path);
+      }
+    }
+  } catch {
+    // DB not available yet, fall back to JSON
+  }
+  
+  // Fallback to JSON file
+  return loadConfigFromFile(path);
+}
+
+/**
+ * Force reload configuration from database
+ * Call this in worker loops to pick up config changes
+ */
+export function reloadConfigFromDb(): Config | null {
+  try {
+    const db = getDb();
+    if (!hasScraperConfigTables(db)) {
+      return null;
+    }
+    
+    const dbConfig = loadScraperConfigFromDb(db);
+    if (!dbConfig || (dbConfig.niches.length === 0 && dbConfig.cities.length === 0)) {
+      return null;
+    }
+    
+    return mergeDbConfigWithDefaults(dbConfig);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Merge DB config with JSON defaults and apply env overrides
+ */
+function mergeDbConfigWithDefaults(
+  dbConfig: ReturnType<typeof loadScraperConfigFromDb>,
+  jsonPath?: string
+): Config {
+  // Load JSON as base for non-DB settings
+  const jsonConfig = loadConfigFromFileRaw(jsonPath);
+  
+  const config: Config = {
+    ...DEFAULT_CONFIG,
+    ...jsonConfig,
+    // Override with DB values
+    target: dbConfig?.settings.target ?? jsonConfig?.target ?? DEFAULT_CONFIG.target,
+    allowed_departments: dbConfig?.allowed_departments.length 
+      ? dbConfig.allowed_departments 
+      : jsonConfig?.allowed_departments ?? [],
+    exclude_keywords: dbConfig?.exclude_keywords.length 
+      ? dbConfig.exclude_keywords 
+      : jsonConfig?.exclude_keywords ?? [],
+    scrape: {
+      niches: dbConfig?.niches ?? jsonConfig?.scrape?.niches ?? [],
+      cities: dbConfig?.cities ?? jsonConfig?.scrape?.cities ?? [],
+    },
+    orchestrator: {
+      ...jsonConfig?.orchestrator,
+      ...(dbConfig?.settings.scrape_interval !== undefined && { scrape_interval: dbConfig.settings.scrape_interval }),
+      ...(dbConfig?.settings.enrich_interval !== undefined && { enrich_interval: dbConfig.settings.enrich_interval }),
+      ...(dbConfig?.settings.website_interval !== undefined && { website_interval: dbConfig.settings.website_interval }),
+      ...(dbConfig?.settings.collect_interval !== undefined && { collect_interval: dbConfig.settings.collect_interval }),
+      ...(dbConfig?.settings.max_scrape_per_cycle !== undefined && { max_scrape_per_cycle: dbConfig.settings.max_scrape_per_cycle }),
+      ...(dbConfig?.settings.max_enrich_per_cycle !== undefined && { max_enrich_per_cycle: dbConfig.settings.max_enrich_per_cycle }),
+      ...(dbConfig?.settings.max_website_per_cycle !== undefined && { max_website_per_cycle: dbConfig.settings.max_website_per_cycle }),
+      ...(dbConfig?.settings.enrich_priority_threshold !== undefined && { enrich_priority_threshold: dbConfig.settings.enrich_priority_threshold }),
+      ...(dbConfig?.settings.parallel_pipelines !== undefined && { parallel_pipelines: dbConfig.settings.parallel_pipelines }),
+      ...(dbConfig?.settings.auto_throttle !== undefined && { auto_throttle: dbConfig.settings.auto_throttle }),
+      ...(dbConfig?.settings.metrics_interval !== undefined && { metrics_interval: dbConfig.settings.metrics_interval }),
+    },
+    worker: jsonConfig?.worker ?? DEFAULT_CONFIG.worker,
+  };
+  
+  // Apply environment variable overrides
+  applyEnvOverrides(config);
+  
+  return config;
+}
+
+/**
+ * Load config from JSON file only (raw, no validation)
+ */
+function loadConfigFromFileRaw(path?: string): Config | null {
+  const configPath = path || process.env.CONFIG_PATH || 'config.json';
+  
+  if (!existsSync(configPath)) {
+    return null;
+  }
+  
+  try {
+    const raw = readFileSync(configPath, 'utf-8');
+    return JSON.parse(raw) as Config;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load and validate configuration from JSON file
+ */
+function loadConfigFromFile(path?: string): Config {
   const configPath = path || process.env.CONFIG_PATH || 'config.json';
   
   if (!existsSync(configPath)) {
@@ -44,12 +160,7 @@ export function loadConfig(path?: string): Config {
     };
     
     // Apply environment variable overrides
-    if (process.env.WORKER_INTERVAL) {
-      const interval = parseInt(process.env.WORKER_INTERVAL, 10);
-      if (!isNaN(interval) && mergedConfig.worker) {
-        mergedConfig.worker.interval_minutes = interval;
-      }
-    }
+    applyEnvOverrides(mergedConfig);
     
     // Validate critical fields
     validateConfig(mergedConfig);
@@ -59,6 +170,18 @@ export function loadConfig(path?: string): Config {
     console.error(`❌ Erreur lors du chargement de la config: ${(error as Error).message}`);
     console.warn('  Utilisation de la configuration par défaut');
     return DEFAULT_CONFIG as Config;
+  }
+}
+
+/**
+ * Apply environment variable overrides
+ */
+function applyEnvOverrides(config: Config): void {
+  if (process.env.WORKER_INTERVAL) {
+    const interval = parseInt(process.env.WORKER_INTERVAL, 10);
+    if (!isNaN(interval) && config.worker) {
+      config.worker.interval_minutes = interval;
+    }
   }
 }
 
