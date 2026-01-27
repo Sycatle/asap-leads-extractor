@@ -396,6 +396,71 @@ export const migrations: Migration[] = [
     },
     down: `DROP TABLE IF EXISTS lead_status_log;`,
   },
+  {
+    id: 21,
+    name: '021_create_scraper_config',
+    description: 'Create scraper configuration tables (niches, cities, settings)',
+    up: (db) => {
+      // Table des settings clé/valeur
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scraper_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          description TEXT,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      
+      // Table des niches
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scraper_niches (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          enabled INTEGER DEFAULT 1,
+          priority INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_niches_enabled ON scraper_niches(enabled);
+      `);
+      
+      // Table des villes
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scraper_cities (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          enabled INTEGER DEFAULT 1,
+          department TEXT,
+          priority INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_cities_enabled ON scraper_cities(enabled);
+      `);
+      
+      // Table des départements autorisés
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scraper_departments (
+          code TEXT PRIMARY KEY,
+          name TEXT,
+          enabled INTEGER DEFAULT 1
+        );
+      `);
+      
+      // Table des mots-clés exclus
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scraper_exclude_keywords (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          keyword TEXT NOT NULL UNIQUE
+        );
+      `);
+    },
+    down: `
+      DROP TABLE IF EXISTS scraper_settings;
+      DROP TABLE IF EXISTS scraper_niches;
+      DROP TABLE IF EXISTS scraper_cities;
+      DROP TABLE IF EXISTS scraper_departments;
+      DROP TABLE IF EXISTS scraper_exclude_keywords;
+    `,
+  },
 ];
 
 /**

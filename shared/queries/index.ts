@@ -113,3 +113,33 @@ export {
   recalculateDailyStats,
   getAggregatedStats,
 } from './dailyStats.js';
+
+// Re-export scraper config queries
+export {
+  hasScraperConfigTables,
+  getNiches,
+  getNicheNames,
+  addNiche,
+  updateNiche,
+  deleteNiche,
+  getCities,
+  getCityNames,
+  addCity,
+  updateCity,
+  deleteCity,
+  getDepartments,
+  addDepartment,
+  toggleDepartment,
+  getExcludeKeywords,
+  addExcludeKeyword,
+  removeExcludeKeyword,
+  getSetting,
+  getSettingNumber,
+  getSettingBoolean,
+  setSetting,
+  getAllSettings,
+  loadScraperConfigFromDb,
+  importConfigToDb,
+} from './scraperConfig.js';
+
+export type { ScraperNiche, ScraperCity, ScraperSettings, ScraperConfigFromDb } from './scraperConfig.js';
