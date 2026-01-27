@@ -41,7 +41,15 @@ export type {
   StatsPeriod,
   FollowupLead,
   FollowupUrgency,
+  // Scraper config types
+  ScraperNiche,
+  ScraperCity,
+  ScraperSettings,
+  ScraperConfigFromDb,
 } from '../../../shared/queries/index.js';
+
+// Re-export scraper config functions (used with getDb() directly)
+export * as scraperConfig from '../../../shared/queries/scraperConfig.js';
 
 // Import query functions (will be wrapped with getDb())
 import * as queries from '../../../shared/queries/index.js';
