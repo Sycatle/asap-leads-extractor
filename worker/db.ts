@@ -225,7 +225,7 @@ export function upsertLeads(leads: InsertLead[]): number {
  */
 export function findByPhone(phone: string): DbLead | null {
   const database = getDb();
-  const stmt = database.prepare('SELECT * FROM leads WHERE phone = ?');
+  const stmt = database.prepare('SELECT * FROM leads WHERE phone = ? AND deleted_at IS NULL');
   return (stmt.get(phone) as DbLead) ?? null;
 }
 
@@ -234,7 +234,7 @@ export function findByPhone(phone: string): DbLead | null {
  */
 export function findById(id: number): DbLead | null {
   const database = getDb();
-  const stmt = database.prepare('SELECT * FROM leads WHERE id = ?');
+  const stmt = database.prepare('SELECT * FROM leads WHERE id = ? AND deleted_at IS NULL');
   return (stmt.get(id) as DbLead) ?? null;
 }
 
@@ -294,6 +294,9 @@ export function findLeads(filters: LeadFilters = {}): DbLead[] {
   if (filters.hasFollowup) {
     conditions.push('next_followup_at IS NOT NULL AND date(next_followup_at) <= date("now")');
   }
+  
+  // Always exclude soft-deleted leads
+  conditions.push('deleted_at IS NULL');
   
   let sql = 'SELECT * FROM leads';
   if (conditions.length > 0) {
