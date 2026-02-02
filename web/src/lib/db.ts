@@ -46,13 +46,13 @@ export type {
   ScraperCity,
   ScraperSettings,
   ScraperConfigFromDb,
-} from '../../../shared/queries/index.js';
+} from '../../../shared/queries/index';
 
 // Re-export scraper config functions (used with getDb() directly)
-export * as scraperConfig from '../../../shared/queries/scraperConfig.js';
+export * as scraperConfig from '../../../shared/queries/scraperConfig';
 
 // Import query functions (will be wrapped with getDb())
-import * as queries from '../../../shared/queries/index.js';
+import * as queries from '../../../shared/queries/index';
 import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types.js';
 import type { Lead } from '@/types';
 
@@ -217,7 +217,7 @@ export function getGamifiedStats(period: queries.StatsPeriod = '24h'): queries.G
 
 // ===== WEB-SPECIFIC: NEXT LEAD ALGORITHM =====
 
-import { LEAD_SELECTION_CONFIG } from './constants.js';
+import { LEAD_SELECTION_CONFIG } from './constants';
 
 /**
  * Vérifie si l'heure actuelle correspond au best_call_time du lead
