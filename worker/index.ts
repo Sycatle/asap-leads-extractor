@@ -8,15 +8,15 @@
  * - scrape/enrich/collect: Commandes individuelles
  */
 
-import { WorkerOrchestrator } from './orchestrator.js';
-import { collect } from './collect.js';
-import { enrich } from './enrich.js';
-import { enrichWebsiteAnalysis } from './enrichWebsite.js';
-import { scrapeGoogleMaps } from './googleMapsScraper.js';
-import { loadConfig } from './config.js';
-import { getDb, closeDb } from './db.js';
-import { formatDuration } from './utils.js';
-import { logger as log } from './logger.js';
+import { WorkerOrchestrator } from './orchestrator';
+import { collect } from './collect';
+import { enrich } from './enrich';
+import { enrichWebsiteAnalysis } from './enrichWebsite';
+import { scrapeGoogleMaps } from './googleMapsScraper';
+import { loadConfig } from './config';
+import { getDb, closeDb } from './db';
+import { formatDuration } from './utils';
+import { logger as log } from './logger';
 
 // ===== TYPES =====
 

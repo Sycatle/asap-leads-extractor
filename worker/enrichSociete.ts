@@ -5,7 +5,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { sleep } from './utils.js';
+import { sleep } from './utils';
 
 // ===== CONFIGURATION =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';

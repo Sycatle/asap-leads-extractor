@@ -23,7 +23,7 @@ export type {
   WebsiteStatus, 
   LeadSource, 
   DbLead 
-} from '../../../shared/types.js';
+} from '../../../shared/types';
 
 // Re-export query types
 export type {
@@ -53,7 +53,7 @@ export * as scraperConfig from '../../../shared/queries/scraperConfig';
 
 // Import query functions (will be wrapped with getDb())
 import * as queries from '../../../shared/queries/index';
-import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types.js';
+import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types';
 import type { Lead } from '@/types';
 
 // ===== DATABASE CONNECTION =====

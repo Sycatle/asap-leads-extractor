@@ -4,10 +4,10 @@
  * Récupère SIREN, dirigeant et forme juridique depuis societe.com
  */
 
-import { getDb, enrichLead } from './db.js';
-import type { DbLead } from '../shared/types.js';
-import { searchAndExtract, closeBrowser, type SocieteResult } from './enrichSociete.js';
-import { enrichLogger as log, ProgressBar } from './logger.js';
+import { getDb, enrichLead } from './db';
+import type { DbLead } from '../shared/types';
+import { searchAndExtract, closeBrowser, type SocieteResult } from './enrichSociete';
+import { enrichLogger as log, ProgressBar } from './logger';
 import 'dotenv/config';
 
 // ===== CONFIGURATION =====

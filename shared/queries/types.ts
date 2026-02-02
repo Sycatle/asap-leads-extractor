@@ -3,7 +3,7 @@
  * Types utilisés par les fonctions de requête centralisées
  */
 
-import type { DbLead, LeadStatus, CallStatus } from '../types.js';
+import type { DbLead, LeadStatus, CallStatus } from '../types';
 
 // ===== TRANSFORMATION =====
 

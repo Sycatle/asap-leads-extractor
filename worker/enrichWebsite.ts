@@ -8,10 +8,10 @@
  */
 
 import pLimit from 'p-limit';
-import { getDb, enrichLeadWebsiteAnalysis } from './db.js';
-import type { DbLead } from '../shared/types.js';
-import { analyzeWebsite, generateNoWebsitePainPoints, generatePlatformPainPoints } from './websiteAnalyzer.js';
-import { websiteLogger as log, ProgressBar } from './logger.js';
+import { getDb, enrichLeadWebsiteAnalysis } from './db';
+import type { DbLead } from '../shared/types';
+import { analyzeWebsite, generateNoWebsitePainPoints, generatePlatformPainPoints } from './websiteAnalyzer';
+import { websiteLogger as log, ProgressBar } from './logger';
 import 'dotenv/config';
 
 // Configuration constants

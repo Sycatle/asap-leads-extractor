@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbStatsDaily } from '../types.js';
+import type { DbStatsDaily } from '../types';
 
 /**
  * Get stats for a specific date

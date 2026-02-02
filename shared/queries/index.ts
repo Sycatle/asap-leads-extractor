@@ -6,10 +6,10 @@
  */
 
 // Re-export all types
-export * from './types.js';
+export * from './types';
 
 // Re-export security utilities
-export { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter } from './security.js';
+export { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter } from './security';
 
 // Re-export lead queries
 export {
@@ -32,7 +32,7 @@ export {
   getDistinctCities,
   getDistinctNiches,
   getFollowups,
-} from './leads.js';
+} from './leads';
 
 // Re-export history queries
 export {
@@ -40,7 +40,7 @@ export {
   getLeadHistory,
   getLeadsHistory,
   countHistoryByType,
-} from './history.js';
+} from './history';
 
 // Re-export session queries
 export {
@@ -50,13 +50,13 @@ export {
   getActiveSession,
   getSessionById,
   getRecentSessions,
-} from './sessions.js';
+} from './sessions';
 
 // Re-export stats queries
 export {
   getStats,
   getGamifiedStats,
-} from './stats.js';
+} from './stats';
 
 // Re-export pain points queries (normalized table)
 export {
@@ -68,7 +68,7 @@ export {
   clearPainPoints,
   findLeadsByPainPoint,
   getPainPointStats,
-} from './painPoints.js';
+} from './painPoints';
 
 // Re-export lead calls queries (normalized table)
 export {
@@ -80,7 +80,7 @@ export {
   getCallsPerDay,
   getLastCall,
   getAverageCallDuration,
-} from './calls.js';
+} from './calls';
 
 // Re-export lead notes queries (normalized table)
 export {
@@ -90,7 +90,7 @@ export {
   deleteNote,
   getNoteCount,
   searchNotes,
-} from './notes.js';
+} from './notes';
 
 // Re-export status log queries (normalized table)
 export {
@@ -101,7 +101,7 @@ export {
   getAverageTimeToConvert,
   getLeadsByStatusReached,
   getConversionRate,
-} from './statusLog.js';
+} from './statusLog';
 
 // Re-export daily stats queries (cached stats)
 export {
@@ -112,7 +112,7 @@ export {
   incrementDailyStat,
   recalculateDailyStats,
   getAggregatedStats,
-} from './dailyStats.js';
+} from './dailyStats';
 
 // Re-export scraper config queries
 export {
@@ -140,6 +140,6 @@ export {
   getAllSettings,
   loadScraperConfigFromDb,
   importConfigToDb,
-} from './scraperConfig.js';
+} from './scraperConfig';
 
-export type { ScraperNiche, ScraperCity, ScraperSettings, ScraperConfigFromDb } from './scraperConfig.js';
+export type { ScraperNiche, ScraperCity, ScraperSettings, ScraperConfigFromDb } from './scraperConfig';

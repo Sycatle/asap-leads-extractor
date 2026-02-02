@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbLeadStatusLog, LeadStatus } from '../types.js';
+import type { DbLeadStatusLog, LeadStatus } from '../types';
 
 /**
  * Get status history for a lead

@@ -15,7 +15,7 @@ export type {
   LeadSource,
   WebsiteStatus,
   CMSType,
-} from '../../../shared/types.js';
+} from '../../../shared/types';
 
 // Import pour usage interne
 import type {
@@ -26,7 +26,7 @@ import type {
   LeadSource,
   WebsiteStatus,
   CMSType,
-} from '../../../shared/types.js';
+} from '../../../shared/types';
 
 // ===== ADDITIONAL TYPES =====
 // Priority type for lead prioritization

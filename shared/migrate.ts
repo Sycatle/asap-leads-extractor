@@ -10,12 +10,12 @@
  *   tsx shared/migrate.ts rollback  - Rollback last migration (use with caution!)
  */
 
-import { getDb, closeDb } from './db.js';
+import { getDb, closeDb } from './db';
 import {
   getMigrationStatus,
   runMigrations,
   rollbackLastMigration,
-} from './migrations.js';
+} from './migrations';
 
 const command = process.argv[2];
 

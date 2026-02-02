@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { LeadHistoryEntry } from './types.js';
+import type { LeadHistoryEntry } from './types';
 
 export function addHistory(db: Database.Database, entry: Omit<LeadHistoryEntry, 'id' | 'created_at'>): number {
   const stmt = db.prepare(`

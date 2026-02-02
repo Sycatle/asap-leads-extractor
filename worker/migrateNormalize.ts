@@ -10,9 +10,9 @@
  *   pnpm tsx worker/migrateNormalize.ts [--dry-run] [--verbose]
  */
 
-import { getDb, closeDb } from './db.js';
-import { loadConfig } from './config.js';
-import { normalizeCity } from './utils.js';
+import { getDb, closeDb } from './db';
+import { loadConfig } from './config';
+import { normalizeCity } from './utils';
 
 // ===== CONFIGURATION =====
 

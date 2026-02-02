@@ -8,8 +8,8 @@
  * - Graphiques ASCII simples
  */
 
-import { getDb } from './db.js';
-import { formatDuration } from './utils.js';
+import { getDb } from './db';
+import { formatDuration } from './utils';
 
 // ===== TYPES =====
 

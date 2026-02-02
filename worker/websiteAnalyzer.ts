@@ -9,8 +9,8 @@
  */
 
 import { chromium, Browser, Page, Response } from 'playwright';
-import type { CMSType } from '../shared/types.js';
-import { websiteLogger as log } from './logger.js';
+import type { CMSType } from '../shared/types';
+import { websiteLogger as log } from './logger';
 
 export interface WebsiteAnalysis {
   cms_type: CMSType;

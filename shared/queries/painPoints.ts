@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbLeadPainPoint } from '../types.js';
+import type { DbLeadPainPoint } from '../types';
 
 /**
  * Get all pain points for a lead

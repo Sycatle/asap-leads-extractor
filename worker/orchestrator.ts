@@ -15,15 +15,15 @@
  */
 
 import { EventEmitter } from 'events';
-import { loadConfig, reloadConfigFromDb } from './config.js';
-import { getDb, closeDb } from './db.js';
-import { scrapeGoogleMaps } from './googleMapsScraper.js';
-import { enrich as enrichSociete } from './enrich.js';
-import { enrichWebsiteAnalysis } from './enrichWebsite.js';
-import { sleep, formatDuration } from './utils.js';
-import { WorkerMonitor, type PipelineMetrics } from './monitor.js';
-import { orchLogger as log } from './logger.js';
-import type { Config } from '../shared/types.js';
+import { loadConfig, reloadConfigFromDb } from './config';
+import { getDb, closeDb } from './db';
+import { scrapeGoogleMaps } from './googleMapsScraper';
+import { enrich as enrichSociete } from './enrich';
+import { enrichWebsiteAnalysis } from './enrichWebsite';
+import { sleep, formatDuration } from './utils';
+import { WorkerMonitor, type PipelineMetrics } from './monitor';
+import { orchLogger as log } from './logger';
+import type { Config } from '../shared/types';
 
 // ===== TYPES =====
 

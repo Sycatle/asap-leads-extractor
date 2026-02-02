@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
-import { Config } from '../shared/types.js';
-import { getDb } from './db.js';
-import { loadScraperConfigFromDb, hasScraperConfigTables } from '../shared/queries/scraperConfig.js';
+import { Config } from '../shared/types';
+import { getDb } from './db';
+import { loadScraperConfigFromDb, hasScraperConfigTables } from '../shared/queries/scraperConfig';
 
 // Default configuration values
 const DEFAULT_CONFIG: Config = {

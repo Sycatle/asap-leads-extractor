@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { CallSession } from './types.js';
+import type { CallSession } from './types';
 
 export function startSession(db: Database.Database): CallSession {
   const stmt = db.prepare(`

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { enrich } from './enrich.js';
-import { scrapeGoogleMaps } from './googleMapsScraper.js';
-import { loadConfig } from './config.js';
-import { getStats, findLeads, closeDb, countLeads } from './db.js';
-import { logger as log } from './logger.js';
+import { enrich } from './enrich';
+import { scrapeGoogleMaps } from './googleMapsScraper';
+import { loadConfig } from './config';
+import { getStats, findLeads, closeDb, countLeads } from './db';
+import { logger as log } from './logger';
 
 const program = new Command();
 

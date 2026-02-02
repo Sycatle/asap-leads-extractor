@@ -2,8 +2,8 @@
  * Lead scoring and classification utilities
  */
 
-import type { InsertLead } from './db.js';
-import type { WebsiteStatus } from '../shared/types.js';
+import type { InsertLead } from './db';
+import type { WebsiteStatus } from '../shared/types';
 
 /**
  * Calculate lead score (0-100)

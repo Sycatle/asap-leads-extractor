@@ -8,9 +8,9 @@
  *   pnpm tsx worker/importConfig.ts [--dry-run]
  */
 
-import { getDb, closeDb } from './db.js';
-import { runMigrations } from '../shared/migrations.js';
-import { importConfigToDb, getNicheNames, getCityNames, getDepartments, getExcludeKeywords } from '../shared/queries/scraperConfig.js';
+import { getDb, closeDb } from './db';
+import { runMigrations } from '../shared/migrations';
+import { importConfigToDb, getNicheNames, getCityNames, getDepartments, getExcludeKeywords } from '../shared/queries/scraperConfig';
 import { readFileSync, existsSync } from 'fs';
 
 const DRY_RUN = process.argv.includes('--dry-run');

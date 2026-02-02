@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbLeadCall } from '../types.js';
+import type { DbLeadCall } from '../types';
 
 /**
  * Get all calls for a lead

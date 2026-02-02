@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { runMigrations } from './migrations.js';
+import { runMigrations } from './migrations';
 
 // ===== CONNEXION PARTAGÉE =====
 

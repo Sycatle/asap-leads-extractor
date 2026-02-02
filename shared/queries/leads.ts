@@ -6,10 +6,10 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbLead, LeadStatus, CallStatus } from '../types.js';
-import type { Lead, LeadFilters, AdvancedLeadFilters, FollowupLead } from './types.js';
-import { transformDbLead } from './types.js';
-import { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter, combineConditions } from './security.js';
+import type { DbLead, LeadStatus, CallStatus } from '../types';
+import type { Lead, LeadFilters, AdvancedLeadFilters, FollowupLead } from './types';
+import { transformDbLead } from './types';
+import { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter, combineConditions } from './security';
 
 // ===== FIND LEADS =====
 

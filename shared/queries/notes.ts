@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { DbLeadNote } from '../types.js';
+import type { DbLeadNote } from '../types';
 
 /**
  * Get all notes for a lead

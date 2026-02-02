@@ -1,10 +1,10 @@
 import { chromium, Browser, Page } from 'playwright';
-import { RawLead } from '../shared/types.js';
-import { upsertLead, closeDb, enrichLead, type InsertLead, getExistingPhones } from './db.js';
-import { enrichSingleLead } from './enrich.js';
-import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils.js';
-import { classifyWebsiteStatus, computeBestCallTime } from './scoring.js';
-import { scrapeLogger as log, ProgressBar } from './logger.js';
+import { RawLead } from '../shared/types';
+import { upsertLead, closeDb, enrichLead, type InsertLead, getExistingPhones } from './db';
+import { enrichSingleLead } from './enrich';
+import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils';
+import { classifyWebsiteStatus, computeBestCallTime } from './scoring';
+import { scrapeLogger as log, ProgressBar } from './logger';
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
