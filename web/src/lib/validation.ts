@@ -141,6 +141,49 @@ export const ProcessOutcomeSchema = z.object({
   lostNote: z.string().max(1000).optional(),
 });
 
+// ===== CONTACT / SUPPRESSION SCHEMAS =====
+
+export const ContactSourceSchema = z.enum([
+  'pappers',
+  'scrape',
+  'manual',
+  'enrich_legal',
+  'import',
+]);
+
+export const ContactVerifiedStatusSchema = z.enum([
+  'unverified',
+  'valid',
+  'risky',
+  'bounced',
+  'unsub',
+]);
+
+export const SuppressionReasonSchema = z.enum([
+  'user_request',
+  'bounce_hard',
+  'spam_complaint',
+  'manual',
+  'gdpr_purge',
+]);
+
+export const AddContactSchema = z.object({
+  leadId: z.number().int().positive(),
+  email: z.string().email().max(254),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  role: z.string().max(100).optional(),
+  phone: z.string().max(40).optional(),
+  linkedinUrl: z.string().url().max(500).optional(),
+  source: ContactSourceSchema.default('manual'),
+});
+
+export const AddSuppressionSchema = z.object({
+  email: z.string().email().max(254),
+  reason: SuppressionReasonSchema.default('manual'),
+  source: z.string().max(200).optional(),
+});
+
 // ===== HELPER FUNCTIONS =====
 
 /**

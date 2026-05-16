@@ -5,6 +5,7 @@ import { scrapeGoogleMaps } from './googleMapsScraper';
 import { loadConfig } from './config';
 import { closeDb, getDb } from '../db/client';
 import { getStats } from '../db/queries';
+import { runPurge } from './cron/purge';
 import { logger as log } from './logger';
 
 const program = new Command();
@@ -157,6 +158,25 @@ program
       log.success(`Taux conversion: ${conversionRate}%`);
     }
     
+    await closeDb();
+  });
+
+// Commande: purge (RGPD CNIL — rétention 3 ans après dernier contact)
+program
+  .command('purge')
+  .description('Purge RGPD : supprime les contacts inactifs depuis 3 ans')
+  .option('--apply', 'Applique la purge (sinon dry-run)')
+  .option('--years <years>', 'Rétention en années', '3')
+  .action(async (options) => {
+    log.header('PURGE RGPD');
+    const result = await runPurge(getDb(), {
+      apply: !!options.apply,
+      retentionYears: parseInt(options.years, 10),
+    });
+    log.kv('Candidats', result.candidates);
+    log.kv('Purgés', result.purged);
+    log.kv('Ajoutés à suppression list', result.suppressed);
+    log.kv('Mode', result.dryRun ? 'dry-run' : 'appliqué');
     await closeDb();
   });
 
