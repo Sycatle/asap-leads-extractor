@@ -13,6 +13,7 @@ import { z } from 'zod';
 import pLimit from 'p-limit';
 import { getDb } from './db';
 import { legalLogger as log } from './logger';
+import { getTotalCostCents, recordUsage } from '../shared/queries/llmUsage';
 import { findLegalLink, fallbackPathCandidates, type AnchorLike } from './legalLinkFinder';
 import 'dotenv/config';
 
@@ -132,29 +133,58 @@ async function extractPageText(page: Page): Promise<string> {
   return text.slice(0, MAX_PAGE_CHARS).trim();
 }
 
-async function extractLegalInfo(client: Anthropic, businessName: string, pageText: string): Promise<LegalInfo> {
-  const response = await client.messages.parse({
+async function extractLegalInfo(
+  client: Anthropic,
+  businessName: string,
+  pageText: string,
+  leadId: number,
+): Promise<LegalInfo> {
+  let response;
+  try {
+    response = await client.messages.parse({
+      model: MODEL,
+      max_tokens: 1024,
+      system: [
+        {
+          type: 'text',
+          text:
+            'Tu extrais des informations légales structurées depuis une page "mentions légales" française. ' +
+            'Réponds uniquement avec les valeurs trouvées dans le texte fourni. ' +
+            'Si une info est absente ou incertaine, mets null.',
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `Entreprise: ${businessName}\n\nContenu de la page mentions-légales:\n\n${pageText}`,
+        },
+      ],
+      output_config: {
+        format: zodOutputFormat(LegalInfoSchema),
+      },
+    });
+  } catch (err) {
+    recordUsage(getDb(), {
+      model: MODEL,
+      feature: 'legal',
+      lead_id: leadId,
+      input_tokens: 0,
+      output_tokens: 0,
+      success: false,
+      error_message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+
+  recordUsage(getDb(), {
     model: MODEL,
-    max_tokens: 1024,
-    system: [
-      {
-        type: 'text',
-        text:
-          'Tu extrais des informations légales structurées depuis une page "mentions légales" française. ' +
-          'Réponds uniquement avec les valeurs trouvées dans le texte fourni. ' +
-          'Si une info est absente ou incertaine, mets null.',
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
-    messages: [
-      {
-        role: 'user',
-        content: `Entreprise: ${businessName}\n\nContenu de la page mentions-légales:\n\n${pageText}`,
-      },
-    ],
-    output_config: {
-      format: zodOutputFormat(LegalInfoSchema),
-    },
+    feature: 'legal',
+    lead_id: leadId,
+    input_tokens: response.usage.input_tokens,
+    output_tokens: response.usage.output_tokens,
+    cache_read_input_tokens: response.usage.cache_read_input_tokens ?? 0,
+    cache_creation_input_tokens: response.usage.cache_creation_input_tokens ?? 0,
   });
 
   if (!response.parsed_output) {
@@ -189,7 +219,7 @@ async function processLead(browser: Browser, client: Anthropic, lead: LegalLeadR
       return;
     }
 
-    const info = await extractLegalInfo(client, lead.name, pageText);
+    const info = await extractLegalInfo(client, lead.name, pageText, lead.id);
     saveLegalInfo(lead.id, legalUrl, info);
     log.success(
       `[#${lead.id}] ${lead.name}: extracted (siren=${info.siren ?? '-'}, host=${info.hosting ?? '-'}, email=${
@@ -230,6 +260,12 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
   } finally {
     await browser.close();
   }
+
+  const dayCents = getTotalCostCents(getDb(), 1);
+  const monthCents = getTotalCostCents(getDb(), 30);
+  log.info(
+    `Coût LLM : aujourd'hui $${(dayCents / 100).toFixed(2)} | 30j $${(monthCents / 100).toFixed(2)}`,
+  );
 
   return { processed: leads.length };
 }
