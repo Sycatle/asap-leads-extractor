@@ -15,7 +15,7 @@ Outil de génération de leads B2B : scraping Google Maps → enrichissement (So
                   (prepared statements)
 ```
 
-- **`worker/`** — pipelines Playwright orchestrés (`SCRAPE`, `ENRICH_SOCIETE`, `ENRICH_WEBSITE`). Écrit dans SQLite.
+- **`worker/`** — pipelines Playwright orchestrés (`SCRAPE`, `ENRICH_SOCIETE`, `ENRICH_WEBSITE`, `ENRICH_LEGAL`). Écrit dans SQLite.
 - **`web/`** — Next.js 16 / React 19 / Tailwind 4. Lit/écrit SQLite via `shared/queries/`. Auth Basic via middleware.
 - **`shared/`** — couche DB (better-sqlite3, mode WAL), 22 migrations versionnées, query builders paramétrés.
 
@@ -46,6 +46,9 @@ pnpm worker            # orchestrateur de pipelines
 |---|---|
 | `PAPPERS_API_KEY` | Clé API pappers.fr pour enrichissement entreprise |
 | `ALLOWED_USERS` | Comptes Basic Auth, format `user1:pass1,user2:pass2`. Obligatoire en prod. |
+| `ANTHROPIC_API_KEY` | Clé API Claude pour l'agent LLM mentions-légales (`enrich:legal`) |
+| `LEGAL_AGENT_MODEL` | Modèle Claude utilisé pour l'extraction (défaut `claude-opus-4-7`) |
+| `LEGAL_CONCURRENCY` | Pipelines mentions-légales en parallèle (défaut 2) |
 | `NODE_ENV` | `development` désactive l'auth si `ALLOWED_USERS` vide |
 
 **Ne jamais commiter `.env`** (déjà dans `.gitignore`).
@@ -59,6 +62,7 @@ pnpm stats              # stats CLI sur la base
 pnpm scrape             # un cycle de scrape Google Maps
 pnpm enrich             # un cycle d'enrichissement Societe.com
 pnpm enrich:website     # analyse de sites web (CMS, SSL, mobile)
+pnpm enrich:legal       # agent LLM : visite mentions-légales et extrait RCS/capital/email/hébergeur
 pnpm backup             # backup WAL-safe via sqlite3 .backup
 pnpm config:import      # importe config.json en DB
 ```
