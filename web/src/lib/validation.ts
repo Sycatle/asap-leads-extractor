@@ -184,6 +184,77 @@ export const AddSuppressionSchema = z.object({
   source: z.string().max(200).optional(),
 });
 
+// ===== SEQUENCES / TEMPLATES / SENDERS =====
+
+const SendingWindowSchema = z.object({
+  startHour: z.number().int().min(0).max(23),
+  endHour: z.number().int().min(1).max(24),
+  timezone: z.string().min(1).max(64),
+  weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+});
+
+export const SequenceChannelSchema = z.enum(['email', 'wait']);
+export const SequenceStatusSchema = z.enum(['draft', 'active', 'paused', 'archived']);
+export const StepConditionSchema = z.object({
+  branch: z.enum(['always', 'if_no_reply', 'if_opened', 'if_clicked']),
+});
+
+export const AddTemplateSchema = z.object({
+  name: z.string().min(1).max(200),
+  subject: z.string().min(1).max(500),
+  bodyHtml: z.string().min(1).max(100_000),
+  bodyText: z.string().min(1).max(100_000),
+  variables: z.array(z.string().max(64)).optional(),
+});
+
+export const UpdateTemplateSchema = AddTemplateSchema.partial();
+
+export const AddSequenceSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  senderPoolId: z.number().int().positive().optional(),
+  dailyCapPerSender: z.number().int().min(1).max(1000).optional(),
+  sendingWindow: SendingWindowSchema.optional(),
+});
+
+export const UpdateSequenceSchema = AddSequenceSchema.partial().extend({
+  status: SequenceStatusSchema.optional(),
+});
+
+export const AddStepSchema = z.object({
+  order: z.number().int().min(0),
+  channel: SequenceChannelSchema,
+  delayHours: z.number().int().min(0).max(24 * 365),
+  templateId: z.number().int().positive().nullable().optional(),
+  condition: StepConditionSchema.nullable().optional(),
+});
+
+export const EnrollSchema = z.object({
+  contactIds: z.array(z.number().int().positive()).optional(),
+  leadIds: z.array(z.number().int().positive()).optional(),
+}).refine((d) => (d.contactIds && d.contactIds.length > 0) || (d.leadIds && d.leadIds.length > 0), {
+  message: 'must provide contactIds or leadIds',
+});
+
+export const SenderProviderSchema = z.enum(['resend', 'smtp']);
+
+export const AddSenderSchema = z.object({
+  email: z.string().email().max(254),
+  domain: z.string().min(1).max(254),
+  displayName: z.string().max(200).optional(),
+  replyToTemplate: z.string().max(254).optional(),
+  provider: SenderProviderSchema.default('resend'),
+  providerConfig: z.record(z.string(), z.unknown()).optional(),
+  dailyLimit: z.number().int().min(1).max(2000).optional(),
+  sendingWindow: SendingWindowSchema.optional(),
+});
+
+export const AddPoolSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  accountIds: z.array(z.number().int().positive()).default([]),
+});
+
 // ===== HELPER FUNCTIONS =====
 
 /**

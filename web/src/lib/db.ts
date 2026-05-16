@@ -70,6 +70,44 @@ export {
   // consent
   findConsentByContact,
   logConsent,
+  // senders
+  addPool,
+  addSender,
+  findPoolById,
+  findSenderById,
+  getPoolSenders,
+  listPools,
+  listSenders,
+  setPoolAccounts,
+  updateSender,
+  // templates
+  addTemplate,
+  deleteTemplate,
+  findTemplateById,
+  listTemplates,
+  updateTemplate,
+  // sequences
+  addSequence,
+  addStep,
+  deleteStep,
+  findSequenceById,
+  findStepByOrder,
+  listSequences,
+  listSteps,
+  updateSequence,
+  // enrollments
+  advanceEnrollment,
+  bulkEnroll,
+  enrollContact,
+  findEnrollmentById,
+  listDueEnrollments,
+  listEnrollmentsBySequence,
+  pauseEnrollmentsByContact,
+  terminateEnrollment,
+  // email events
+  getFunnelMetrics,
+  listEventsByEnrollment,
+  logEmailEvent,
 } from '../../../db/queries';
 
 export type {
@@ -79,6 +117,20 @@ export type {
   NewSuppressionEntry,
   ConsentLogEntry,
   NewConsentLogEntry,
+  SenderAccount,
+  NewSenderAccount,
+  SenderPool,
+  NewSenderPool,
+  Template,
+  NewTemplate,
+  Sequence,
+  NewSequence,
+  SequenceStep,
+  NewSequenceStep,
+  Enrollment,
+  NewEnrollment,
+  EmailEvent,
+  NewEmailEvent,
 } from '../../../db/schema';
 
 export type { LeadStats } from '../../../db/queries/stats';
