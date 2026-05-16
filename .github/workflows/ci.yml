@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # Force Node 24 pour les actions JS encore packagées avec Node 20
+  # (pnpm/action-setup@v4 notamment) — voir GH changelog 2025-09-19
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   test:
     name: Lint + Test
