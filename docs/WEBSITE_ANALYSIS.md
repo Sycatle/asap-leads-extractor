@@ -1,188 +1,137 @@
-# Website Analysis Feature
+# Website analysis
 
-## Overview
+Per-lead website audit that powers the dashboard's "pain points" section. Helps sales conversations open on a concrete, factual weakness of the prospect's online presence.
 
-This feature enriches leads with website technology analysis and pain points to help sales teams have more effective conversations.
+## What it does
 
-## What It Does
+### CMS & quality detection
+- Detects the CMS / platform: WordPress, Wix, Shopify, PrestaShop, Squarespace, Webflow, custom, or "no real site" (Planity, Facebook, etc.).
+- Flags quality issues:
+  - Mobile-friendly viewport.
+  - HTTPS / SSL.
+  - Page load time (Playwright timing).
+  - Modern vs outdated markup.
 
-### 1. Website Technology Detection
-- Detects CMS platforms (WordPress, Wix, Shopify, PrestaShop, Squarespace, Webflow, Custom)
-- Identifies website quality issues:
-  - Mobile-friendliness
-  - HTTPS/SSL security
-  - Page load performance
-  - Modern vs outdated design
+### Pain-point generation
+Context-aware bullets, persisted on the lead and surfaced on the call page.
 
-### 2. Pain Points Generation
-Automatically generates context-specific pain points based on:
+**No website:**
+- "Aucun site web — invisible sur Google"
+- "Perte de clients potentiels au profit de concurrents en ligne"
+- Niche-specific recommendations (e.g. coiffeurs → online booking).
 
-**No Website:**
-- "❌ Aucun site web - invisible sur Google"
-- "📉 Perte de clients potentiels au profit de concurrents en ligne"
-- Niche-specific recommendations (e.g., coiffeurs need online booking)
+**Platform-only listings (Planity, Facebook, …):**
+- "Plateforme de réservation ≠ vrai site web"
+- "Pas de contrôle sur image / contenu"
+- "Frais mensuels élevés + commissions"
 
-**Platform Sites (Planity, Facebook, etc.):**
-- "📱 Plateforme de réservation ≠ vrai site web"
-- "❌ Pas de contrôle sur votre image/contenu"
-- "💰 Frais mensuels élevés + commissions"
+**CMS-specific:**
+- Wix → "Site Wix — limité pour le SEO".
+- WordPress (slow) → "WordPress mal optimisé — besoin de refonte".
+- Generic slow site → load-time + mobile pain points.
 
-**CMS-Specific Issues:**
-- Wix: "⚠️ Site Wix - limité pour le SEO"
-- WordPress (slow): "🔧 WordPress mal optimisé - besoin de refonte"
-- Generic: Performance and mobile optimization issues
+### Sales-call surface
+The pain points are rendered in `web/src/components/call/CurrentLeadCard.tsx` between the script and the history blocks, with an alert style so reps can't miss them.
 
-### 3. Sales Call Integration
-Pain points are displayed prominently on the call page with:
-- Red/orange gradient background to draw attention
-- Bullet-point list of all identified issues
-- Technical details (CMS type, load time, security status)
-
-## Usage
-
-### Enrich Existing Leads
+## Run it
 
 ```bash
-cd /home/runner/work/leadsflow/leadsflow
+# Enrich the next batch of pending leads
 pnpm enrich:website
 ```
 
-This command will:
-1. Analyze up to 50 leads per run
-2. Prioritize high/medium priority leads
-3. Skip leads already analyzed
-4. Generate pain points for leads without websites
-5. Perform deep analysis on real websites
+Behavior:
+1. Up to 50 leads per run.
+2. Priority order: high / medium first.
+3. Skip leads already analyzed.
+4. Generate pain points for leads without a website.
+5. Deep Playwright analysis for real sites.
 
-### What Gets Analyzed
+## Schema
 
-- **Leads with websites** (not yet analyzed): Deep analysis with Playwright
-- **Leads without websites**: Generate generic pain points
-- **Leads with platform URLs**: Generate platform-specific pain points
+Columns on `leads` (Postgres types):
 
-### Performance
+| Column | Type | Notes |
+|---|---|---|
+| `cms_type` | `text` | `wordpress` / `wix` / `shopify` / `prestashop` / `squarespace` / `webflow` / `custom` / `none` |
+| `has_mobile_friendly` | `boolean` | viewport meta + responsive heuristics |
+| `has_ssl` | `boolean` | HTTPS reachable |
+| `page_load_time` | `integer` | milliseconds (null if not analyzed) |
+| `pain_points` | `jsonb` | array of bullets persisted as JSON |
 
-- Rate-limited to 2 concurrent analyses
-- ~15 seconds timeout per website
-- Graceful error handling (continues on failures)
+## Scoring impact
 
-## Database Schema
+Website signals are folded into the lead score (`worker/scoring.ts`):
 
-New fields added to `leads` table:
+- Wix sites: +12 points (SEO limitations make them strong prospects).
+- Slow WordPress: +8 points (optimization upsell).
+- Shopify: +5 points (high running cost, custom-build opportunity).
+- "No real site": classified accordingly so reps know what they're walking into.
 
-```sql
-cms_type TEXT                  -- Detected CMS type
-has_mobile_friendly INTEGER    -- 0/1 for mobile optimization
-has_ssl INTEGER                -- 0/1 for HTTPS
-page_load_time INTEGER         -- Load time in milliseconds
-pain_points TEXT               -- JSON array of issues
-```
+## Performance
 
-## Scoring Impact
+- Concurrency: 2 (`p-limit`).
+- Per-site timeout: 15 s.
+- Errors are logged and the lead is left untouched (next run will retry).
 
-Website analysis affects lead scoring:
-- **Wix sites**: +12 points (SEO limitations make them good prospects)
-- **Slow WordPress**: +8 points (optimization needs)
-- **Shopify**: +5 points (high costs, opportunity for custom)
-- **Better classified**: Platform sites properly identified
+## Detection logic
 
-## Call Interface Changes
+### CMS heuristics
 
-The call page (`/call`) now displays:
+| CMS | Markers |
+|---|---|
+| WordPress | `/wp-content/`, `/wp-includes/`, `wp-json` |
+| Wix | `wix.com`, `_wix_`, `parastorage.com` |
+| Shopify | `cdn.shopify.com`, `Shopify.theme` |
+| PrestaShop | `/modules/ps_`, `prestashop` |
+| Squarespace | `squarespace.com`, `sqsp.com` |
+| Webflow | `webflow.com`, `data-wf-` |
 
-### Pain Points Section
-- Appears between "Script d'appel" and "Historique"
-- Red/orange gradient background
-- Alert icon for visibility
-- Bullet list of all pain points
-- Technical details footer
+### Mobile-friendly
 
-### Example Display
+- Viewport meta with `width=device-width`.
+- Responsive keywords / media-query density.
 
-```
-🔺 Points de Douleur - Arguments de Vente
+### Performance bands
 
-• ❌ Site non sécurisé (pas de HTTPS) - perte de confiance client
-• ⏱️ Site trop lent (4.2s) - perte de clients
-• ⚠️ Site Wix - limité pour le SEO, performances moyennes
-• 💡 Migration vers site professionnel = +30% visibilité Google
+- Fast: < 2 000 ms.
+- Acceptable: 2 000–3 000 ms.
+- Slow: > 3 000 ms (generates a pain point).
 
-Techno détectée: WIX • Pas de HTTPS • Lent (4.2s)
-```
+## Files
 
-## Technical Details
+| File | Role |
+|---|---|
+| `worker/websiteAnalyzer.ts` | Core Playwright analyzer. |
+| `worker/enrichWebsite.ts` | Batch entry point used by `pnpm enrich:website`. |
+| `worker/scoring.ts` | Lead-score adjustments based on website signals. |
+| `web/src/components/call/CurrentLeadCard.tsx` | Renders the pain-point block on the call page. |
+| `web/src/lib/db.ts` | Lead transform that exposes the fields to the frontend. |
+| `shared/types.ts` | `CMSType` and related shared types. |
 
-### CMS Detection Logic
+## Future improvements
 
-The analyzer checks for:
-- **WordPress**: `/wp-content/`, `/wp-includes/`, `wp-json`
-- **Wix**: `wix.com`, `_wix_`, `parastorage.com`
-- **Shopify**: `cdn.shopify.com`, `Shopify.theme`
-- **PrestaShop**: `/modules/ps_`, `prestashop`
-- **Squarespace**: `squarespace.com`, `sqsp.com`
-- **Webflow**: `webflow.com`, `data-wf-`
-
-### Mobile-Friendly Detection
-
-Checks for:
-- Viewport meta tag: `width=device-width`
-- Responsive keywords in HTML
-
-### Performance Thresholds
-
-- **Fast**: < 2000ms
-- **Acceptable**: 2000-3000ms
-- **Slow**: > 3000ms (generates pain point)
-
-## Files Modified/Created
-
-### New Files
-- `worker/websiteAnalyzer.ts` - Core analysis logic
-- `worker/enrichWebsite.ts` - Enrichment command
-- `docs/WEBSITE_ANALYSIS.md` - This file
-
-### Modified Files
-- `shared/types.ts` - Added CMSType and new fields
-- `shared/db.ts` - Database migrations
-- `worker/db.ts` - Insert/update logic
-- `worker/scoring.ts` - Enhanced classification and scoring
-- `web/src/types/index.ts` - Frontend types
-- `web/src/lib/db.ts` - Transform function
-- `web/src/components/call/CurrentLeadCard.tsx` - UI display
-- `package.json` - Added `enrich:website` command
-
-## Future Improvements
-
-Potential enhancements:
-1. **Lighthouse Integration**: Use Google Lighthouse for deeper performance analysis
-2. **SEO Analysis**: Check meta tags, structured data, sitemap
-3. **Accessibility**: Check WCAG compliance
-4. **Competitor Analysis**: Compare to industry standards
-5. **Screenshot Capture**: Store screenshots for visual reference
-6. **Automatic Re-analysis**: Periodic updates for existing leads
-7. **Custom Pain Points**: Allow manual override/editing
+- Lighthouse integration for deeper perf scores.
+- SEO checks (meta tags, structured data, sitemap).
+- Accessibility (WCAG).
+- Periodic re-analysis for old leads.
+- Editable pain points from the dashboard.
+- Screenshot capture for visual reference.
 
 ## Troubleshooting
 
-### Issue: No pain points displayed
-- Check that `pnpm enrich:website` has been run
-- Verify database has the new columns
-- Check browser console for JSON parse errors
+**No pain points displayed.**
+Check that `pnpm enrich:website` has been run and the lead row has `pain_points` populated. Browser console errors usually point to bad JSON on legacy rows.
 
-### Issue: Analysis fails
-- Ensure Playwright browsers are installed: `npx playwright install`
-- Check network connectivity
-- Verify timeout is sufficient (default: 15s)
+**Analysis fails.**
+Ensure Playwright browsers are installed (`pnpm exec playwright install`). Check outbound network. The 15 s timeout is per site; raise it for slow targets in `enrichWebsite.ts`.
 
-### Issue: Too slow
-- Reduce concurrent limit in `enrichWebsite.ts` (default: 2)
-- Increase timeout for slow sites
-- Run during off-hours
+**Too slow.**
+Reduce the concurrency limit in `enrichWebsite.ts` or schedule the job during off-hours.
 
-## Security Considerations
+## Security
 
-- Playwright runs in sandboxed browser
-- No credentials or sensitive data transmitted
-- Rate-limited to avoid overwhelming targets
-- Graceful handling of errors and timeouts
-- No data stored from analyzed websites (only metadata)
+- Playwright runs headless in a sandboxed browser.
+- No credentials or payloads sent to analyzed sites.
+- Rate-limited to avoid hammering targets.
+- Only metadata is persisted; no page contents are stored.
