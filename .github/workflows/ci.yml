@@ -8,7 +8,7 @@ on:
 
 env:
   # Force Node 24 pour les actions JS encore packagées avec Node 20
-  # (pnpm/action-setup@v4 notamment) — voir GH changelog 2025-09-19
+  # (pnpm/action-setup@v6 notamment) — voir GH changelog 2025-09-19
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
 
