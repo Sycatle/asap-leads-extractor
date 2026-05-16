@@ -409,6 +409,37 @@ export const enrollments = pgTable(
   ],
 );
 
+export const senderHealthDaily = pgTable(
+  'sender_health_daily',
+  {
+    id: serial('id').primaryKey(),
+    senderAccountId: integer('sender_account_id')
+      .notNull()
+      .references(() => senderAccounts.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(), // YYYY-MM-DD UTC
+    sent: integer('sent').notNull().default(0),
+    delivered: integer('delivered').notNull().default(0),
+    bounced: integer('bounced').notNull().default(0),
+    complained: integer('complained').notNull().default(0),
+    opened: integer('opened').notNull().default(0),
+    clicked: integer('clicked').notNull().default(0),
+    replied: integer('replied').notNull().default(0),
+    /** ratios stockés *10000 (basis points) pour précision sans float */
+    bounceRateBps: integer('bounce_rate_bps').notNull().default(0),
+    complaintRateBps: integer('complaint_rate_bps').notNull().default(0),
+    openRateBps: integer('open_rate_bps').notNull().default(0),
+    replyRateBps: integer('reply_rate_bps').notNull().default(0),
+    /** seuils dépassés (any) — déclenche notif admin */
+    alertFlag: boolean('alert_flag').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('sender_health_unique').on(t.senderAccountId, t.date),
+    index('sender_health_date_idx').on(t.date),
+    index('sender_health_alert_idx').on(t.alertFlag),
+  ],
+);
+
 export const emailEvents = pgTable(
   'email_events',
   {
@@ -713,3 +744,5 @@ export type Enrollment = typeof enrollments.$inferSelect;
 export type NewEnrollment = typeof enrollments.$inferInsert;
 export type EmailEvent = typeof emailEvents.$inferSelect;
 export type NewEmailEvent = typeof emailEvents.$inferInsert;
+export type SenderHealthDaily = typeof senderHealthDaily.$inferSelect;
+export type NewSenderHealthDaily = typeof senderHealthDaily.$inferInsert;

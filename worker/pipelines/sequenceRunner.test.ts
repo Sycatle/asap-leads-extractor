@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { eq } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { addContact } from '../../db/queries/contacts';
-import { addSender, addPool, setPoolAccounts } from '../../db/queries/senders';
+import { addSender, addPool } from '../../db/queries/senders';
 import { addTemplate } from '../../db/queries/templates';
 import { addSequence, addStep } from '../../db/queries/sequences';
 import { enrollContact, findEnrollmentById } from '../../db/queries/enrollments';

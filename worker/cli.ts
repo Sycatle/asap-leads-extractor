@@ -6,6 +6,9 @@ import { loadConfig } from './config';
 import { closeDb, getDb } from '../db/client';
 import { getStats } from '../db/queries';
 import { runPurge } from './cron/purge';
+import { runSenderHealthAggregation } from './cron/senderHealth';
+import { runWarmupRamp } from './cron/warmupRamp';
+import { runSequenceTick } from './pipelines/sequenceRunner';
 import { logger as log } from './logger';
 
 const program = new Command();
@@ -177,6 +180,52 @@ program
     log.kv('Purgés', result.purged);
     log.kv('Ajoutés à suppression list', result.suppressed);
     log.kv('Mode', result.dryRun ? 'dry-run' : 'appliqué');
+    await closeDb();
+  });
+
+program
+  .command('sender-health')
+  .description('Agrège les events email du jour par sender (alertes + auto-pause)')
+  .option('--date <YYYY-MM-DD>', 'date à agréger (défaut: aujourd\'hui UTC)')
+  .option('--dry-run', 'n\'applique pas les auto-pause/notifs')
+  .action(async (options) => {
+    log.header('SENDER HEALTH');
+    const result = await runSenderHealthAggregation(getDb(), {
+      date: options.date,
+      apply: !options.dryRun,
+    });
+    log.kv('Date', result.date);
+    log.kv('Senders agrégés', result.rows);
+    log.kv('Alertes', result.alerts);
+    log.kv('Auto-paused', result.paused);
+    await closeDb();
+  });
+
+program
+  .command('warmup-ramp')
+  .description('Augmente progressivement le dailyLimit des senders en warmup')
+  .action(async () => {
+    log.header('WARMUP RAMP');
+    const result = await runWarmupRamp(getDb());
+    log.kv('Inspectés', result.inspected);
+    log.kv('Mis à jour', result.updated);
+    log.kv('Promus en ready', result.promoted);
+    await closeDb();
+  });
+
+program
+  .command('sequence-tick')
+  .description('Exécute un tick du runner de séquences (envoi des emails dus)')
+  .option('--batch <n>', 'taille de batch', '100')
+  .action(async (options) => {
+    log.header('SEQUENCE RUNNER TICK');
+    const stats = await runSequenceTick(getDb(), { batchSize: parseInt(options.batch, 10) });
+    log.kv('Picked', stats.picked);
+    log.kv('Sent', stats.sent);
+    log.kv('Suppressed', stats.suppressed);
+    log.kv('Finished', stats.finished);
+    log.kv('Skipped', stats.skipped);
+    log.kv('Errors', stats.errors);
     await closeDb();
   });
 
