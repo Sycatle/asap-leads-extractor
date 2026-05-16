@@ -15,7 +15,7 @@ const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 // ===== TYPES =====
 
 type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
-type LogContext = 'SYSTEM' | 'SCRAPE' | 'ENRICH' | 'WEBSITE' | 'COLLECT' | 'DB' | 'ORCHESTRATOR';
+type LogContext = 'SYSTEM' | 'SCRAPE' | 'ENRICH' | 'WEBSITE' | 'COLLECT' | 'DB' | 'ORCHESTRATOR' | 'LEGAL';
 
 interface LoggerOptions {
   context?: LogContext;
@@ -329,6 +329,7 @@ export const websiteLogger = new Logger({ context: 'WEBSITE' });
 export const collectLogger = new Logger({ context: 'COLLECT' });
 export const dbLogger = new Logger({ context: 'DB' });
 export const orchLogger = new Logger({ context: 'ORCHESTRATOR' });
+export const legalLogger = new Logger({ context: 'LEGAL' });
 
 // Export class for custom instances
 export { Logger };
