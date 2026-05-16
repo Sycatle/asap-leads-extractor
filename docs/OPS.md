@@ -145,9 +145,10 @@ docker compose logs migrate
 docker compose run --rm migrate pnpm migrate
 ```
 
-## Migration depuis l'ancien stack SQLite + PM2
+## Nginx (host)
 
-L'historique pré-migration (SQLite local + PM2 + backup.sh) est conservé dans :
-- `ecosystem.config.cjs` (toujours présent au cas où)
-- `backup.sh` / `deploy.sh` (legacy, à supprimer une fois Docker validé en prod)
-- `nginx.conf` (à adapter pour pointer vers le port 3000 publié par Docker)
+`nginx.conf` à la racine est la conf historique pour le reverse-proxy
+(TLS Cloudflare origin + rate-limit + headers de sécurité). Avec Docker
+Compose, faire pointer le `proxy_pass http://127.0.0.1:3000` sur le port
+publié par le service `web`. Le reste de la conf (security headers,
+limit_req_zone, gzip, cache `/_next/static`) reste valide.

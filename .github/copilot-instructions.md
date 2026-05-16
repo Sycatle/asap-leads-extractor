@@ -2,86 +2,47 @@
 
 ## Architecture Overview
 
-This is a **French B2B lead generation tool** with three main components:
+French B2B lead generation tool, **Postgres + Drizzle + Docker** stack:
 
 ```
-shared/         → Shared types, DB schema, migrations (SQLite via better-sqlite3)
-worker/         → CLI + background jobs: scrape Google Maps, enrich via Pappers API, CSV import
-web/            → Next.js 15 dashboard: lead management, call sessions, followups
-data/leads.db   → Single SQLite database shared between worker and web
+db/             → Drizzle schema (db/schema.ts) + async queries (db/queries/*) + migrations
+worker/         → Pipelines Playwright (scrape GMaps, enrich Societe.com, enrich site web,
+                  agent LLM mentions légales via Anthropic SDK) + orchestrateur multi-pipelines
+web/            → Next.js 16 dashboard : lead management, call sessions, followups, usage LLM
+shared/         → Types partagés (Config, enums, RawLead) — la DB layer est dans db/
+docker/         → Dockerfiles worker + web ; docker-compose.yml orchestre tout
 ```
 
-**Data flow:** Google Maps scraping → SQLite → Pappers enrichment → Web dashboard → Call sessions
+**Data flow** : Google Maps scraping → Postgres → enrichissement Societe.com + analyse site +
+mentions-légales via Claude → Dashboard prospection avec sessions d'appel.
 
 ## Key Conventions
 
 ### Database & Types
-- **SQLite booleans** are stored as `0/1` integers, transform with `Boolean()` in `web/src/lib/db.ts`
-- Types are duplicated: `shared/types.ts` (worker) and `web/src/types/index.ts` (web) - keep synchronized
-- Database path auto-resolved via `findDbPath()` - works from root, `/web`, or `/worker`
-- Migrations in `shared/migrations.ts` - **never modify existing migrations**, only add new ones
+- **Source de vérité** : `db/schema.ts` (Drizzle). Types `Lead`, `NewLead`, etc. inférés via
+  `typeof leads.$inferSelect`. Worker et web utilisent `db/queries/*` (async).
+- **Pas de prepared SQLite** : tous les wrappers `getDb().prepare(...).all()` ont été supprimés.
+  Utiliser le query builder Drizzle (`db.select().from(leads).where(eq(...))`).
+- **Soft-delete** : toujours filtrer `isNull(leads.deletedAt)` sauf intention explicite.
+- **Migrations** : `pnpm migrate` lance drizzle-kit. Pour ajouter une migration :
+  modifier `db/schema.ts` → `pnpm migrate:generate` → commit le SQL généré.
 
-### Worker Commands
-```bash
-pnpm scrape           # Scrape Google Maps (uses config.json niches/cities)
-pnpm enrich           # Enrich leads with Pappers (requires PAPPERS_API_KEY in .env)
-pnpm enrich:website   # Analyze websites for CMS, speed, pain points
-pnpm collect          # Import CSV from config.input_csv
-pnpm worker           # Run continuous loop (scrape → collect → enrich)
-pnpm migrate          # Run DB migrations
-```
+### Worker pipelines
+- L'orchestrateur (`worker/orchestrator.ts`) gère 4 pipelines : `scrape`,
+  `enrichSociete`, `enrichWebsite`, `enrichLegal`. Chacun a son intervalle et son
+  budget par cycle, paramétrables via `config.json`.
+- `worker/browserPool.ts` : Browser Chromium singleton partagé entre `enrichWebsite`
+  et `enrichLegal` (refcount-based, hot-reload sur crash).
+- L'agent LLM `enrichLegal` enregistre chaque appel dans `llm_usage` (cost tracking) ;
+  budget mensuel via `LEGAL_BUDGET_USD`.
 
-### Web Development
-```bash
-cd web && pnpm dev    # Start Next.js dev server
-# OR from root:
-pnpm web
-```
+### Web
+- Toutes les routes `/api/*` sont async, importent depuis `@/lib/db` qui re-exporte
+  `db/queries/*`. Pas de Drizzle inline dans les routes.
+- Auth Basic en middleware, timing-safe compare. `ALLOWED_USERS=user1:pass1,...`.
+- Stats LLM exposées sur `/admin/usage`, healthcheck sur `/api/health` (public).
 
-### Scoring Logic (Important!)
-**Higher score = worse digital presence = better sales prospect.** See `worker/scoring.ts`:
-- No website: +25 points
-- Platform website (Planity, etc.): +15 points  
-- Slow page load: +8 points
-- No Google image: +10 points
-
-### Status Flow
-Leads follow this pipeline: `nouveau` → `contacte` → `qualifie` → `proposition` → `converti` | `perdu`
-
-Call status: `non_appele` → `appele` | `rappeler` | `injoignable`
-
-## Code Patterns
-
-### API Routes (Next.js App Router)
-```typescript
-// web/src/app/api/leads/route.ts
-import { findLeads, countLeads } from '@/lib/db';
-export async function GET(request: NextRequest) {
-  const leads = findLeads(filters);
-  return NextResponse.json({ leads, total });
-}
-```
-
-### React Hooks
-Custom hooks in `web/src/hooks/` wrap API calls with state management. Example: `useCallSession` manages the call workflow with outcomes, followups, and session tracking.
-
-### UI Components
-- Base components in `web/src/components/ui/` (shadcn-style)
-- Feature components organized by page: `call/`, `leads/`, `dashboard/`, `followups/`
-- Constants for labels/colors in `web/src/lib/constants.ts`
-
-## Configuration
-
-`config.json` at project root defines:
-- `scrape.niches` / `scrape.cities`: Google Maps search queries
-- `allowed_departments`: French postal code prefixes to filter (e.g., "72", "44")
-- `exclude_keywords`: Chain businesses to skip (McDonald's, Carrefour, etc.)
-
-## External Dependencies
-- **Pappers API**: French business registry enrichment (SIREN, legal name, dirigeant)
-- **Playwright**: Google Maps scraping with anti-detection delays
-- **better-sqlite3**: Synchronous SQLite with WAL mode
-
-## Language
-- All UI text, status labels, and comments are in **French**
-- Variable/function names are in English
+### Tests
+- Vitest avec `fileParallelism: false` (intégration Postgres partagée).
+- Tests d'intégration sur `leads_test` DB ; `DATABASE_URL` requis.
+- E2E Playwright dans `worker/legalNavigation.test.ts` (mini-server http local).
