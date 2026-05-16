@@ -1,49 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scheduleFollowupWithHistory, findById } from '@/lib/db';
+import { getDb, scheduleFollowupWithHistory, findById } from '@/lib/db';
 import { ScheduleFollowupSchema, validateInput, ValidationError } from '@/lib/validation';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
     const leadId = parseInt(id);
-    
     if (isNaN(leadId) || leadId <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid lead ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid lead ID' }, { status: 400 });
     }
-    
+
     const body = await request.json();
-    
-    // Validate input with Zod
     const validatedData = validateInput(ScheduleFollowupSchema, body);
-    
-    const success = scheduleFollowupWithHistory(leadId, validatedData.date);
-    
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to schedule followup' },
-        { status: 400 }
-      );
-    }
-    
-    const updated = findById(leadId);
+
+    const db = getDb();
+    const success = await scheduleFollowupWithHistory(db, leadId, validatedData.date);
+    if (!success) return NextResponse.json({ error: 'Failed to schedule followup' }, { status: 400 });
+
+    const updated = await findById(db, leadId);
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof ValidationError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Validation failed', details: error.message }, { status: 400 });
     }
     console.error('Error scheduling followup:', error);
-    return NextResponse.json(
-      { error: 'Failed to schedule followup' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to schedule followup' }, { status: 500 });
   }
 }
