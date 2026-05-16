@@ -1,7 +1,7 @@
 {
   "name": "leads-finder",
   "version": "3.0.0",
-  "description": "Lead generation tool with multi-pipeline worker, Postgres + Drizzle stack",
+  "description": "Self-hosted B2B lead generation and outbound platform: Google Maps scraping, French company enrichment, multi-step email sequences with deliverability monitoring and AI reply classification.",
   "type": "module",
   "scripts": {
     "start": "tsx worker/index.ts orchestrator",
@@ -33,9 +33,21 @@
       "esbuild"
     ]
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "b2b",
+    "leads",
+    "lead-generation",
+    "outbound",
+    "email-sequences",
+    "scraping",
+    "playwright",
+    "drizzle",
+    "postgres",
+    "nextjs",
+    "gdpr"
+  ],
+  "author": "sycatle <sycatle@pm.me>",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.15.0",
   "devDependencies": {
     "@eslint/js": "^9.0.0",
