@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findLeadsAdvanced, countLeadsAdvanced, getDistinctCities, getDistinctNiches } from '@/lib/db';
+import { findLeadsAdvanced, countLeadsAdvanced, getDistinctCities, getDistinctNiches, getDb } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,11 +44,14 @@ export async function GET(request: NextRequest) {
       orderDir: (searchParams.get('orderDir') || 'desc') as 'asc' | 'desc',
     };
     
-    const leads = findLeadsAdvanced(filters);
-    const total = countLeadsAdvanced(filters);
-    const cities = getDistinctCities();
-    const niches = getDistinctNiches();
-    
+    const db = getDb();
+    const [leads, total, cities, niches] = await Promise.all([
+      findLeadsAdvanced(db, filters),
+      countLeadsAdvanced(db, filters),
+      getDistinctCities(db),
+      getDistinctNiches(db),
+    ]);
+
     return NextResponse.json({
       leads,
       total,
