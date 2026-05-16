@@ -81,24 +81,6 @@ interface OrchestratorConfig {
   metricsInterval: number;
 }
 
-// Kept for reference; the actual config is loaded from DB
-const _DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
-  scrapeInterval: 5 * 60 * 1000,        // 5 min entre scrapes (plus court car incrémental)
-  enrichSocieteInterval: 1 * 60 * 1000,  // 1 min entre enrichissements (plus agressif)
-  enrichWebsiteInterval: 5 * 60 * 1000,  // 5 min entre analyses website
-  enrichLegalInterval: 10 * 60 * 1000,   // 10 min entre extractions mentions-légales (coût API)
-
-  maxScrapePerCycle: 3,          // 3 requêtes GMaps par cycle (niche+ville)
-  maxEnrichPerCycle: 30,
-  maxWebsitePerCycle: 20,
-  maxLegalPerCycle: 10,           // 10 leads / cycle pour limiter coût Claude
-  enrichPriorityThreshold: 50,   // Si > 50 leads à enrichir, prioriser enrich
-  
-  enableParallelPipelines: true,
-  enableAutoThrottle: true,
-  metricsInterval: 30 * 1000, // 30 sec
-};
-
 /**
  * Merge config.json orchestrator settings with defaults
  */

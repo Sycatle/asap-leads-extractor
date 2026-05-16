@@ -685,7 +685,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
     // Mode requêtes explicites
     queries = config.queries;
   } else {
-    // Mode produit cartésien (legacy)
+    // Mode produit cartésien : toutes les combinaisons niche × city
     queries = [];
     for (const niche of config.niches) {
       for (const city of config.cities) {

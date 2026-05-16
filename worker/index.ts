@@ -3,9 +3,9 @@
  * 
  * Ce fichier orchestre le démarrage du worker en différents modes:
  * - orchestrator: Mode intelligent multi-pipeline (recommandé)
- * - worker: Mode legacy avec boucle simple
  * - once: Exécution unique
- * - scrape/enrich: Commandes individuelles
+ * - scrape/enrich/enrich:website/enrich:legal: Commandes individuelles
+ * - full: Pipeline complet une fois
  */
 
 import { WorkerOrchestrator } from './orchestrator';
@@ -127,7 +127,6 @@ USAGE:
 
 COMMANDS:
   orchestrator    Mode intelligent multi-pipeline (recommandé pour production)
-  worker          Mode boucle simple (legacy)
   full            Pipeline complet une fois (scrape → enrich → website)
   once            Exécution unique simplifiée
   scrape          Scraper Google Maps uniquement
@@ -186,47 +185,37 @@ async function main(): Promise<void> {
   try {
     switch (command) {
       case 'orchestrator':
-      case 'brain':
         await runOrchestrator(options);
         break;
-        
-      case 'worker':
-      case 'loop':
-        // Legacy mode - utilise l'orchestrator avec config par défaut
-        await runOrchestrator(options);
-        break;
-        
+
       case 'full':
-      case 'pipeline':
         await runFullPipeline();
-        closeDb();
+        await closeDb();
         break;
         
       case 'scrape':
         await runScrapeJob();
-        closeDb();
+        await closeDb();
         break;
         
       case 'enrich':
         await runEnrichJob(options.max);
-        closeDb();
+        await closeDb();
         break;
         
       case 'enrich:website':
-      case 'website':
         await runEnrichWebsiteJob();
-        closeDb();
+        await closeDb();
         break;
 
       case 'enrich:legal':
-      case 'legal':
         await runEnrichLegalJob(options.max);
-        closeDb();
+        await closeDb();
         break;
         
       case 'once':
         await runOnce();
-        closeDb();
+        await closeDb();
         break;
         
       case 'help':
@@ -242,7 +231,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     log.error(`Erreur fatale: ${(error as Error).message}`);
-    closeDb();
+    await closeDb();
     process.exit(1);
   }
 }
