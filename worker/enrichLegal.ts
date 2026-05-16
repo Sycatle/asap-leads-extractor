@@ -22,6 +22,8 @@ const MAX_PAGE_CHARS = 14_000;
 const NAV_TIMEOUT = 25_000;
 const CONCURRENT = Number(process.env.LEGAL_CONCURRENCY || 2);
 const DEFAULT_BATCH_SIZE = 20;
+// Budget mensuel (rolling 30j) en USD ; 0 = pas de limite
+const BUDGET_USD = Number(process.env.LEGAL_BUDGET_USD || 0);
 
 const LegalInfoSchema = z.object({
   legal_name: z.string().nullable().describe('Raison sociale exacte telle qu\'écrite sur la page'),
@@ -240,13 +242,28 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
     throw new Error('ANTHROPIC_API_KEY manquante dans .env');
   }
 
+  // Budget guard : refuse si le coût mensuel atteint déjà la limite
+  if (BUDGET_USD > 0) {
+    const spentCents = getTotalCostCents(getDb(), 30);
+    if (spentCents >= BUDGET_USD * 100) {
+      log.warn(
+        `Budget LLM 30j atteint : $${(spentCents / 100).toFixed(2)} >= $${BUDGET_USD.toFixed(2)}. Pipeline arrêtée.`,
+      );
+      return { processed: 0 };
+    }
+  }
+
   const leads = getLeadsToEnrich(maxLeads);
   if (leads.length === 0) {
     log.info('Aucun lead à enrichir (tous traités ou pas de website)');
     return { processed: 0 };
   }
 
-  log.info(`Enrichissement légal: ${leads.length} lead(s) (concurrent=${CONCURRENT}, modèle=${MODEL})`);
+  log.info(
+    `Enrichissement légal: ${leads.length} lead(s) (concurrent=${CONCURRENT}, modèle=${MODEL}${
+      BUDGET_USD > 0 ? `, budget $${BUDGET_USD}/30j` : ''
+    })`,
+  );
 
   const client = new Anthropic();
   const browser = await chromium.launch({
