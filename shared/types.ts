@@ -126,7 +126,15 @@ export interface DbLead {
   has_ssl: number | null; // SQLite: 0 ou 1
   page_load_time: number | null; // in milliseconds
   pain_points: string | null; // JSON array of identified issues
-  
+
+  // Mentions-légales extraction (agent LLM)
+  legal_rcs: string | null;
+  legal_capital: string | null;
+  legal_email: string | null;
+  legal_hosting: string | null;
+  legal_url: string | null;
+  legal_extracted_at: string | null;
+
   // Suivi commercial
   status: LeadStatus;
   call_status: CallStatus;

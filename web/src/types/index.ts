@@ -84,6 +84,13 @@ export interface Lead {
   has_ssl?: boolean | null;              // boolean (transformed from SQLite 0/1)
   page_load_time?: number | null;
   pain_points?: string[] | null;         // parsed JSON array
+  // Legal extraction fields (mentions légales via agent LLM)
+  legal_rcs?: string | null;
+  legal_capital?: string | null;
+  legal_email?: string | null;
+  legal_hosting?: string | null;
+  legal_url?: string | null;
+  legal_extracted_at?: string | null;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { Phone, Globe, MapPin, Star, Building2, User, Clock, Calendar, ExternalLink } from 'lucide-react';
+import { Phone, Globe, MapPin, Star, Building2, User, Clock, Calendar, ExternalLink, FileText, Scale, Mail, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui';
 import { CALL_STATUS_LABELS, PRIORITY_COLORS } from '@/lib/constants';
@@ -104,6 +104,84 @@ export function LeadInfoCard({ lead }: LeadInfoCardProps) {
                 </div>
               }
             />
+          )}
+
+          {/* Mentions légales (extraites par l'agent LLM) */}
+          {(lead.legal_rcs || lead.legal_capital || lead.legal_email || lead.legal_hosting) && (
+            <div className="space-y-3 border-t border-border/50 pt-3 mt-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Mentions légales
+              </h4>
+
+              {lead.legal_rcs && (
+                <InfoRow
+                  icon={FileText}
+                  iconColor="zinc"
+                  content={
+                    <div>
+                      <p className="text-sm text-muted-foreground">{lead.legal_rcs}</p>
+                      <p className="text-xs text-muted-foreground">RCS</p>
+                    </div>
+                  }
+                />
+              )}
+
+              {lead.legal_capital && (
+                <InfoRow
+                  icon={Scale}
+                  iconColor="zinc"
+                  content={
+                    <div>
+                      <p className="text-sm text-muted-foreground">{lead.legal_capital}</p>
+                      <p className="text-xs text-muted-foreground">Capital social</p>
+                    </div>
+                  }
+                />
+              )}
+
+              {lead.legal_email && (
+                <InfoRow
+                  icon={Mail}
+                  iconColor="blue"
+                  content={
+                    <div>
+                      <a
+                        href={`mailto:${lead.legal_email}`}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {lead.legal_email}
+                      </a>
+                      <p className="text-xs text-muted-foreground">Email pro</p>
+                    </div>
+                  }
+                />
+              )}
+
+              {lead.legal_hosting && (
+                <InfoRow
+                  icon={Server}
+                  iconColor="zinc"
+                  content={
+                    <div>
+                      <p className="text-sm text-muted-foreground">{lead.legal_hosting}</p>
+                      <p className="text-xs text-muted-foreground">Hébergeur</p>
+                    </div>
+                  }
+                />
+              )}
+
+              {lead.legal_url && (
+                <a
+                  href={lead.legal_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="size-3" />
+                  Source: page mentions-légales
+                </a>
+              )}
+            </div>
           )}
 
           <InfoRow
