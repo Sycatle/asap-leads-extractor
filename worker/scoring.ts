@@ -2,10 +2,22 @@
  * Lead scoring and classification utilities
  */
 
-import type { InsertLead } from './db';
 import type { WebsiteStatus, CMSType } from '../shared/types';
 
-type LeadWithCms = InsertLead & { cms_type?: CMSType | null; page_load_time?: number | null };
+// Snapshot minimal de lead nécessaire au scoring — découplé du schéma DB.
+export interface ScoringInput {
+  website?: string | null;
+  website_status?: WebsiteStatus | null;
+  image_url?: string | null;
+  has_booking?: boolean | null;
+  has_seo?: boolean | null;
+  rating?: number | null;
+  reviews_count?: number | null;
+  cms_type?: CMSType | string | null;
+  page_load_time?: number | null;
+}
+
+type LeadWithCms = ScoringInput;
 
 /**
  * Calculate lead score (0-100)
@@ -14,7 +26,7 @@ type LeadWithCms = InsertLead & { cms_type?: CMSType | null; page_load_time?: nu
  * This function evaluates multiple criteria to determine how likely a business
  * is to need web services based on their current digital presence.
  */
-export function calculateLeadScore(lead: InsertLead): number {
+export function calculateLeadScore(lead: ScoringInput): number {
   let score = 50; // Base score
   
   // ===== MAJOR CRITERIA (poorly referenced = good prospect) =====

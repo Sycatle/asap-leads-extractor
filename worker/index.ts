@@ -14,7 +14,7 @@ import { enrichWebsiteAnalysis } from './enrichWebsite';
 import { enrichLegalNotices } from './enrichLegal';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { loadConfig } from './config';
-import { getDb, closeDb } from './db';
+import { getDb, closeDb } from '../db/client';
 import { formatDuration } from './utils';
 import { logger as log } from './logger';
 

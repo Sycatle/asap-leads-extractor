@@ -11,10 +11,12 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { type Browser, type Page } from 'playwright';
 import { z } from 'zod';
 import pLimit from 'p-limit';
-import { getDb } from './db';
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { getDb } from '../db/client';
+import { leads } from '../db/schema';
+import { getTotalCostCents, recordUsage } from '../db/queries';
 import { legalLogger as log } from './logger';
 import { acquireBrowser, releaseBrowser } from './browserPool';
-import { getTotalCostCents, recordUsage } from '../shared/queries/llmUsage';
 import { findLegalLink, fallbackPathCandidates, type AnchorLike } from './legalLinkFinder';
 import 'dotenv/config';
 
@@ -46,58 +48,47 @@ interface LegalLeadRow {
   website: string;
 }
 
-function getLeadsToEnrich(max: number): LegalLeadRow[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT id, name, website
-       FROM leads
-       WHERE deleted_at IS NULL
-         AND website IS NOT NULL
-         AND website != ''
-         AND legal_extracted_at IS NULL
-       ORDER BY score DESC, created_at DESC
-       LIMIT ?`,
-    )
-    .all(max) as LegalLeadRow[];
+async function getLeadsToEnrich(max: number): Promise<LegalLeadRow[]> {
+  const rows = await getDb()
+    .select({ id: leads.id, name: leads.name, website: leads.website })
+    .from(leads)
+    .where(and(
+      isNull(leads.deletedAt),
+      isNotNull(leads.website),
+      sql`${leads.website} <> ''`,
+      isNull(leads.legalExtractedAt),
+    ))
+    .orderBy(desc(leads.score), desc(leads.createdAt))
+    .limit(max);
+  return rows.filter((r): r is LegalLeadRow => r.website !== null);
 }
 
-function markFailed(id: number, reason: string): void {
-  getDb()
-    .prepare(
-      `UPDATE leads SET legal_extracted_at = datetime('now'), legal_url = @reason WHERE id = @id`,
-    )
-    .run({ id, reason: `error:${reason.slice(0, 200)}` });
+async function markFailed(id: number, reason: string): Promise<void> {
+  await getDb()
+    .update(leads)
+    .set({
+      legalExtractedAt: sql`now()`,
+      legalUrl: `error:${reason.slice(0, 200)}`,
+    })
+    .where(eq(leads.id, id));
 }
 
-function saveLegalInfo(id: number, legalUrl: string, info: LegalInfo): void {
-  getDb()
-    .prepare(
-      `UPDATE leads SET
-         legal_url = @legal_url,
-         legal_extracted_at = datetime('now'),
-         legal_rcs = COALESCE(@rcs, legal_rcs),
-         legal_capital = COALESCE(@capital, legal_capital),
-         legal_email = COALESCE(@email, legal_email),
-         legal_hosting = COALESCE(@hosting, legal_hosting),
-         siren = COALESCE(@siren, siren),
-         siret = COALESCE(@siret, siret),
-         legal_name = COALESCE(@legal_name, legal_name),
-         dirigeant = COALESCE(@dirigeant, dirigeant)
-       WHERE id = @id`,
-    )
-    .run({
-      id,
-      legal_url: legalUrl,
-      rcs: info.rcs,
-      capital: info.capital,
-      email: info.email,
-      hosting: info.hosting,
-      siren: info.siren,
-      siret: info.siret,
-      legal_name: info.legal_name,
-      dirigeant: info.dirigeant,
-    });
+async function saveLegalInfo(id: number, legalUrl: string, info: LegalInfo): Promise<void> {
+  await getDb()
+    .update(leads)
+    .set({
+      legalUrl,
+      legalExtractedAt: sql`now()`,
+      legalRcs: sql`COALESCE(${info.rcs}, ${leads.legalRcs})`,
+      legalCapital: sql`COALESCE(${info.capital}, ${leads.legalCapital})`,
+      legalEmail: sql`COALESCE(${info.email}, ${leads.legalEmail})`,
+      legalHosting: sql`COALESCE(${info.hosting}, ${leads.legalHosting})`,
+      siren: sql`COALESCE(${info.siren}, ${leads.siren})`,
+      siret: sql`COALESCE(${info.siret}, ${leads.siret})`,
+      legalName: sql`COALESCE(${info.legal_name}, ${leads.legalName})`,
+      dirigeant: sql`COALESCE(${info.dirigeant}, ${leads.dirigeant})`,
+    })
+    .where(eq(leads.id, id));
 }
 
 async function collectAnchors(page: Page): Promise<AnchorLike[]> {
@@ -168,7 +159,7 @@ async function extractLegalInfo(
       },
     });
   } catch (err) {
-    recordUsage(getDb(), {
+    await recordUsage(getDb(), {
       model: MODEL,
       feature: 'legal',
       lead_id: leadId,
@@ -180,7 +171,7 @@ async function extractLegalInfo(
     throw err;
   }
 
-  recordUsage(getDb(), {
+  await recordUsage(getDb(), {
     model: MODEL,
     feature: 'legal',
     lead_id: leadId,
@@ -211,19 +202,19 @@ async function processLead(browser: Browser, client: Anthropic, lead: LegalLeadR
 
     if (!legalUrl) {
       log.warn(`[#${lead.id}] ${lead.name}: page mentions-légales introuvable`);
-      markFailed(lead.id, 'legal_page_not_found');
+      await markFailed(lead.id, 'legal_page_not_found');
       return;
     }
 
     const pageText = await extractPageText(page);
     if (pageText.length < 80) {
       log.warn(`[#${lead.id}] ${lead.name}: contenu mentions-légales vide`);
-      markFailed(lead.id, 'empty_legal_page');
+      await markFailed(lead.id, 'empty_legal_page');
       return;
     }
 
     const info = await extractLegalInfo(client, lead.name, pageText, lead.id);
-    saveLegalInfo(lead.id, legalUrl, info);
+    await saveLegalInfo(lead.id, legalUrl, info);
     log.success(
       `[#${lead.id}] ${lead.name}: extracted (siren=${info.siren ?? '-'}, host=${info.hosting ?? '-'}, email=${
         info.email ?? '-'
@@ -232,7 +223,7 @@ async function processLead(browser: Browser, client: Anthropic, lead: LegalLeadR
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`[#${lead.id}] ${lead.name}: ${msg}`);
-    markFailed(lead.id, msg);
+    await markFailed(lead.id, msg);
   } finally {
     await context.close();
   }
@@ -245,7 +236,7 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
 
   // Budget guard : refuse si le coût mensuel atteint déjà la limite
   if (BUDGET_USD > 0) {
-    const spentCents = getTotalCostCents(getDb(), 30);
+    const spentCents = await getTotalCostCents(getDb(), 30);
     if (spentCents >= BUDGET_USD * 100) {
       log.warn(
         `Budget LLM 30j atteint : $${(spentCents / 100).toFixed(2)} >= $${BUDGET_USD.toFixed(2)}. Pipeline arrêtée.`,
@@ -254,7 +245,7 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
     }
   }
 
-  const leads = getLeadsToEnrich(maxLeads);
+  const leads = await getLeadsToEnrich(maxLeads);
   if (leads.length === 0) {
     log.info('Aucun lead à enrichir (tous traités ou pas de website)');
     return { processed: 0 };
@@ -276,8 +267,7 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
     await releaseBrowser();
   }
 
-  const dayCents = getTotalCostCents(getDb(), 1);
-  const monthCents = getTotalCostCents(getDb(), 30);
+  const [dayCents, monthCents] = await Promise.all([getTotalCostCents(getDb(), 1), getTotalCostCents(getDb(), 30)]);
   log.info(
     `Coût LLM : aujourd'hui $${(dayCents / 100).toFixed(2)} | 30j $${(monthCents / 100).toFixed(2)}`,
   );

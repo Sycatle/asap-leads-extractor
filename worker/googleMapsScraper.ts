@@ -1,10 +1,66 @@
 import { chromium, Browser, Page } from 'playwright';
+import { sql } from 'drizzle-orm';
 import { RawLead } from '../shared/types';
-import { upsertLead, type InsertLead, getExistingPhones } from './db';
+import { getDb } from '../db/client';
+import { getExistingPhones } from '../db/queries';
+import { leads, type NewLead, type Lead } from '../db/schema';
 import { enrichSingleLead } from './enrich';
 import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils';
-import { classifyWebsiteStatus, computeBestCallTime } from './scoring';
+import { calculateLeadScore, calculatePriority, classifyWebsiteStatus, computeBestCallTime } from './scoring';
 import { scrapeLogger as log } from './logger';
+
+function detectPhoneType(phone: string): NonNullable<NewLead['phoneType']> {
+  if (phone.startsWith('06') || phone.startsWith('07')) return 'perso';
+  if (/^0[1-59]/.test(phone)) return 'pro';
+  return 'unknown';
+}
+
+async function upsertLead(lead: NewLead): Promise<Lead | null> {
+  const phoneType = lead.phoneType ?? detectPhoneType(lead.phone);
+  const websiteStatus = lead.websiteStatus ?? (lead.website ? null : 'none');
+  const score = lead.score ?? calculateLeadScore({
+    website: lead.website ?? null,
+    website_status: websiteStatus,
+    image_url: lead.imageUrl ?? null,
+    has_booking: !!lead.hasBooking,
+    has_seo: !!lead.hasSeo,
+    rating: lead.rating ?? null,
+    reviews_count: lead.reviewsCount ?? null,
+    cms_type: lead.cmsType ?? null,
+    page_load_time: lead.pageLoadTime ?? null,
+  });
+  const priority = lead.priority ?? calculatePriority(score);
+
+  const result = await getDb()
+    .insert(leads)
+    .values({ ...lead, phoneType, websiteStatus, score, priority, source: lead.source ?? 'gmb' })
+    .onConflictDoUpdate({
+      target: leads.phone,
+      set: {
+        name: lead.name,
+        address: lead.address,
+        city: lead.city,
+        postalCode: lead.postalCode,
+        mapsUrl: lead.mapsUrl,
+        rating: sql`COALESCE(${lead.rating ?? null}, ${leads.rating})`,
+        reviewsCount: sql`COALESCE(${lead.reviewsCount ?? null}, ${leads.reviewsCount})`,
+        openingHours: sql`COALESCE(${lead.openingHours ?? null}, ${leads.openingHours})`,
+        imageUrl: sql`COALESCE(${lead.imageUrl ?? null}, ${leads.imageUrl})`,
+        website: sql`COALESCE(${lead.website ?? null}, ${leads.website})`,
+        websiteStatus: sql`COALESCE(${websiteStatus}, ${leads.websiteStatus})`,
+        niche: sql`COALESCE(${lead.niche ?? null}, ${leads.niche})`,
+        bestCallTime: sql`COALESCE(${lead.bestCallTime ?? null}, ${leads.bestCallTime})`,
+        hasBooking: sql`COALESCE(${lead.hasBooking ?? null}, ${leads.hasBooking})`,
+        hasSeo: sql`COALESCE(${lead.hasSeo ?? null}, ${leads.hasSeo})`,
+        // Score/priorité: ne pas écraser si le lead a été contacté
+        priority: sql`CASE WHEN ${leads.status} <> 'nouveau' THEN ${leads.priority} ELSE ${priority} END`,
+        score: sql`CASE WHEN ${leads.status} <> 'nouveau' THEN ${leads.score} ELSE ${score} END`,
+        updatedAt: sql`now()`,
+      },
+    })
+    .returning();
+  return result[0] ?? null;
+}
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -551,26 +607,26 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       
       // Sauvegarde immédiate en DB si demandé (par défaut: oui)
       if (saveImmediately) {
-        const dbLead: InsertLead = {
+        const dbLead: NewLead = {
           phone: lead.phone,
           name: lead.name,
           address: lead.address,
           city: lead.city,
-          postal_code: lead.postal_code,
+          postalCode: lead.postal_code,
           website: lead.website,
-          website_status: (lead.website_status as 'none' | 'platform' | 'modern' | 'old') || (lead.website ? undefined : 'none'),
-          maps_url: lead.maps_url,
+          websiteStatus: (lead.website_status as 'none' | 'platform' | 'modern' | 'old') ?? (lead.website ? null : 'none'),
+          mapsUrl: lead.maps_url,
           rating: lead.rating,
-          reviews_count: lead.reviews_count,
+          reviewsCount: lead.reviews_count,
           niche: lead.niche || null,
           source: 'gmb',
-          opening_hours: lead.opening_hours,
-          has_booking: lead.has_booking,
-          best_call_time: computeBestCallTime(lead.opening_hours),
-          image_url: lead.image_url,
+          openingHours: lead.opening_hours,
+          hasBooking: lead.has_booking,
+          bestCallTime: computeBestCallTime(lead.opening_hours),
+          imageUrl: lead.image_url,
         };
-        
-        const result = upsertLead(dbLead);
+
+        const result = await upsertLead(dbLead);
         if (result) {
           debug(`  💾 Sauvegardé en DB (id: ${result.id}, score: ${result.score})`);
           
@@ -640,7 +696,7 @@ export async function scrapeGoogleMaps(config: ScrapeConfig): Promise<RawLead[]>
   
   // Pré-charger les téléphones existants pour skip doublons
   log.info('Chargement des leads existants...');
-  const existingPhones = saveImmediately ? getExistingPhones() : new Set<string>();
+  const existingPhones = saveImmediately ? await getExistingPhones(getDb()) : new Set<string>();
   log.success(`${existingPhones.size} leads déjà en base`);
   
   log.header('SCRAPING GOOGLE MAPS');
