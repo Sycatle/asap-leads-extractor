@@ -5,24 +5,23 @@
       "entry": [
         "worker/index.ts",
         "worker/cli.ts",
-        "worker/importConfig.ts",
-        "shared/migrate.ts",
         "worker/**/*.test.ts",
-        "shared/**/*.test.ts"
+        "db/**/*.test.ts"
       ],
       "project": [
         "worker/**/*.ts",
-        "shared/**/*.ts"
-      ]
+        "shared/**/*.ts",
+        "db/**/*.ts"
+      ],
+      "ignoreDependencies": ["knip"]
     },
     "web": {
       "entry": [
         "src/app/**/{page,layout,route,template,loading,error,not-found}.{ts,tsx}",
-        "src/middleware.ts",
-        "next.config.ts",
-        "eslint.config.mjs"
+        "next.config.ts"
       ],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["tailwindcss", "tw-animate-css"]
     }
   }
 }

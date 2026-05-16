@@ -1,13 +1,11 @@
 {
   "name": "leads-finder",
-  "version": "2.0.0",
-  "description": "Lead generation tool with intelligent multi-pipeline worker",
+  "version": "3.0.0",
+  "description": "Lead generation tool with multi-pipeline worker, Postgres + Drizzle stack",
   "type": "module",
-  "main": "dist/index.js",
   "scripts": {
     "start": "tsx worker/index.ts orchestrator",
     "worker": "tsx worker/index.ts orchestrator",
-    "brain": "tsx worker/index.ts orchestrator",
     "full": "tsx worker/index.ts full",
     "once": "tsx worker/index.ts once",
     "cli": "tsx worker/cli.ts",
@@ -22,27 +20,16 @@
     "migrate:studio": "drizzle-kit studio",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",
-    "config:import": "tsx worker/importConfig.ts",
-    "config:import:dry": "tsx worker/importConfig.ts --dry-run",
-    "backup": "./backup.sh",
-    "backup:rotate": "./backup.sh --rotate 7",
     "web": "cd web && pnpm dev",
     "web:build": "cd web && pnpm build",
     "help": "tsx worker/index.ts help",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "postinstall": "echo 'Dependencies installed'"
+    "test:coverage": "vitest run --coverage"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "esbuild"
-    ]
-  },
-  "bin": {
-    "leads-finder": "./dist/cli.js"
+    "onlyBuiltDependencies": ["esbuild"]
   },
   "keywords": [],
   "author": "",
