@@ -24,7 +24,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { Card } from '@/components/ui';
-import { PRIORITY_BADGE_COLORS, CALL_STATUS_LABELS } from '@/lib/constants';
+import { PRIORITY_BADGE_COLORS } from '@/lib/constants';
 import { LeadHistoryCompact } from './LeadHistoryCompact';
 import { fetchLeadHistory } from '@/lib/api';
 import type { Lead, HistoryEntry } from '@/types';

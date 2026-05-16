@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Session, Lead, CallStatus, LeadStatus, CallOutcome, NextStep, LostReason } from '@/types';
+import type { Session, Lead, CallStatus, CallOutcome, NextStep, LostReason } from '@/types';
 import { CALL_OUTCOMES } from '@/lib/constants';
 import {
   fetchSession,
@@ -12,7 +12,6 @@ import {
   logLeadCall,
   updateLeadStatus,
   scheduleLeadFollowup,
-  processLeadOutcome,
   markLeadOptOut,
 } from '@/lib/api';
 
