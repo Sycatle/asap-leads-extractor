@@ -33,6 +33,9 @@ jobs:
         run: pnpm lint
         working-directory: web
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Test
         run: pnpm test
 
