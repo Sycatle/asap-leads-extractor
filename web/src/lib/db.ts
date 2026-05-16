@@ -51,6 +51,10 @@ export type {
 // Re-export scraper config functions (used with getDb() directly)
 export * as scraperConfig from '../../../shared/queries/scraperConfig';
 
+// Re-export LLM usage queries
+export { getDailyCost, getTotalCostCents } from '../../../shared/queries/llmUsage';
+export type { DailyCost } from '../../../shared/queries/llmUsage';
+
 // Import query functions (will be wrapped with getDb())
 import * as queries from '../../../shared/queries/index';
 import type { DbLead, LeadStatus, CallStatus } from '../../../shared/types';
