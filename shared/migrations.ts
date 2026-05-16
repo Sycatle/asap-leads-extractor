@@ -503,6 +503,34 @@ export const migrations: Migration[] = [
       ALTER TABLE leads DROP COLUMN legal_rcs;
     `,
   },
+  {
+    id: 24,
+    name: '024_create_llm_usage',
+    description: 'Track LLM API usage (tokens, cost estimate) for cost monitoring',
+    up: `
+      CREATE TABLE IF NOT EXISTS llm_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        provider TEXT NOT NULL DEFAULT 'anthropic',
+        model TEXT NOT NULL,
+        feature TEXT NOT NULL,
+        lead_id INTEGER,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
+        cost_usd_cents INTEGER NOT NULL DEFAULT 0,
+        success INTEGER NOT NULL DEFAULT 1,
+        error_message TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
+      CREATE INDEX IF NOT EXISTS idx_llm_usage_feature ON llm_usage(feature);
+      CREATE INDEX IF NOT EXISTS idx_llm_usage_model ON llm_usage(model);
+    `,
+    down: `
+      DROP TABLE IF EXISTS llm_usage;
+    `,
+  },
 ];
 
 /**
