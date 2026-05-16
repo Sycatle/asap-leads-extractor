@@ -41,6 +41,32 @@ export const leadStatusEnum = pgEnum('lead_status', [
 ]);
 export const callStatusEnum = pgEnum('call_status', ['non_appele', 'appele', 'rappeler', 'injoignable']);
 export const emailStatusEnum = pgEnum('email_status', ['non_envoye', 'envoye', 'ouvert', 'repondu', 'bounce']);
+export const contactSourceEnum = pgEnum('contact_source', [
+  'pappers',
+  'scrape',
+  'manual',
+  'enrich_legal',
+  'import',
+]);
+export const contactVerifiedStatusEnum = pgEnum('contact_verified_status', [
+  'unverified',
+  'valid',
+  'risky',
+  'bounced',
+  'unsub',
+]);
+export const suppressionReasonEnum = pgEnum('suppression_reason', [
+  'user_request',
+  'bounce_hard',
+  'spam_complaint',
+  'manual',
+  'gdpr_purge',
+]);
+export const consentBasisEnum = pgEnum('consent_basis', [
+  'legitimate_interest',
+  'opt_out_received',
+]);
+
 export const cmsTypeEnum = pgEnum('cms_type', [
   'wordpress', 'wix', 'shopify', 'prestashop', 'squarespace', 'webflow',
   'weebly', 'jimdo', 'blogger', 'ghost',
@@ -118,6 +144,10 @@ export const leads = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
+    // RGPD / CNIL
+    dataSource: text('data_source'),
+    gdprPurgeAt: timestamp('gdpr_purge_at', { withTimezone: true }),
   },
   (t) => [
     uniqueIndex('leads_phone_unique').on(t.phone),
@@ -137,6 +167,70 @@ export const leads = pgTable(
     index('leads_deleted_niche_idx').on(t.deletedAt, t.niche),
     index('leads_deleted_score_idx').on(t.deletedAt, t.score),
     index('leads_deleted_next_followup_idx').on(t.deletedAt, t.nextFollowupAt),
+    index('leads_gdpr_purge_idx').on(t.gdprPurgeAt),
+  ],
+);
+
+// ===== OUTBOUND / RGPD =====
+
+export const leadContacts = pgTable(
+  'lead_contacts',
+  {
+    id: serial('id').primaryKey(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    role: text('role'),
+    phone: text('phone'),
+    linkedinUrl: text('linkedin_url'),
+    source: contactSourceEnum('source').notNull().default('manual'),
+    verifiedStatus: contactVerifiedStatusEnum('verified_status').notNull().default('unverified'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    collectedAt: timestamp('collected_at', { withTimezone: true }).notNull().defaultNow(),
+    lastContactedAt: timestamp('last_contacted_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    // Un email unique par lead (un même décideur peut apparaître chez plusieurs leads).
+    uniqueIndex('lead_contacts_lead_email_unique').on(t.leadId, t.email),
+    index('lead_contacts_email_idx').on(t.email),
+    index('lead_contacts_lead_idx').on(t.leadId),
+    index('lead_contacts_verified_idx').on(t.verifiedStatus),
+    index('lead_contacts_deleted_idx').on(t.deletedAt),
+  ],
+);
+
+// Suppression list GLOBALE — un email ici bloque tout envoi futur,
+// toutes séquences confondues. RFC 8058 + CNIL.
+export const suppressionList = pgTable(
+  'suppression_list',
+  {
+    email: text('email').primaryKey(),
+    reason: suppressionReasonEnum('reason').notNull(),
+    source: text('source'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('suppression_created_idx').on(t.createdAt)],
+);
+
+// Trace d'intérêt légitime (preuve en cas de contrôle CNIL).
+export const consentLog = pgTable(
+  'consent_log',
+  {
+    id: serial('id').primaryKey(),
+    contactId: integer('contact_id')
+      .notNull()
+      .references(() => leadContacts.id, { onDelete: 'cascade' }),
+    basis: consentBasisEnum('basis').notNull(),
+    evidence: text('evidence'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('consent_log_contact_idx').on(t.contactId),
+    index('consent_log_basis_idx').on(t.basis),
   ],
 );
 
@@ -323,6 +417,16 @@ export const leadsRelations = relations(leads, ({ many }) => ({
   notes: many(leadNotes),
   statusLog: many(leadStatusLog),
   llmCalls: many(llmUsage),
+  contacts: many(leadContacts),
+}));
+
+export const leadContactsRelations = relations(leadContacts, ({ one, many }) => ({
+  lead: one(leads, { fields: [leadContacts.leadId], references: [leads.id] }),
+  consents: many(consentLog),
+}));
+
+export const consentLogRelations = relations(consentLog, ({ one }) => ({
+  contact: one(leadContacts, { fields: [consentLog.contactId], references: [leadContacts.id] }),
 }));
 
 export const leadPainPointsRelations = relations(leadPainPoints, ({ one }) => ({
@@ -357,3 +461,9 @@ export type LeadNote = typeof leadNotes.$inferSelect;
 export type NewLeadNote = typeof leadNotes.$inferInsert;
 export type LlmUsageRow = typeof llmUsage.$inferSelect;
 export type NewLlmUsage = typeof llmUsage.$inferInsert;
+export type LeadContact = typeof leadContacts.$inferSelect;
+export type NewLeadContact = typeof leadContacts.$inferInsert;
+export type SuppressionEntry = typeof suppressionList.$inferSelect;
+export type NewSuppressionEntry = typeof suppressionList.$inferInsert;
+export type ConsentLogEntry = typeof consentLog.$inferSelect;
+export type NewConsentLogEntry = typeof consentLog.$inferInsert;

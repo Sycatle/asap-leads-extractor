@@ -10,3 +10,6 @@ export * from './stats';
 export * from './history';
 export * from './sessions';
 export * from './leadSelection';
+export * from './contacts';
+export * from './suppression';
+export * from './consent';
