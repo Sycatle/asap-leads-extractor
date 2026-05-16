@@ -20,6 +20,7 @@ import { getDb, closeDb } from './db';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { enrich as enrichSociete } from './enrich';
 import { enrichWebsiteAnalysis } from './enrichWebsite';
+import { enrichLegalNotices } from './enrichLegal';
 import { sleep, formatDuration } from './utils';
 import { WorkerMonitor, type PipelineMetrics } from './monitor';
 import { orchLogger as log } from './logger';
@@ -60,11 +61,13 @@ interface OrchestratorConfig {
   scrapeInterval: number;
   enrichSocieteInterval: number;
   enrichWebsiteInterval: number;
-  
+  enrichLegalInterval: number;
+
   // Limites par cycle
   maxScrapePerCycle: number;      // Nombre max de requêtes GMaps par cycle (pas total leads)
   maxEnrichPerCycle: number;
   maxWebsitePerCycle: number;
+  maxLegalPerCycle: number;
   
   // Seuils d'équilibrage
   enrichPriorityThreshold: number; // Si > N leads à enrichir, prioriser enrich sur scrape
@@ -80,10 +83,12 @@ const _DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
   scrapeInterval: 5 * 60 * 1000,        // 5 min entre scrapes (plus court car incrémental)
   enrichSocieteInterval: 1 * 60 * 1000,  // 1 min entre enrichissements (plus agressif)
   enrichWebsiteInterval: 5 * 60 * 1000,  // 5 min entre analyses website
-  
+  enrichLegalInterval: 10 * 60 * 1000,   // 10 min entre extractions mentions-légales (coût API)
+
   maxScrapePerCycle: 3,          // 3 requêtes GMaps par cycle (niche+ville)
   maxEnrichPerCycle: 30,
   maxWebsitePerCycle: 20,
+  maxLegalPerCycle: 10,           // 10 leads / cycle pour limiter coût Claude
   enrichPriorityThreshold: 50,   // Si > 50 leads à enrichir, prioriser enrich
   
   enableParallelPipelines: true,
@@ -101,10 +106,12 @@ function buildOrchestratorConfig(appConfig: Config, overrides?: Partial<Orchestr
     scrapeInterval: (fromFile.scrape_interval ?? 10) * 60 * 1000,
     enrichSocieteInterval: (fromFile.enrich_interval ?? 2) * 60 * 1000,
     enrichWebsiteInterval: (fromFile.website_interval ?? 5) * 60 * 1000,
-    
+    enrichLegalInterval: (fromFile.legal_interval ?? 10) * 60 * 1000,
+
     maxScrapePerCycle: fromFile.max_scrape_per_cycle ?? 3,
     maxEnrichPerCycle: fromFile.max_enrich_per_cycle ?? 30,
     maxWebsitePerCycle: fromFile.max_website_per_cycle ?? 20,
+    maxLegalPerCycle: fromFile.max_legal_per_cycle ?? 10,
     enrichPriorityThreshold: fromFile.enrich_priority_threshold ?? 50,
     
     enableParallelPipelines: fromFile.parallel_pipelines ?? true,
@@ -128,6 +135,7 @@ export class WorkerOrchestrator extends EventEmitter {
     scrape: PipelineState;
     enrichSociete: PipelineState;
     enrichWebsite: PipelineState;
+    enrichLegal: PipelineState;
   };
   
   private metricsTimer: NodeJS.Timeout | null = null;
@@ -148,7 +156,14 @@ export class WorkerOrchestrator extends EventEmitter {
       scrape: this.createPipelineState(),
       enrichSociete: this.createPipelineState(),
       enrichWebsite: this.createPipelineState(),
+      enrichLegal: this.createPipelineState(),
     };
+
+    // Auto-block legal pipeline if no API key (avoids repeated startup errors)
+    if (!process.env.ANTHROPIC_API_KEY) {
+      this.pipelines.enrichLegal.isBlocked = true;
+      this.pipelines.enrichLegal.blockReason = 'ANTHROPIC_API_KEY non configurée';
+    }
     
     // Générer la liste des requêtes de scraping
     this.initScrapeQueries();
@@ -302,7 +317,12 @@ export class WorkerOrchestrator extends EventEmitter {
     if (this.isPipelineReady('enrichWebsite', this.orchConfig.enrichWebsiteInterval)) {
       ready.push('enrichWebsite');
     }
-    
+
+    // Check legal extraction (LLM agent)
+    if (this.isPipelineReady('enrichLegal', this.orchConfig.enrichLegalInterval)) {
+      ready.push('enrichLegal');
+    }
+
     return ready;
   }
   
@@ -396,6 +416,9 @@ export class WorkerOrchestrator extends EventEmitter {
         case 'enrichWebsite':
           processed = await this.runEnrichWebsitePipeline();
           break;
+        case 'enrichLegal':
+          processed = await this.runEnrichLegalPipeline();
+          break;
       }
       
       pipeline.lastRun = new Date();
@@ -479,6 +502,11 @@ export class WorkerOrchestrator extends EventEmitter {
   private async runEnrichWebsitePipeline(): Promise<number> {
     const stats = await enrichWebsiteAnalysis();
     return stats.analyzed;
+  }
+
+  private async runEnrichLegalPipeline(): Promise<number> {
+    const { processed } = await enrichLegalNotices(this.orchConfig.maxLegalPerCycle);
+    return processed;
   }
   
   // ===== SCHEDULING =====
