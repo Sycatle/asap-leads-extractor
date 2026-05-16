@@ -312,7 +312,7 @@ async function searchSociete(page: Page, name: string, city: string): Promise<Se
       const results: string[] = [];
       
       for (const link of links) {
-        let url = (link as HTMLAnchorElement).href.split('#')[0]; // Remove hash
+        const url = (link as HTMLAnchorElement).href.split('#')[0]; // Remove hash
         
         // Extract SIREN to check uniqueness
         const sirenMatch = url.match(/-(\d{9})\.html/);

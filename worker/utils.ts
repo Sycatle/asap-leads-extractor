@@ -60,7 +60,7 @@ export function normalizeCity(city: string): string {
   if (!city) return '';
   
   // Nettoyer les tirets et espaces en début/fin
-  let normalized = city.trim().replace(/^[-–—\s]+/, '').replace(/[-–—\s]+$/, '');
+  const normalized = city.trim().replace(/^[-–—\s]+/, '').replace(/[-–—\s]+$/, '');
   
   // Paris et arrondissements → "Paris"
   if (/^paris/i.test(normalized) || /paris\s*\d+/i.test(normalized) || /^\d+e?\s*arr/i.test(normalized)) {
