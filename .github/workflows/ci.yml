@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install root deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: web
+
+      - name: Lint (web)
+        run: pnpm lint
+        working-directory: web
+
+      - name: Test
+        run: pnpm test
+
+      - name: Audit (non-blocking)
+        run: pnpm audit --prod --audit-level=high || true
