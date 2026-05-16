@@ -96,7 +96,6 @@ function mergeDbConfigWithDefaults(
       ...(dbConfig?.settings.scrape_interval !== undefined && { scrape_interval: dbConfig.settings.scrape_interval }),
       ...(dbConfig?.settings.enrich_interval !== undefined && { enrich_interval: dbConfig.settings.enrich_interval }),
       ...(dbConfig?.settings.website_interval !== undefined && { website_interval: dbConfig.settings.website_interval }),
-      ...(dbConfig?.settings.collect_interval !== undefined && { collect_interval: dbConfig.settings.collect_interval }),
       ...(dbConfig?.settings.max_scrape_per_cycle !== undefined && { max_scrape_per_cycle: dbConfig.settings.max_scrape_per_cycle }),
       ...(dbConfig?.settings.max_enrich_per_cycle !== undefined && { max_enrich_per_cycle: dbConfig.settings.max_enrich_per_cycle }),
       ...(dbConfig?.settings.max_website_per_cycle !== undefined && { max_website_per_cycle: dbConfig.settings.max_website_per_cycle }),
@@ -189,11 +188,7 @@ function applyEnvOverrides(config: Config): void {
  */
 function validateConfig(config: Config): void {
   const warnings: string[] = [];
-  
-  if (!config.input_csv) {
-    warnings.push('input_csv non défini');
-  }
-  
+
   if (!config.target || config.target <= 0) {
     warnings.push('target invalide ou non défini');
   }

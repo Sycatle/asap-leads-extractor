@@ -5,11 +5,10 @@
  * - orchestrator: Mode intelligent multi-pipeline (recommandé)
  * - worker: Mode legacy avec boucle simple
  * - once: Exécution unique
- * - scrape/enrich/collect: Commandes individuelles
+ * - scrape/enrich: Commandes individuelles
  */
 
 import { WorkerOrchestrator } from './orchestrator';
-import { collect } from './collect';
 import { enrich } from './enrich';
 import { enrichWebsiteAnalysis } from './enrichWebsite';
 import { enrichLegalNotices } from './enrichLegal';
@@ -70,49 +69,26 @@ async function runEnrichLegalJob(maxLeads?: number): Promise<number> {
   return processed;
 }
 
-async function runCollectJob(): Promise<number> {
-  const config = loadConfig();
-  
-  if (!config.input_csv) {
-    log.warn('Pas de input_csv défini dans config.json');
-    return 0;
-  }
-  
-  try {
-    const leads = await collect();
-    return leads.length;
-  } catch {
-    log.warn('Pas de CSV à importer ou erreur');
-    return 0;
-  }
-}
-
 async function runOnce(): Promise<void> {
   log.header('LEADS FINDER - Exécution unique');
-  
+
   const startTime = Date.now();
   const config = loadConfig();
-  
-  // Étape 1: Collecte (si CSV configuré)
-  if (config.input_csv) {
-    log.section('ÉTAPE 1: COLLECTE CSV');
-    await collect();
-  }
-  
-  // Étape 2: Scraping (si configuré)
+
+  // Étape 1: Scraping (si configuré)
   if (config.scrape?.niches?.length && config.scrape?.cities?.length) {
-    log.section('ÉTAPE 2: SCRAPING GOOGLE MAPS');
+    log.section('ÉTAPE 1: SCRAPING GOOGLE MAPS');
     await scrapeGoogleMaps({
       niches: config.scrape.niches,
       cities: config.scrape.cities,
       saveToDb: true,
     });
   }
-  
-  // Étape 3: Enrichissement
-  log.section('ÉTAPE 3: ENRICHISSEMENT');
+
+  // Étape 2: Enrichissement
+  log.section('ÉTAPE 2: ENRICHISSEMENT');
   await enrich();
-  
+
   const duration = Date.now() - startTime;
   log.blank();
   log.success(`Terminé en ${formatDuration(duration)}`);
@@ -120,25 +96,21 @@ async function runOnce(): Promise<void> {
 
 async function runFullPipeline(): Promise<void> {
   log.header('LEADS FINDER - Pipeline complet');
-  
+
   const startTime = Date.now();
-  
-  // 1. Collect
-  log.section('ÉTAPE 1/4: COLLECTE');
-  await runCollectJob();
-  
-  // 2. Scrape
-  log.section('ÉTAPE 2/4: SCRAPING');
+
+  // 1. Scrape
+  log.section('ÉTAPE 1/3: SCRAPING');
   await runScrapeJob();
-  
-  // 3. Enrich Societe
-  log.section('ÉTAPE 3/4: ENRICHISSEMENT');
+
+  // 2. Enrich Societe
+  log.section('ÉTAPE 2/3: ENRICHISSEMENT');
   await runEnrichJob();
-  
-  // 4. Enrich Website
-  log.section('ÉTAPE 4/4: ANALYSE SITES WEB');
+
+  // 3. Enrich Website
+  log.section('ÉTAPE 3/3: ANALYSE SITES WEB');
   await runEnrichWebsiteJob();
-  
+
   const duration = Date.now() - startTime;
   log.blank();
   log.success(`Pipeline complet terminé en ${formatDuration(duration)}`);
@@ -156,13 +128,12 @@ USAGE:
 COMMANDS:
   orchestrator    Mode intelligent multi-pipeline (recommandé pour production)
   worker          Mode boucle simple (legacy)
-  full            Pipeline complet une fois (collect → scrape → enrich → website)
+  full            Pipeline complet une fois (scrape → enrich → website)
   once            Exécution unique simplifiée
   scrape          Scraper Google Maps uniquement
   enrich          Enrichir via Societe.com uniquement
   enrich:website  Analyser les sites web uniquement
   enrich:legal    Visiter mentions-légales via agent LLM (Claude) et extraire RCS/capital/email/hébergeur
-  collect         Importer CSV uniquement
   help            Afficher cette aide
 
 OPTIONS:
@@ -250,11 +221,6 @@ async function main(): Promise<void> {
       case 'enrich:legal':
       case 'legal':
         await runEnrichLegalJob(options.max);
-        closeDb();
-        break;
-        
-      case 'collect':
-        await runCollectJob();
         closeDb();
         break;
         
