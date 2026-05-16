@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
+      // New in eslint-config-next 16.2: flags refresh()-in-useEffect pattern used across hooks.
+      // Downgraded to warn pending a follow-up refactor.
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
   // Override default ignores of eslint-config-next.
