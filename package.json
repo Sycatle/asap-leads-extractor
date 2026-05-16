@@ -14,6 +14,7 @@
     "scrape": "tsx worker/index.ts scrape",
     "enrich": "tsx worker/index.ts enrich",
     "enrich:website": "tsx worker/index.ts enrich:website",
+    "enrich:legal": "tsx worker/index.ts enrich:legal",
     "stats": "tsx worker/cli.ts stats",
     "migrate": "tsx shared/migrate.ts",
     "migrate:status": "tsx shared/migrate.ts status",
@@ -54,11 +55,13 @@
     "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "better-sqlite3": "^12.6.2",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
     "p-limit": "^7.2.0",
     "playwright": "^1.57.0",
-    "undici": "^7.18.2"
+    "undici": "^7.18.2",
+    "zod": "^3.24.0"
   }
 }
