@@ -120,7 +120,9 @@ export function NextStepDrawer({
   const [lostReason, setLostReason] = useState<LostReason | null>(null);
   const [lostNote, setLostNote] = useState('');
 
-  // Reset state when opening
+  // Reset state when opening. Canonical fix would be to remount via a `key` prop
+  // on the caller side; until that refactor, we explicitly opt out of the rule.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (isOpen && outcome) {
       setSelectedType(null);
