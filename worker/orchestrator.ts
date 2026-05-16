@@ -21,6 +21,7 @@ import { scrapeGoogleMaps } from './googleMapsScraper';
 import { enrich as enrichSociete } from './enrich';
 import { enrichWebsiteAnalysis } from './enrichWebsite';
 import { enrichLegalNotices } from './enrichLegal';
+import { closeSharedBrowser } from './browserPool';
 import { sleep, formatDuration } from './utils';
 import { WorkerMonitor, type PipelineMetrics } from './monitor';
 import { orchLogger as log } from './logger';
@@ -673,8 +674,9 @@ export class WorkerOrchestrator extends EventEmitter {
     }
     
     this.printFinalStats();
+    await closeSharedBrowser();
     closeDb();
-    
+
     log.success('Orchestrator arrêté proprement');
     log.blank();
   }

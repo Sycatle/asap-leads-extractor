@@ -8,7 +8,8 @@
  * - Pain points for sales conversations
  */
 
-import { chromium, Browser, Response } from 'playwright';
+import { type BrowserContext, type Response } from 'playwright';
+import { acquireBrowser, releaseBrowser } from './browserPool';
 import type { CMSType } from '../shared/types';
 import { websiteLogger as log } from './logger';
 
@@ -326,7 +327,8 @@ function generatePainPoints(analysis: Partial<WebsiteAnalysis>, url: string, cms
  * @returns Analysis results or null on error
  */
 export async function analyzeWebsite(url: string, timeout: number = 15000): Promise<WebsiteAnalysis | null> {
-  let browser: Browser | null = null;
+  const context: BrowserContext | null = null;
+  const browserAcquired = false;
   const startTime = Date.now();
   
   try {
@@ -344,17 +346,15 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     const hasSSL = url.startsWith('https://');
     const requestUrls: string[] = [];
     
-    // Launch browser with timeout protection
-    browser = await chromium.launch({ 
-      headless: true,
-      timeout: 30000,
-    });
-    
-    const context = await browser.newContext({
+    // Acquire shared browser instance from pool
+    const browser = await acquireBrowser();
+    browserAcquired = true;
+
+    context = await browser.newContext({
       userAgent: USER_AGENT,
       viewport: { width: 1920, height: 1080 },
     });
-    
+
     const page = await context.newPage();
     
     let response: Response | null = null;
@@ -427,11 +427,15 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       website_age,
     };
     const pain_points = generatePainPoints(partial, finalUrl, cms_type);
-    
-    // Clean up browser
-    await browser.close();
-    browser = null;
-    
+
+    // Close context only — browser stays alive in pool
+    await context.close();
+    context = null;
+    if (browserAcquired) {
+      await releaseBrowser();
+      browserAcquired = false;
+    }
+
     return {
       cms_type,
       has_mobile_friendly,
@@ -440,20 +444,22 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
       pain_points,
       website_age,
     };
-    
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     log.debug(`Erreur analyse ${url}: ${errorMessage.slice(0, 80)}`);
-    
-    // Ensure browser is closed
-    if (browser) {
+
+    if (context) {
       try {
-        await browser.close();
+        await context.close();
       } catch {
         // Ignore close errors silently
       }
     }
-    
+    if (browserAcquired) {
+      await releaseBrowser();
+    }
+
     return null;
   }
 }

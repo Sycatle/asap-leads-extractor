@@ -8,11 +8,12 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { chromium, type Browser, type Page } from 'playwright';
+import { type Browser, type Page } from 'playwright';
 import { z } from 'zod';
 import pLimit from 'p-limit';
 import { getDb } from './db';
 import { legalLogger as log } from './logger';
+import { acquireBrowser, releaseBrowser } from './browserPool';
 import { getTotalCostCents, recordUsage } from '../shared/queries/llmUsage';
 import { findLegalLink, fallbackPathCandidates, type AnchorLike } from './legalLinkFinder';
 import 'dotenv/config';
@@ -266,16 +267,13 @@ export async function enrichLegalNotices(maxLeads = DEFAULT_BATCH_SIZE): Promise
   );
 
   const client = new Anthropic();
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
-  });
+  const browser = await acquireBrowser();
 
   const limit = pLimit(CONCURRENT);
   try {
     await Promise.all(leads.map((lead) => limit(() => processLead(browser, client, lead))));
   } finally {
-    await browser.close();
+    await releaseBrowser();
   }
 
   const dayCents = getTotalCostCents(getDb(), 1);
