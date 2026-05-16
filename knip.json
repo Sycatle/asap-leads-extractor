@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "worker/index.ts",
+        "worker/cli.ts",
+        "worker/importConfig.ts",
+        "shared/migrate.ts",
+        "worker/**/*.test.ts",
+        "shared/**/*.test.ts"
+      ],
+      "project": [
+        "worker/**/*.ts",
+        "shared/**/*.ts"
+      ]
+    },
+    "web": {
+      "entry": [
+        "src/app/**/{page,layout,route,template,loading,error,not-found}.{ts,tsx}",
+        "src/middleware.ts",
+        "next.config.ts",
+        "eslint.config.mjs"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  }
+}
