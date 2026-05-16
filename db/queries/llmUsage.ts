@@ -2,7 +2,7 @@
  * LLM usage tracking - Drizzle async port.
  */
 
-import { and, desc, gte, sql, sum } from 'drizzle-orm';
+import { desc, gte, sql } from 'drizzle-orm';
 import type { DbClient } from '../client';
 import { llmUsage, type NewLlmUsage } from '../schema';
 
