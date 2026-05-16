@@ -78,6 +78,7 @@ export function useLeads(initialFilters: UseLeadsFilters = {}, limit = 20): UseL
         hasDirigeant: filters.hasDirigeant,
         hasSiren: filters.hasSiren,
         hasPhone: filters.hasPhone,
+        hasLegalExtracted: filters.hasLegalExtracted,
         scoreMin: filters.scoreMin,
         scoreMax: filters.scoreMax,
         ratingMin: filters.ratingMin,

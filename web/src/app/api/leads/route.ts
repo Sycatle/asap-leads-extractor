@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       hasDirigeant: parseBoolFilter(searchParams.get('hasDirigeant')),
       hasSiren: parseBoolFilter(searchParams.get('hasSiren')),
       hasPhone: parseBoolFilter(searchParams.get('hasPhone')),
+      hasLegalExtracted: parseBoolFilter(searchParams.get('hasLegalExtracted')),
       
       // Range filters
       scoreMin: searchParams.get('scoreMin') ? parseInt(searchParams.get('scoreMin')!) : undefined,

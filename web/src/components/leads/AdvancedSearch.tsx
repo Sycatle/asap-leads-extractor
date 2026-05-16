@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Filter,
   Sparkles,
+  FileText,
   RotateCcw
 } from 'lucide-react';
 import { 
@@ -46,7 +47,8 @@ export interface AdvancedFilters {
   hasDirigeant: 'all' | 'yes' | 'no';
   hasSiren: 'all' | 'yes' | 'no';
   hasPhone: 'all' | 'yes' | 'no';
-  
+  hasLegalExtracted: 'all' | 'yes' | 'no';
+
   // Score
   scoreMin: number | null;
   scoreMax: number | null;
@@ -110,6 +112,13 @@ const QUICK_FILTERS: QuickFilter[] = [
     filters: { hasDirigeant: 'yes' }
   },
   {
+    id: 'legal_pending',
+    label: 'À extraire (mentions légales)',
+    icon: <FileText className="w-3 h-3" />,
+    color: 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-400',
+    filters: { hasWebsite: 'yes', hasLegalExtracted: 'no' }
+  },
+  {
     id: 'high_score',
     label: 'Score élevé',
     icon: <Sparkles className="w-3 h-3" />,
@@ -155,6 +164,7 @@ export const DEFAULT_FILTERS: AdvancedFilters = {
   hasDirigeant: 'all',
   hasSiren: 'all',
   hasPhone: 'all',
+  hasLegalExtracted: 'all',
   scoreMin: null,
   scoreMax: null,
   ratingMin: null,
@@ -233,6 +243,7 @@ export function AdvancedSearch({
     filters.hasDirigeant !== 'all',
     filters.hasSiren !== 'all',
     filters.hasPhone !== 'all',
+    filters.hasLegalExtracted !== 'all',
     filters.scoreMin !== null,
     filters.scoreMax !== null,
     filters.ratingMin !== null,

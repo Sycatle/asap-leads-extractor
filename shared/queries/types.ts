@@ -59,7 +59,8 @@ export interface AdvancedLeadFilters extends LeadFilters {
   hasDirigeant?: 'all' | 'yes' | 'no';
   hasSiren?: 'all' | 'yes' | 'no';
   hasPhone?: 'all' | 'yes' | 'no';
-  
+  hasLegalExtracted?: 'all' | 'yes' | 'no';
+
   // Range filters
   scoreMin?: number;
   scoreMax?: number;

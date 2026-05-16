@@ -49,7 +49,8 @@ export interface LeadFilters {
   hasDirigeant?: 'all' | 'yes' | 'no';
   hasSiren?: 'all' | 'yes' | 'no';
   hasPhone?: 'all' | 'yes' | 'no';
-  
+  hasLegalExtracted?: 'all' | 'yes' | 'no';
+
   // Range filters
   scoreMin?: number | null;
   scoreMax?: number | null;
@@ -83,7 +84,8 @@ export async function fetchLeads(filters: LeadFilters = {}): Promise<LeadsRespon
   if (filters.hasDirigeant && filters.hasDirigeant !== 'all') params.set('hasDirigeant', filters.hasDirigeant);
   if (filters.hasSiren && filters.hasSiren !== 'all') params.set('hasSiren', filters.hasSiren);
   if (filters.hasPhone && filters.hasPhone !== 'all') params.set('hasPhone', filters.hasPhone);
-  
+  if (filters.hasLegalExtracted && filters.hasLegalExtracted !== 'all') params.set('hasLegalExtracted', filters.hasLegalExtracted);
+
   // Range filters
   if (filters.scoreMin !== null && filters.scoreMin !== undefined) params.set('scoreMin', filters.scoreMin.toString());
   if (filters.scoreMax !== null && filters.scoreMax !== undefined) params.set('scoreMax', filters.scoreMax.toString());

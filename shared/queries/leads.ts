@@ -102,6 +102,12 @@ function buildAdvancedConditions(filters: AdvancedLeadFilters): { conditions: st
     conditions.push("(phone IS NULL OR phone = '')");
   }
 
+  if (filters.hasLegalExtracted === 'yes') {
+    conditions.push('legal_extracted_at IS NOT NULL');
+  } else if (filters.hasLegalExtracted === 'no') {
+    conditions.push('legal_extracted_at IS NULL');
+  }
+
   // Range filters
   if (filters.scoreMin !== undefined) {
     conditions.push('score >= @scoreMin');
