@@ -108,6 +108,17 @@ export {
   getFunnelMetrics,
   listEventsByEnrollment,
   logEmailEvent,
+  // sender health
+  aggregateSenderHealthForDay,
+  listHealthForSender,
+  listSendersAtRisk,
+  // lead emails (inbound/outbound)
+  addLeadEmail,
+  findLeadEmailById,
+  listEmailsByLead,
+  listInboundUnhandled,
+  markHandled as markLeadEmailHandled,
+  updateClassification,
 } from '../../../db/queries';
 
 export type {
@@ -131,6 +142,10 @@ export type {
   NewEnrollment,
   EmailEvent,
   NewEmailEvent,
+  SenderHealthDaily,
+  NewSenderHealthDaily,
+  LeadEmail,
+  NewLeadEmail,
 } from '../../../db/schema';
 
 export type { LeadStats } from '../../../db/queries/stats';

@@ -19,3 +19,4 @@ export * from './sequences';
 export * from './enrollments';
 export * from './emailEvents';
 export * from './senderHealth';
+export * from './leadEmails';

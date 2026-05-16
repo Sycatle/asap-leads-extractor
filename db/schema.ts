@@ -89,6 +89,18 @@ export const enrollmentStatusEnum = pgEnum('enrollment_status', [
   'bounced',
   'error',
 ]);
+export const emailDirectionEnum = pgEnum('email_direction', ['outbound', 'inbound']);
+export const replyIntentEnum = pgEnum('reply_intent', [
+  'positive',
+  'negative',
+  'neutral',
+  'ooo',
+  'wrong_person',
+  'unsub_request',
+  'question',
+  'unknown',
+]);
+
 export const emailEventTypeEnum = pgEnum('email_event_type', [
   'queued',
   'sent',
@@ -408,6 +420,52 @@ export const enrollments = pgTable(
     index('enrollments_runner_idx').on(t.status, t.nextRunAt),
   ],
 );
+
+export const leadEmails = pgTable(
+  'lead_emails',
+  {
+    id: serial('id').primaryKey(),
+    enrollmentId: integer('enrollment_id').references(() => enrollments.id, {
+      onDelete: 'set null',
+    }),
+    contactId: integer('contact_id').references(() => leadContacts.id, {
+      onDelete: 'set null',
+    }),
+    leadId: integer('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    direction: emailDirectionEnum('direction').notNull(),
+    fromEmail: text('from_email').notNull(),
+    toEmail: text('to_email').notNull(),
+    subject: text('subject'),
+    bodyText: text('body_text'),
+    bodyHtml: text('body_html'),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    messageId: text('message_id'),
+    /** Résultat du replyClassifier — null si pas encore classifié */
+    intent: replyIntentEnum('intent'),
+    classifierConfidence: integer('classifier_confidence'), // 0-100
+    classifierSummary: text('classifier_summary'),
+    classifierMeta: jsonb('classifier_meta').$type<Record<string, unknown>>(),
+    handled: boolean('handled').notNull().default(false),
+  },
+  (t) => [
+    index('lead_emails_enrollment_idx').on(t.enrollmentId),
+    index('lead_emails_contact_idx').on(t.contactId),
+    index('lead_emails_lead_idx').on(t.leadId),
+    index('lead_emails_direction_idx').on(t.direction),
+    index('lead_emails_intent_idx').on(t.intent),
+    index('lead_emails_handled_idx').on(t.handled),
+    index('lead_emails_received_idx').on(t.receivedAt),
+  ],
+);
+
+export const leadEmailsRelations = relations(leadEmails, ({ one }) => ({
+  enrollment: one(enrollments, {
+    fields: [leadEmails.enrollmentId],
+    references: [enrollments.id],
+  }),
+  contact: one(leadContacts, { fields: [leadEmails.contactId], references: [leadContacts.id] }),
+  lead: one(leads, { fields: [leadEmails.leadId], references: [leads.id] }),
+}));
 
 export const senderHealthDaily = pgTable(
   'sender_health_daily',
@@ -746,3 +804,5 @@ export type EmailEvent = typeof emailEvents.$inferSelect;
 export type NewEmailEvent = typeof emailEvents.$inferInsert;
 export type SenderHealthDaily = typeof senderHealthDaily.$inferSelect;
 export type NewSenderHealthDaily = typeof senderHealthDaily.$inferInsert;
+export type LeadEmail = typeof leadEmails.$inferSelect;
+export type NewLeadEmail = typeof leadEmails.$inferInsert;

@@ -40,6 +40,7 @@ const CONTEXT_STYLES: Record<LogContext, { emoji: string; name: string }> = {
   COLLECT: { emoji: '📥', name: 'COLLECT' },
   DB: { emoji: '💾', name: 'DB' },
   ORCHESTRATOR: { emoji: '🧠', name: 'ORCH' },
+  LEGAL: { emoji: '⚖️ ', name: 'LEGAL' },
 };
 
 // ===== LOGGER CLASS =====
