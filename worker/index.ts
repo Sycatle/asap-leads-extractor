@@ -75,7 +75,7 @@ async function runCollectJob(): Promise<number> {
   try {
     const leads = await collect();
     return leads.length;
-  } catch (err) {
+  } catch {
     log.warn('Pas de CSV à importer ou erreur');
     return 0;
   }

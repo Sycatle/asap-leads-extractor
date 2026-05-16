@@ -1,10 +1,10 @@
 import { chromium, Browser, Page } from 'playwright';
 import { RawLead } from '../shared/types';
-import { upsertLead, closeDb, enrichLead, type InsertLead, getExistingPhones } from './db';
+import { upsertLead, type InsertLead, getExistingPhones } from './db';
 import { enrichSingleLead } from './enrich';
 import { sleep, normalizePhone, extractPostalCode, extractCity } from './utils';
 import { classifyWebsiteStatus, computeBestCallTime } from './scoring';
-import { scrapeLogger as log, ProgressBar } from './logger';
+import { scrapeLogger as log } from './logger';
 
 // ===== DEBUG MODE =====
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -34,7 +34,7 @@ function extractNameFromUrl(url: string): string {
 }
 
 // Nettoyer le nom (retirer uniquement les termes de recherche redondants)
-function cleanName(name: string, niche?: string): string {
+function cleanName(name: string, _niche?: string): string {
   let cleaned = name.trim();
   
   // Retirer la ville si elle est répétée à la fin (ex: "Coiffeur Angers" quand on cherche "coiffeur Angers")
@@ -391,7 +391,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
       const ratingSpan = page.locator('span[role="img"]').first();
       if (await ratingSpan.count() > 0) {
         const ariaLabel = await ratingSpan.getAttribute('aria-label') || '';
-        const match = ariaLabel.match(/([\d,\.]+)/);
+        const match = ariaLabel.match(/([\d,.]+)/);
         if (match) {
           rating = parseFloat(match[1].replace(',', '.'));
           debug('Note:', rating);
@@ -579,7 +579,7 @@ async function scrapeQuery(page: Page, query: string, options: ScrapeQueryOption
             try {
               await enrichSingleLead(result);
               debug(`  🔍 Enrichi SIREN`);
-            } catch (e) {
+            } catch {
               debug(`  ⚠ Enrichissement échoué`);
             }
           }

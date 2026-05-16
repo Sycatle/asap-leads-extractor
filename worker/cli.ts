@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { enrich } from './enrich';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { loadConfig } from './config';
-import { getStats, findLeads, closeDb, countLeads } from './db';
+import { getStats, closeDb } from './db';
 import { logger as log } from './logger';
 
 const program = new Command();

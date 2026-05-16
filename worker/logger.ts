@@ -11,7 +11,6 @@
 // ===== CONFIGURATION =====
 
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
-const VERBOSE = process.env.VERBOSE === '1' || process.env.VERBOSE !== 'false';
 
 // ===== TYPES =====
 

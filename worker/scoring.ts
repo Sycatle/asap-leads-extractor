@@ -3,7 +3,9 @@
  */
 
 import type { InsertLead } from './db';
-import type { WebsiteStatus } from '../shared/types';
+import type { WebsiteStatus, CMSType } from '../shared/types';
+
+type LeadWithCms = InsertLead & { cms_type?: CMSType | null; page_load_time?: number | null };
 
 /**
  * Calculate lead score (0-100)
@@ -33,12 +35,12 @@ export function calculateLeadScore(lead: InsertLead): number {
   }
   
   // CMS-specific scoring adjustments
-  const cms_type = (lead as any).cms_type;
-  if (cms_type === 'wix') {
+  const ext = lead as LeadWithCms;
+  if (ext.cms_type === 'wix') {
     score += 12; // Wix sites are good prospects (SEO limitations)
-  } else if (cms_type === 'wordpress' && (lead as any).page_load_time && (lead as any).page_load_time > 3000) {
+  } else if (ext.cms_type === 'wordpress' && ext.page_load_time && ext.page_load_time > 3000) {
     score += 8; // Slow WordPress = needs optimization
-  } else if (cms_type === 'shopify') {
+  } else if (ext.cms_type === 'shopify') {
     score += 5; // Shopify can be expensive, opportunity for custom
   }
   
@@ -189,7 +191,7 @@ export function analyzeWebsiteAge(html: string, headers: Record<string, string>)
       if (yearsSinceUpdate > 3) {
         return 'old';
       }
-    } catch (e) {
+    } catch {
       // Invalid date, ignore
     }
   }

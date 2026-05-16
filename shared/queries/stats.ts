@@ -4,7 +4,7 @@
 
 import type Database from 'better-sqlite3';
 import type { DbLead, LeadStatus, CallStatus } from '../types';
-import type { LeadStats, GamifiedStats, TodayStats, StreakInfo, TopLead, StatsPeriod } from './types';
+import type { LeadStats, GamifiedStats, TopLead, StatsPeriod } from './types';
 
 // ===== BASIC STATS =====
 

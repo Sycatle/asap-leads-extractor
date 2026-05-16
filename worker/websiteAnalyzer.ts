@@ -8,7 +8,7 @@
  * - Pain points for sales conversations
  */
 
-import { chromium, Browser, Page, Response } from 'playwright';
+import { chromium, Browser, Response } from 'playwright';
 import type { CMSType } from '../shared/types';
 import { websiteLogger as log } from './logger';
 
@@ -449,7 +449,7 @@ export async function analyzeWebsite(url: string, timeout: number = 15000): Prom
     if (browser) {
       try {
         await browser.close();
-      } catch (_closeError) {
+      } catch {
         // Ignore close errors silently
       }
     }
@@ -495,7 +495,7 @@ export function generateNoWebsitePainPoints(niche: string | null): string[] {
  * pain point generation and not a security check. We're matching common 
  * patterns in URLs from our database to provide helpful sales guidance.
  */
-export function generatePlatformPainPoints(url: string, niche: string | null): string[] {
+export function generatePlatformPainPoints(url: string, _niche: string | null): string[] {
   const painPoints: string[] = [];
   const lowerUrl = url.toLowerCase();
   

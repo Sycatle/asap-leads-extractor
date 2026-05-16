@@ -75,7 +75,8 @@ interface OrchestratorConfig {
   metricsInterval: number;
 }
 
-const DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
+// Kept for reference; the actual config is loaded from DB
+const _DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
   scrapeInterval: 5 * 60 * 1000,        // 5 min entre scrapes (plus court car incrémental)
   enrichSocieteInterval: 1 * 60 * 1000,  // 1 min entre enrichissements (plus agressif)
   enrichWebsiteInterval: 5 * 60 * 1000,  // 5 min entre analyses website
@@ -284,8 +285,7 @@ export class WorkerOrchestrator extends EventEmitter {
   
   private getReadyPipelines(): string[] {
     const ready: string[] = [];
-    const now = Date.now();
-    
+
     // Check scrape
     if (this.isPipelineReady('scrape', this.orchConfig.scrapeInterval)) {
       if (this.config.scrape?.niches?.length && this.config.scrape?.cities?.length) {

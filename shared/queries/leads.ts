@@ -9,7 +9,7 @@ import type Database from 'better-sqlite3';
 import type { DbLead, LeadStatus, CallStatus } from '../types';
 import type { Lead, LeadFilters, AdvancedLeadFilters, FollowupLead } from './types';
 import { transformDbLead } from './types';
-import { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter, combineConditions } from './security';
+import { sanitizeOrderBy, sanitizeOrderDir, softDeleteFilter } from './security';
 
 // ===== FIND LEADS =====
 

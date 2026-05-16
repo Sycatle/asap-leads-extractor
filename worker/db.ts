@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import type { DbLead, LeadStatus, CallStatus, EmailStatus, PhoneType, LeadSource, WebsiteStatus } from '../shared/types';
 import { getDb as getSharedDb, closeDb as closeSharedDb } from '../shared/db';
 import { calculateLeadScore, calculatePriority } from './scoring';
