@@ -480,6 +480,29 @@ export const migrations: Migration[] = [
       DROP INDEX IF EXISTS idx_leads_deleted_score;
     `,
   },
+  {
+    id: 23,
+    name: '023_add_legal_extraction_fields',
+    description: 'Add fields extracted from mentions-légales (RCS, capital, hosting, email pro, etc.)',
+    up: `
+      ALTER TABLE leads ADD COLUMN legal_rcs TEXT;
+      ALTER TABLE leads ADD COLUMN legal_capital TEXT;
+      ALTER TABLE leads ADD COLUMN legal_email TEXT;
+      ALTER TABLE leads ADD COLUMN legal_hosting TEXT;
+      ALTER TABLE leads ADD COLUMN legal_url TEXT;
+      ALTER TABLE leads ADD COLUMN legal_extracted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_leads_legal_extracted ON leads(legal_extracted_at);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_leads_legal_extracted;
+      ALTER TABLE leads DROP COLUMN legal_extracted_at;
+      ALTER TABLE leads DROP COLUMN legal_url;
+      ALTER TABLE leads DROP COLUMN legal_hosting;
+      ALTER TABLE leads DROP COLUMN legal_email;
+      ALTER TABLE leads DROP COLUMN legal_capital;
+      ALTER TABLE leads DROP COLUMN legal_rcs;
+    `,
+  },
 ];
 
 /**
