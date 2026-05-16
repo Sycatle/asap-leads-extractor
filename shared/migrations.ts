@@ -461,6 +461,25 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS scraper_exclude_keywords;
     `,
   },
+  {
+    id: 22,
+    name: '022_composite_indexes_soft_delete',
+    description: 'Composite indexes to speed up (deleted_at IS NULL AND ...) filters',
+    up: `
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted_status ON leads(deleted_at, status);
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted_city ON leads(deleted_at, city);
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted_niche ON leads(deleted_at, niche);
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted_next_followup ON leads(deleted_at, next_followup_at);
+      CREATE INDEX IF NOT EXISTS idx_leads_deleted_score ON leads(deleted_at, score);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_leads_deleted_status;
+      DROP INDEX IF EXISTS idx_leads_deleted_city;
+      DROP INDEX IF EXISTS idx_leads_deleted_niche;
+      DROP INDEX IF EXISTS idx_leads_deleted_next_followup;
+      DROP INDEX IF EXISTS idx_leads_deleted_score;
+    `,
+  },
 ];
 
 /**
