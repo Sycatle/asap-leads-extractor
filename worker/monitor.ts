@@ -8,7 +8,8 @@
  * - Graphiques ASCII simples
  */
 
-import { getDb } from './db';
+import { getDb } from '../db/client';
+import { getStats } from '../db/queries';
 import { formatDuration } from './utils';
 
 // ===== TYPES =====
@@ -81,60 +82,18 @@ export class WorkerMonitor {
   }
   
   /**
-   * Get database metrics
+   * Get database metrics (alimenté par db/queries getStats)
    */
-  getDatabaseMetrics(): DatabaseMetrics {
-    const db = getDb();
-    
-    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number } | undefined)?.c ?? 0;
-    
-    // Status breakdown
-    const statusRows = db.prepare(`
-      SELECT status, COUNT(*) as c FROM leads GROUP BY status
-    `).all() as Array<{ status: string; c: number }>;
-    const byStatus: Record<string, number> = {};
-    for (const row of statusRows) {
-      byStatus[row.status] = row.c;
-    }
-    
-    // Priority breakdown
-    const priorityRows = db.prepare(`
-      SELECT priority, COUNT(*) as c FROM leads GROUP BY priority
-    `).all() as Array<{ priority: string; c: number }>;
-    const byPriority: Record<string, number> = {};
-    for (const row of priorityRows) {
-      byPriority[row.priority] = row.c;
-    }
-    
-    // Needs enrichment
-    const needsEnrichSociete = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
-    `).get() as { c: number } | undefined)?.c ?? 0;
-    
-    const needsEnrichWebsite = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0
-    `).get() as { c: number } | undefined)?.c ?? 0;
-    
-    // Recent activity (last 24h)
-    const recentlyAdded = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads 
-      WHERE created_at > datetime('now', '-1 day')
-    `).get() as { c: number } | undefined)?.c ?? 0;
-    
-    const recentlyEnriched = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads 
-      WHERE siren IS NOT NULL 
-      AND updated_at > datetime('now', '-1 day')
-    `).get() as { c: number } | undefined)?.c ?? 0;
-    
+  async getDatabaseMetrics(): Promise<DatabaseMetrics> {
+    const stats = await getStats(getDb());
     return {
-      totalLeads,
-      byStatus,
-      byPriority,
-      needsEnrichSociete,
-      needsEnrichWebsite,
-      recentlyAdded,
-      recentlyEnriched,
+      totalLeads: stats.total,
+      byStatus: stats.by_status,
+      byPriority: stats.by_priority,
+      needsEnrichSociete: stats.needs_enrich_societe,
+      needsEnrichWebsite: stats.needs_enrich_website,
+      recentlyAdded: stats.recently_added,
+      recentlyEnriched: stats.recently_enriched,
     };
   }
   
@@ -162,8 +121,8 @@ export class WorkerMonitor {
   /**
    * Print a compact status line
    */
-  printStatusLine(pipelines: Record<string, { status: string; totalProcessed: number }>): void {
-    const db = this.getDatabaseMetrics();
+  async printStatusLine(pipelines: Record<string, { status: string; totalProcessed: number }>): Promise<void> {
+    const db = await this.getDatabaseMetrics();
     const perf = this.getPerformanceMetrics();
     
     const pipelineStatus = Object.entries(pipelines)
@@ -187,8 +146,8 @@ export class WorkerMonitor {
   /**
    * Print full dashboard
    */
-  printDashboard(pipelines: PipelineMetrics[]): void {
-    const db = this.getDatabaseMetrics();
+  async printDashboard(pipelines: PipelineMetrics[]): Promise<void> {
+    const db = await this.getDatabaseMetrics();
     const perf = this.getPerformanceMetrics();
     const uptime = this.getUptime();
     

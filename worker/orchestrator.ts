@@ -16,7 +16,8 @@
 
 import { EventEmitter } from 'events';
 import { loadConfig, reloadConfigFromDb } from './config';
-import { getDb, closeDb } from './db';
+import { getDb, closeDb } from '../db/client';
+import { countNeedsEnrichSociete, countNeedsEnrichWebsite, countNeedsEnrichLegal } from '../db/queries';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { enrich as enrichSociete } from './enrich';
 import { enrichWebsiteAnalysis } from './enrichWebsite';
@@ -49,6 +50,7 @@ interface OrchestratorMetrics {
     scrape: PipelineState;
     enrichSociete: PipelineState;
     enrichWebsite: PipelineState;
+    enrichLegal: PipelineState;
   };
   database: {
     totalLeads: number;
@@ -344,7 +346,7 @@ export class WorkerOrchestrator extends EventEmitter {
     // Toutes les tâches Playwright (scrape, enrichSociete, enrichWebsite) doivent tourner une par une
     
     // Ordre de priorité intelligent
-    const orderedTasks = this.prioritizeTasks(tasks);
+    const orderedTasks = await this.prioritizeTasks(tasks);
     
     for (const task of orderedTasks) {
       await this.runPipeline(task);
@@ -354,46 +356,40 @@ export class WorkerOrchestrator extends EventEmitter {
   /**
    * Priorise les tâches selon l'état de la DB
    */
-  private prioritizeTasks(tasks: string[]): string[] {
-    const db = getDb();
-    const needsEnrich = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
-    `).get() as { c: number }).c;
-    
+  private async prioritizeTasks(tasks: string[]): Promise<string[]> {
+    const needsEnrich = await countNeedsEnrichSociete(getDb());
+
     // Prioriser enrichissement si beaucoup en attente, sinon scrape
     const priority: Record<string, number> = {
       enrichSociete: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 1 : 3,
       scrape: needsEnrich >= this.orchConfig.enrichPriorityThreshold ? 3 : 1,
       enrichWebsite: 2,
+      enrichLegal: 4,
     };
-    
+
     return [...tasks].sort((a, b) => (priority[a] || 99) - (priority[b] || 99));
   }
   
   /**
    * Sélectionne la tâche Playwright prioritaire selon l'état de la DB
    */
-  private selectPlaywrightTask(tasks: string[]): string | undefined {
+  private async selectPlaywrightTask(tasks: string[]): Promise<string | undefined> {
     if (tasks.length === 0) return undefined;
     if (tasks.length === 1) return tasks[0];
-    
-    // Si les deux sont disponibles (scrape et enrichSociete)
-    const db = getDb();
-    const needsEnrich = (db.prepare(`
-      SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
-    `).get() as { c: number }).c;
-    
+
+    const needsEnrich = await countNeedsEnrichSociete(getDb());
+
     // Prioriser l'enrichissement si beaucoup de leads en attente
     if (needsEnrich >= this.orchConfig.enrichPriorityThreshold) {
       log.info(`Priorité enrichissement (${needsEnrich} leads en attente)`);
       return 'enrichSociete';
     }
-    
+
     // Sinon alterner : pair = scrape, impair = enrich
     if (this.totalCycles % 2 === 0 && tasks.includes('scrape')) {
       return 'scrape';
     }
-    
+
     return tasks.includes('enrichSociete') ? 'enrichSociete' : tasks[0];
   }
   
@@ -548,8 +544,8 @@ export class WorkerOrchestrator extends EventEmitter {
     checkPipeline('scrape', this.orchConfig.scrapeInterval);
     checkPipeline('enrichSociete', this.orchConfig.enrichSocieteInterval);
     checkPipeline('enrichWebsite', this.orchConfig.enrichWebsiteInterval);
-    checkPipeline('collect', this.orchConfig.collectInterval);
-    
+    checkPipeline('enrichLegal', this.orchConfig.enrichLegalInterval);
+
     // Minimum 10 secondes entre cycles
     return Math.max(10 * 1000, minDelay);
   }
@@ -558,28 +554,31 @@ export class WorkerOrchestrator extends EventEmitter {
   
   private startMetricsLoop(): void {
     this.metricsTimer = setInterval(() => {
-      // N'afficher les métriques que si aucun pipeline n'est en cours
-      // pour éviter de couper les progress bars
       const anyRunning = Object.values(this.pipelines).some(p => p.status === 'running');
       if (!anyRunning) {
-        this.printMetrics();
+        void this.printMetrics();
       }
     }, this.orchConfig.metricsInterval);
   }
-  
-  private printMetrics(): void {
+
+  private async printMetrics(): Promise<void> {
     const uptime = Date.now() - this.startTime.getTime();
-    
-    // Récupérer stats DB
+
     const db = getDb();
-    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number }).c;
-    const needsEnrich = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as { c: number }).c;
-    const needsWebsite = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as { c: number }).c;
-    
+    const [needsEnrich, needsWebsite, needsLegal] = await Promise.all([
+      countNeedsEnrichSociete(db),
+      countNeedsEnrichWebsite(db),
+      countNeedsEnrichLegal(db),
+    ]);
+    const { sql } = await import('drizzle-orm');
+    const { leads } = await import('../db/schema');
+    const [totalRow] = await db.select({ c: sql<number>`count(*)::int` }).from(leads);
+    const totalLeads = totalRow?.c ?? 0;
+
     log.section('MÉTRIQUES', 70);
     log.kv('Uptime', formatDuration(uptime));
     log.kv('Cycles', this.totalCycles);
-    log.kv('DB', `${totalLeads} leads | ${needsEnrich} à enrichir | ${needsWebsite} à analyser`);
+    log.kv('DB', `${totalLeads} leads | ${needsEnrich} société | ${needsWebsite} site | ${needsLegal} légales`);
     log.blank();
     log.raw('  Pipelines:');
     
@@ -595,19 +594,19 @@ export class WorkerOrchestrator extends EventEmitter {
   /**
    * Print a compact status line (for continuous display)
    */
-  private printStatusLine(): void {
-    this.monitor.printStatusLine({
+  private async printStatusLine(): Promise<void> {
+    await this.monitor.printStatusLine({
       scrape: { status: this.pipelines.scrape.status, totalProcessed: this.pipelines.scrape.totalProcessed },
       enrichSociete: { status: this.pipelines.enrichSociete.status, totalProcessed: this.pipelines.enrichSociete.totalProcessed },
       enrichWebsite: { status: this.pipelines.enrichWebsite.status, totalProcessed: this.pipelines.enrichWebsite.totalProcessed },
-      collect: { status: this.pipelines.collect.status, totalProcessed: this.pipelines.collect.totalProcessed },
+      enrichLegal: { status: this.pipelines.enrichLegal.status, totalProcessed: this.pipelines.enrichLegal.totalProcessed },
     });
   }
-  
+
   /**
    * Print full dashboard
    */
-  printDashboard(): void {
+  async printDashboard(): Promise<void> {
     const pipelineMetrics: PipelineMetrics[] = Object.entries(this.pipelines).map(([name, state]) => ({
       name,
       status: state.status,
@@ -620,7 +619,7 @@ export class WorkerOrchestrator extends EventEmitter {
       lastRun: state.lastRun,
     }));
     
-    this.monitor.printDashboard(pipelineMetrics);
+    await this.monitor.printDashboard(pipelineMetrics);
   }
   
   private getPipelineStatusEmoji(status: PipelineStatus, blocked: boolean): string {
@@ -675,7 +674,7 @@ export class WorkerOrchestrator extends EventEmitter {
     
     this.printFinalStats();
     await closeSharedBrowser();
-    closeDb();
+    await closeDb();
 
     log.success('Orchestrator arrêté proprement');
     log.blank();
@@ -716,17 +715,24 @@ export class WorkerOrchestrator extends EventEmitter {
   
   // ===== PUBLIC GETTERS =====
   
-  getMetrics(): OrchestratorMetrics {
+  async getMetrics(): Promise<OrchestratorMetrics> {
     const db = getDb();
-    
+    const { sql } = await import('drizzle-orm');
+    const { leads } = await import('../db/schema');
+    const [totalRow] = await db.select({ c: sql<number>`count(*)::int` }).from(leads);
+    const [needsEnrichSociete, needsEnrichWebsite] = await Promise.all([
+      countNeedsEnrichSociete(db),
+      countNeedsEnrichWebsite(db),
+    ]);
+
     return {
       uptime: Date.now() - this.startTime.getTime(),
       totalCycles: this.totalCycles,
       pipelines: { ...this.pipelines },
       database: {
-        totalLeads: (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number }).c,
-        needsEnrichSociete: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as { c: number }).c,
-        needsEnrichWebsite: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as { c: number }).c,
+        totalLeads: totalRow?.c ?? 0,
+        needsEnrichSociete,
+        needsEnrichWebsite,
       },
     };
   }

@@ -3,7 +3,8 @@ import { Command } from 'commander';
 import { enrich } from './enrich';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { loadConfig } from './config';
-import { getStats, closeDb } from './db';
+import { closeDb, getDb } from '../db/client';
+import { getStats } from '../db/queries';
 import { logger as log } from './logger';
 
 const program = new Command();
@@ -36,13 +37,13 @@ program
       log.info('ÉTAPE 2: ENRICHISSEMENT (skipped)');
     }
 
-    const stats = getStats();
+    const stats = await getStats(getDb());
     log.blank();
     log.success(`En base: ${stats.total} leads total`);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     log.success(`Terminé en ${duration}s`);
-    closeDb();
+    await closeDb();
   });
 
 // Commande: scrape (Google Maps)
@@ -88,11 +89,11 @@ program
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     
     // Stats DB
-    const stats = getStats();
+    const stats = await getStats(getDb());
     log.blank();
     log.success(`En base: ${stats.total} leads total`);
     log.success(`Terminé en ${duration}s`);
-    closeDb();
+    await closeDb();
   });
 
 // Commande: enrich
@@ -110,7 +111,7 @@ program
   .option('--by-city', 'Afficher par ville')
   .option('--by-status', 'Afficher par statut')
   .action(async (options) => {
-    const stats = getStats();
+    const stats = await getStats(getDb());
     
     log.header('STATISTIQUES LEADS');
     log.kv('Total en base', stats.total);
@@ -156,7 +157,7 @@ program
       log.success(`Taux conversion: ${conversionRate}%`);
     }
     
-    closeDb();
+    await closeDb();
   });
 
 program.parse();
