@@ -13,3 +13,8 @@ export * from './leadSelection';
 export * from './contacts';
 export * from './suppression';
 export * from './consent';
+export * from './senders';
+export * from './templates';
+export * from './sequences';
+export * from './enrollments';
+export * from './emailEvents';

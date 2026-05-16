@@ -67,6 +67,41 @@ export const consentBasisEnum = pgEnum('consent_basis', [
   'opt_out_received',
 ]);
 
+export const senderProviderEnum = pgEnum('sender_provider', ['resend', 'smtp']);
+export const senderWarmupStatusEnum = pgEnum('sender_warmup_status', [
+  'warming',
+  'ready',
+  'paused',
+]);
+export const sequenceStatusEnum = pgEnum('sequence_status', [
+  'draft',
+  'active',
+  'paused',
+  'archived',
+]);
+export const sequenceChannelEnum = pgEnum('sequence_channel', ['email', 'wait']);
+export const enrollmentStatusEnum = pgEnum('enrollment_status', [
+  'active',
+  'paused',
+  'finished',
+  'replied',
+  'unsub',
+  'bounced',
+  'error',
+]);
+export const emailEventTypeEnum = pgEnum('email_event_type', [
+  'queued',
+  'sent',
+  'delivered',
+  'open',
+  'click',
+  'reply',
+  'bounce',
+  'unsub',
+  'complaint',
+  'error',
+]);
+
 export const cmsTypeEnum = pgEnum('cms_type', [
   'wordpress', 'wix', 'shopify', 'prestashop', 'squarespace', 'webflow',
   'weebly', 'jimdo', 'blogger', 'ghost',
@@ -231,6 +266,170 @@ export const consentLog = pgTable(
   (t) => [
     index('consent_log_contact_idx').on(t.contactId),
     index('consent_log_basis_idx').on(t.basis),
+  ],
+);
+
+// ===== OUTBOUND SEQUENCES =====
+
+export const senderAccounts = pgTable(
+  'sender_accounts',
+  {
+    id: serial('id').primaryKey(),
+    email: text('email').notNull(),
+    domain: text('domain').notNull(),
+    displayName: text('display_name'),
+    replyToTemplate: text('reply_to_template'), // ex: 'reply+{enrollmentId}@inbound.app.com'
+    provider: senderProviderEnum('provider').notNull().default('resend'),
+    providerConfig: jsonb('provider_config').$type<Record<string, unknown>>(),
+    dailyLimit: integer('daily_limit').notNull().default(50),
+    warmupStatus: senderWarmupStatusEnum('warmup_status').notNull().default('warming'),
+    warmupStartedAt: timestamp('warmup_started_at', { withTimezone: true }),
+    sendingWindow: jsonb('sending_window').$type<{
+      startHour: number;
+      endHour: number;
+      timezone: string;
+      weekdays: number[];
+    }>(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('sender_accounts_email_unique').on(t.email),
+    index('sender_accounts_domain_idx').on(t.domain),
+    index('sender_accounts_enabled_idx').on(t.enabled),
+  ],
+);
+
+export const senderPools = pgTable(
+  'sender_pools',
+  {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    accountIds: jsonb('account_ids').$type<number[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('sender_pools_name_unique').on(t.name)],
+);
+
+export const templates = pgTable(
+  'templates',
+  {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    subject: text('subject').notNull(),
+    bodyHtml: text('body_html').notNull(),
+    bodyText: text('body_text').notNull(),
+    variables: jsonb('variables').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('templates_name_unique').on(t.name)],
+);
+
+export const sequences = pgTable(
+  'sequences',
+  {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    status: sequenceStatusEnum('status').notNull().default('draft'),
+    senderPoolId: integer('sender_pool_id').references(() => senderPools.id, {
+      onDelete: 'set null',
+    }),
+    dailyCapPerSender: integer('daily_cap_per_sender').notNull().default(50),
+    sendingWindow: jsonb('sending_window').$type<{
+      startHour: number;
+      endHour: number;
+      timezone: string;
+      weekdays: number[];
+    }>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('sequences_name_unique').on(t.name),
+    index('sequences_status_idx').on(t.status),
+  ],
+);
+
+export const sequenceSteps = pgTable(
+  'sequence_steps',
+  {
+    id: serial('id').primaryKey(),
+    sequenceId: integer('sequence_id')
+      .notNull()
+      .references(() => sequences.id, { onDelete: 'cascade' }),
+    order: integer('order').notNull(),
+    channel: sequenceChannelEnum('channel').notNull(),
+    delayHours: integer('delay_hours').notNull().default(0),
+    templateId: integer('template_id').references(() => templates.id, { onDelete: 'set null' }),
+    condition: jsonb('condition').$type<{
+      branch: 'always' | 'if_no_reply' | 'if_opened' | 'if_clicked';
+    } | null>(),
+  },
+  (t) => [
+    uniqueIndex('sequence_steps_order_unique').on(t.sequenceId, t.order),
+    index('sequence_steps_sequence_idx').on(t.sequenceId),
+  ],
+);
+
+export const enrollments = pgTable(
+  'enrollments',
+  {
+    id: serial('id').primaryKey(),
+    sequenceId: integer('sequence_id')
+      .notNull()
+      .references(() => sequences.id, { onDelete: 'cascade' }),
+    contactId: integer('contact_id')
+      .notNull()
+      .references(() => leadContacts.id, { onDelete: 'cascade' }),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    status: enrollmentStatusEnum('status').notNull().default('active'),
+    currentStep: integer('current_step').notNull().default(0),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull().defaultNow(),
+    enrolledAt: timestamp('enrolled_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    lastSenderId: integer('last_sender_id').references(() => senderAccounts.id, {
+      onDelete: 'set null',
+    }),
+    lastError: text('last_error'),
+  },
+  (t) => [
+    // un contact ne peut être qu'une fois dans une séquence donnée
+    uniqueIndex('enrollments_seq_contact_unique').on(t.sequenceId, t.contactId),
+    index('enrollments_status_idx').on(t.status),
+    index('enrollments_next_run_idx').on(t.nextRunAt),
+    index('enrollments_lead_idx').on(t.leadId),
+    index('enrollments_contact_idx').on(t.contactId),
+    // index composite pour la requête principale du runner
+    index('enrollments_runner_idx').on(t.status, t.nextRunAt),
+  ],
+);
+
+export const emailEvents = pgTable(
+  'email_events',
+  {
+    id: serial('id').primaryKey(),
+    enrollmentId: integer('enrollment_id').references(() => enrollments.id, {
+      onDelete: 'cascade',
+    }),
+    senderAccountId: integer('sender_account_id').references(() => senderAccounts.id, {
+      onDelete: 'set null',
+    }),
+    messageId: text('message_id'),
+    type: emailEventTypeEnum('type').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    meta: jsonb('meta').$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index('email_events_enrollment_idx').on(t.enrollmentId),
+    index('email_events_sender_idx').on(t.senderAccountId),
+    index('email_events_message_idx').on(t.messageId),
+    index('email_events_type_idx').on(t.type),
+    index('email_events_at_idx').on(t.at),
   ],
 );
 
@@ -450,6 +649,39 @@ export const llmUsageRelations = relations(llmUsage, ({ one }) => ({
   lead: one(leads, { fields: [llmUsage.leadId], references: [leads.id] }),
 }));
 
+export const sequencesRelations = relations(sequences, ({ one, many }) => ({
+  steps: many(sequenceSteps),
+  enrollments: many(enrollments),
+  senderPool: one(senderPools, { fields: [sequences.senderPoolId], references: [senderPools.id] }),
+}));
+
+export const sequenceStepsRelations = relations(sequenceSteps, ({ one }) => ({
+  sequence: one(sequences, { fields: [sequenceSteps.sequenceId], references: [sequences.id] }),
+  template: one(templates, { fields: [sequenceSteps.templateId], references: [templates.id] }),
+}));
+
+export const enrollmentsRelations = relations(enrollments, ({ one, many }) => ({
+  sequence: one(sequences, { fields: [enrollments.sequenceId], references: [sequences.id] }),
+  contact: one(leadContacts, { fields: [enrollments.contactId], references: [leadContacts.id] }),
+  lead: one(leads, { fields: [enrollments.leadId], references: [leads.id] }),
+  lastSender: one(senderAccounts, {
+    fields: [enrollments.lastSenderId],
+    references: [senderAccounts.id],
+  }),
+  events: many(emailEvents),
+}));
+
+export const emailEventsRelations = relations(emailEvents, ({ one }) => ({
+  enrollment: one(enrollments, {
+    fields: [emailEvents.enrollmentId],
+    references: [enrollments.id],
+  }),
+  senderAccount: one(senderAccounts, {
+    fields: [emailEvents.senderAccountId],
+    references: [senderAccounts.id],
+  }),
+}));
+
 // ===== TYPE EXPORTS =====
 // Drizzle infère automatiquement les types ; on les ré-exporte pour usage dans le code.
 
@@ -467,3 +699,17 @@ export type SuppressionEntry = typeof suppressionList.$inferSelect;
 export type NewSuppressionEntry = typeof suppressionList.$inferInsert;
 export type ConsentLogEntry = typeof consentLog.$inferSelect;
 export type NewConsentLogEntry = typeof consentLog.$inferInsert;
+export type SenderAccount = typeof senderAccounts.$inferSelect;
+export type NewSenderAccount = typeof senderAccounts.$inferInsert;
+export type SenderPool = typeof senderPools.$inferSelect;
+export type NewSenderPool = typeof senderPools.$inferInsert;
+export type Template = typeof templates.$inferSelect;
+export type NewTemplate = typeof templates.$inferInsert;
+export type Sequence = typeof sequences.$inferSelect;
+export type NewSequence = typeof sequences.$inferInsert;
+export type SequenceStep = typeof sequenceSteps.$inferSelect;
+export type NewSequenceStep = typeof sequenceSteps.$inferInsert;
+export type Enrollment = typeof enrollments.$inferSelect;
+export type NewEnrollment = typeof enrollments.$inferInsert;
+export type EmailEvent = typeof emailEvents.$inferSelect;
+export type NewEmailEvent = typeof emailEvents.$inferInsert;
