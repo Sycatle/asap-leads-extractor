@@ -12,6 +12,7 @@ import { WorkerOrchestrator } from './orchestrator';
 import { collect } from './collect';
 import { enrich } from './enrich';
 import { enrichWebsiteAnalysis } from './enrichWebsite';
+import { enrichLegalNotices } from './enrichLegal';
 import { scrapeGoogleMaps } from './googleMapsScraper';
 import { loadConfig } from './config';
 import { getDb, closeDb } from './db';
@@ -62,6 +63,11 @@ async function runEnrichJob(maxLeads?: number): Promise<number> {
 
 async function runEnrichWebsiteJob(): Promise<void> {
   await enrichWebsiteAnalysis();
+}
+
+async function runEnrichLegalJob(maxLeads?: number): Promise<number> {
+  const { processed } = await enrichLegalNotices(maxLeads);
+  return processed;
 }
 
 async function runCollectJob(): Promise<number> {
@@ -155,6 +161,7 @@ COMMANDS:
   scrape          Scraper Google Maps uniquement
   enrich          Enrichir via Societe.com uniquement
   enrich:website  Analyser les sites web uniquement
+  enrich:legal    Visiter mentions-légales via agent LLM (Claude) et extraire RCS/capital/email/hébergeur
   collect         Importer CSV uniquement
   help            Afficher cette aide
 
@@ -237,6 +244,12 @@ async function main(): Promise<void> {
       case 'enrich:website':
       case 'website':
         await runEnrichWebsiteJob();
+        closeDb();
+        break;
+
+      case 'enrich:legal':
+      case 'legal':
+        await runEnrichLegalJob(options.max);
         closeDb();
         break;
         
