@@ -63,95 +63,9 @@ export interface RawLead {
   image_url?: string;
 }
 
-// ===== LEAD ENRICHI =====
-
-export interface EnrichedLead extends RawLead {
-  siren?: string;
-  siret?: string;
-  legal_name?: string;
-  dirigeant?: string;
-  priority: 'high' | 'medium' | 'low';
-  score: number;
-  phone_type: PhoneType;
-  website_status?: WebsiteStatus;
-  best_call_time?: string;
-  has_seo?: boolean;
-  // Website technology analysis
-  cms_type?: CMSType;
-  has_mobile_friendly?: boolean;
-  has_ssl?: boolean;
-  page_load_time?: number; // in milliseconds
-  pain_points?: string[]; // Identified issues for sales talking points
-}
-
-// ===== LEAD EN BASE =====
-
-export interface DbLead {
-  id: number;
-  phone: string;
-  phone_type: PhoneType;
-  name: string;
-  address: string;
-  city: string;
-  postal_code: string;
-  website: string | null;
-  website_status: WebsiteStatus | null;
-  maps_url: string;
-  rating: number | null;
-  reviews_count: number | null;
-  niche: string | null;
-  image_url: string | null;
-  source: LeadSource;
-  
-  // Enrichissement Pappers
-  siren: string | null;
-  siret: string | null;
-  legal_name: string | null;
-  dirigeant: string | null;
-  
-  // Scoring & Enrichissement
-  priority: 'high' | 'medium' | 'low';
-  score: number;
-  
-  // Données GMB enrichies
-  opening_hours: string | null;
-  best_call_time: string | null;
-  has_booking: number; // SQLite: 0 ou 1
-  has_seo: number;     // SQLite: 0 ou 1
-  last_gmb_update: string | null;
-  
-  // Website analysis enrichment
-  cms_type: string | null; // CMSType
-  has_mobile_friendly: number | null; // SQLite: 0 ou 1
-  has_ssl: number | null; // SQLite: 0 ou 1
-  page_load_time: number | null; // in milliseconds
-  pain_points: string | null; // JSON array of identified issues
-
-  // Mentions-légales extraction (agent LLM)
-  legal_rcs: string | null;
-  legal_capital: string | null;
-  legal_email: string | null;
-  legal_hosting: string | null;
-  legal_url: string | null;
-  legal_extracted_at: string | null;
-
-  // Suivi commercial
-  status: LeadStatus;
-  call_status: CallStatus;
-  email_status: EmailStatus;
-  notes: string | null;
-  attempts_count: number;
-  opt_out: number;     // SQLite: 0 ou 1
-  
-  // Dates
-  last_contact_at: string | null;
-  next_followup_at: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null; // Soft-delete timestamp
-}
-
 // ===== CONFIG =====
+// La représentation DB du lead (DbLead) est désormais inférée depuis Drizzle :
+// `import type { Lead } from '../db/schema'`. Plus de duplication ici.
 
 export interface Config {
   target: number;
@@ -171,10 +85,12 @@ export interface Config {
     scrape_interval?: number;
     enrich_interval?: number;
     website_interval?: number;
+    legal_interval?: number;
     // Limites par cycle
     max_scrape_per_cycle?: number;   // Nombre de requêtes GMaps par cycle (pas total leads)
     max_enrich_per_cycle?: number;
     max_website_per_cycle?: number;
+    max_legal_per_cycle?: number;
     // Comportement
     parallel_pipelines?: boolean;
     auto_throttle?: boolean;
@@ -183,80 +99,10 @@ export interface Config {
   };
 }
 
-export interface PappersResult {
-  siren: string;
-  siret: string;
-  nom_entreprise: string;
-  representants?: Array<{
-    nom: string;
-    prenom: string;
-    qualite: string;
-  }>;
-}
-
-// ===== NORMALIZED TABLES =====
-
-/**
- * Pain point normalisé (table lead_pain_points)
- */
-export interface DbLeadPainPoint {
-  id: number;
-  lead_id: number;
-  pain_point: string;
-  detected_at: string;
-}
-
-/**
- * Appel normalisé (table lead_calls)
- */
-export interface DbLeadCall {
-  id: number;
-  lead_id: number;
-  session_id: number | null;
-  outcome: string;
-  duration_seconds: number | null;
-  note: string | null;
-  called_at: string;
-}
-
-/**
- * Note normalisée (table lead_notes)
- */
-export interface DbLeadNote {
-  id: number;
-  lead_id: number;
-  content: string;
-  author: string;
-  created_at: string;
-}
-
-/**
- * Log de changement de statut (table lead_status_log)
- */
-export interface DbLeadStatusLog {
-  id: number;
-  lead_id: number;
-  from_status: string | null;
-  to_status: string;
-  reason: string | null;
-  changed_at: string;
-}
-
-/**
- * Stats quotidiennes cachées (table stats_daily)
- */
-export interface DbStatsDaily {
-  date: string;
-  leads_created: number;
-  leads_contacted: number;
-  leads_qualified: number;
-  leads_converted: number;
-  leads_lost: number;
-  calls_made: number;
-  calls_reached: number;
-  calls_voicemail: number;
-  followups_set: number;
-  avg_score: number;
-  updated_at: string;
-}
-
+// Les modèles de tables normalisées (lead_calls, lead_notes, lead_status_log,
+// lead_pain_points, stats_daily, llm_usage, call_sessions, scraper_*) sont
+// désormais définis et inférés depuis db/schema.ts :
+//   import type { LeadCall, LeadNote } from '../db/schema'
+//
+// PappersResult était un type d'enrichissement externe inutilisé (le worker
+// passe par Societe.com via Playwright, pas Pappers).
