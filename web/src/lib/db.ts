@@ -100,14 +100,7 @@ export function getDb(): Database.Database {
 }
 
 // ===== TRANSFORMATION =====
-
-/**
- * Transform DbLead to Lead (parse JSON fields)
- * @deprecated Use queries.transformDbLead instead
- */
-export function transformDbLead(dbLead: DbLead): Lead {
-  return queries.transformDbLead(dbLead) as Lead;
-}
+// queries.transformDbLead est utilisé directement ci-dessous ; pas de wrapper.
 
 // ===== WRAPPED QUERY FUNCTIONS =====
 // These wrap shared/queries functions with getDb() for convenience
@@ -356,7 +349,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get(params) as DbLead | undefined;
-  if (overdue) return transformDbLead(overdue);
+  if (overdue) return queries.transformDbLead(overdue);
   
   // 2. Relances aujourd'hui
   const todayFollowup = database.prepare(`
@@ -369,7 +362,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
     ORDER BY next_followup_at ASC
     LIMIT 1
   `).get(params) as DbLead | undefined;
-  if (todayFollowup) return transformDbLead(todayFollowup);
+  if (todayFollowup) return queries.transformDbLead(todayFollowup);
   
   // 3. Nouveaux leads jamais appelés - triés par score ajusté
   const freshLeads = database.prepare(`
@@ -388,7 +381,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return transformDbLead(scoredLeads[0].lead);
+    return queries.transformDbLead(scoredLeads[0].lead);
   }
   
   // 4. Leads à rappeler depuis > 24h
@@ -408,7 +401,7 @@ export function getNextLead(excludeIds: number[] = [], options: Omit<NextLeadOpt
       .map(lead => ({ lead, adjustedScore: calculateAdjustedScore(lead) }))
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    return transformDbLead(scoredLeads[0].lead);
+    return queries.transformDbLead(scoredLeads[0].lead);
   }
   
   // 5. Fallback sans filtre de niche
