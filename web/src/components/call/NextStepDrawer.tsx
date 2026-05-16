@@ -122,7 +122,7 @@ export function NextStepDrawer({
 
   // Reset state when opening. Canonical fix would be to remount via a `key` prop
   // on the caller side; until that refactor, we explicitly opt out of the rule.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen && outcome) {
       setSelectedType(null);
@@ -144,6 +144,7 @@ export function NextStepDrawer({
       }
     }
   }, [isOpen, outcome]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleQuickDelay = useCallback((delay: number | 'tomorrow' | 'in2days' | 'nextweek') => {
     setDatetime(getDefaultDate(delay));
