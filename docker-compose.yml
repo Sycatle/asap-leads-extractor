@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-leads}
+      POSTGRES_USER: ${POSTGRES_USER:-leads}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leads}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-leads} -d ${POSTGRES_DB:-leads}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    command: ["pnpm", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@postgres:5432/${POSTGRES_DB:-leads}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@postgres:5432/${POSTGRES_DB:-leads}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PAPPERS_API_KEY: ${PAPPERS_API_KEY:-}
+      LEGAL_AGENT_MODEL: ${LEGAL_AGENT_MODEL:-claude-opus-4-7}
+      LEGAL_CONCURRENCY: ${LEGAL_CONCURRENCY:-2}
+      LEGAL_BUDGET_USD: ${LEGAL_BUDGET_USD:-0}
+      NODE_ENV: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: 1.5g
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@postgres:5432/${POSTGRES_DB:-leads}
+      ALLOWED_USERS: ${ALLOWED_USERS:-}
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: 768m
+
+volumes:
+  postgres_data:
