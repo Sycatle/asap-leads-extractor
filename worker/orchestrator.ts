@@ -571,9 +571,9 @@ export class WorkerOrchestrator extends EventEmitter {
     
     // Récupérer stats DB
     const db = getDb();
-    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as any).c;
-    const needsEnrich = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as any).c;
-    const needsWebsite = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as any).c;
+    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number }).c;
+    const needsEnrich = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as { c: number }).c;
+    const needsWebsite = (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as { c: number }).c;
     
     log.section('MÉTRIQUES', 70);
     log.kv('Uptime', formatDuration(uptime));
@@ -722,9 +722,9 @@ export class WorkerOrchestrator extends EventEmitter {
       totalCycles: this.totalCycles,
       pipelines: { ...this.pipelines },
       database: {
-        totalLeads: (db.prepare('SELECT COUNT(*) as c FROM leads').get() as any).c,
-        needsEnrichSociete: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as any).c,
-        needsEnrichWebsite: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as any).c,
+        totalLeads: (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number }).c,
+        needsEnrichSociete: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0').get() as { c: number }).c,
+        needsEnrichWebsite: (db.prepare('SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0').get() as { c: number }).c,
       },
     };
   }

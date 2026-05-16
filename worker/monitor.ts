@@ -86,7 +86,7 @@ export class WorkerMonitor {
   getDatabaseMetrics(): DatabaseMetrics {
     const db = getDb();
     
-    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as any)?.c ?? 0;
+    const totalLeads = (db.prepare('SELECT COUNT(*) as c FROM leads').get() as { c: number } | undefined)?.c ?? 0;
     
     // Status breakdown
     const statusRows = db.prepare(`
@@ -109,23 +109,23 @@ export class WorkerMonitor {
     // Needs enrichment
     const needsEnrichSociete = (db.prepare(`
       SELECT COUNT(*) as c FROM leads WHERE siren IS NULL AND opt_out = 0
-    `).get() as any)?.c ?? 0;
+    `).get() as { c: number } | undefined)?.c ?? 0;
     
     const needsEnrichWebsite = (db.prepare(`
       SELECT COUNT(*) as c FROM leads WHERE cms_type IS NULL AND opt_out = 0
-    `).get() as any)?.c ?? 0;
+    `).get() as { c: number } | undefined)?.c ?? 0;
     
     // Recent activity (last 24h)
     const recentlyAdded = (db.prepare(`
       SELECT COUNT(*) as c FROM leads 
       WHERE created_at > datetime('now', '-1 day')
-    `).get() as any)?.c ?? 0;
+    `).get() as { c: number } | undefined)?.c ?? 0;
     
     const recentlyEnriched = (db.prepare(`
       SELECT COUNT(*) as c FROM leads 
       WHERE siren IS NOT NULL 
       AND updated_at > datetime('now', '-1 day')
-    `).get() as any)?.c ?? 0;
+    `).get() as { c: number } | undefined)?.c ?? 0;
     
     return {
       totalLeads,
