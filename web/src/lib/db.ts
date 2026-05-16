@@ -52,7 +52,34 @@ export {
   updateSessionStats,
   // lead selection
   getNextLead,
+  // contacts
+  addContact,
+  findContactById,
+  findContactByEmail,
+  findContactsByLead,
+  markContacted,
+  softDeleteContact,
+  verifyContact,
+  // suppression
+  addSuppression,
+  bulkImport as bulkImportSuppression,
+  filterSuppressed,
+  isSuppressed,
+  listSuppressions,
+  removeSuppression,
+  // consent
+  findConsentByContact,
+  logConsent,
 } from '../../../db/queries';
+
+export type {
+  LeadContact,
+  NewLeadContact,
+  SuppressionEntry,
+  NewSuppressionEntry,
+  ConsentLogEntry,
+  NewConsentLogEntry,
+} from '../../../db/schema';
 
 export type { LeadStats } from '../../../db/queries/stats';
 export type { DailyCost, UsageRecord } from '../../../db/queries/llmUsage';
